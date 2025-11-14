@@ -1,0 +1,62 @@
+{
+  "company_name": "Advanced Solutions Group LLC",
+  "established": "2015",
+  "headquarters": "Washington, DC",
+  "employees": "150+",
+  "certifications": [
+    "GSA Schedule Contract Holder",
+    "SBA 8(a) Certified",
+    "ISO 9001:2015 Quality Management",
+    "ISO 27001:2013 Information Security"
+  ],
+  "core_competencies": [
+    "Government Contract Management",
+    "Supply Chain Solutions",
+    "Facility Services Management",
+    "Technology Integration",
+    "Compliance and Quality Assurance"
+  ],
+  "past_performance": [
+    {
+      "client": "General Services Administration",
+      "project": "Multi-State Facility Services Contract",
+      "value": "$2.5M",
+      "duration": "3 years",
+      "performance_rating": "Exceptional"
+    },
+    {
+      "client": "Department of Veterans Affairs",
+      "project": "Medical Equipment Maintenance Services",
+      "value": "$1.8M",
+      "duration": "2 years",
+      "performance_rating": "Outstanding"
+    },
+    {
+      "client": "Department of Defense",
+      "project": "Logistics and Supply Chain Management",
+      "value": "$4.2M",
+      "duration": "5 years",
+      "performance_rating": "Excellent"
+    }
+  ],
+  "key_personnel": [
+    {
+      "name": "Sarah Johnson",
+      "title": "Project Manager",
+      "experience": "12 years government contracting",
+      "certifications": [
+        "PMP",
+        "CPSM"
+      ]
+    },
+    {
+      "name": "Michael Chen",
+      "title": "Technical Lead",
+      "experience": "15 years systems integration",
+      "certifications": [
+        "CISSP",
+        "AWS Solutions Architect"
+      ]
+    }
+  ]
+}

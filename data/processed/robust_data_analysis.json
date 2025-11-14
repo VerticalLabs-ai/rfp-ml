@@ -1,0 +1,661 @@
+{
+  "FY2023_archived_opportunities.csv": {
+    "status": "SUCCESS",
+    "encoding": "latin1",
+    "shape": [
+      1000,
+      47
+    ],
+    "columns": [
+      "NoticeId",
+      "Title",
+      "Sol#",
+      "Department/Ind.Agency",
+      "CGAC",
+      "Sub-Tier",
+      "FPDS Code",
+      "Office",
+      "AAC Code",
+      "PostedDate",
+      "Type",
+      "BaseType",
+      "ArchiveType",
+      "ArchiveDate",
+      "SetASideCode",
+      "SetASide",
+      "ResponseDeadLine",
+      "NaicsCode",
+      "ClassificationCode",
+      "PopStreetAddress",
+      "PopCity",
+      "PopState",
+      "PopZip",
+      "PopCountry",
+      "Active",
+      "AwardNumber",
+      "AwardDate",
+      "Award$",
+      "Awardee",
+      "PrimaryContactTitle",
+      "PrimaryContactFullname",
+      "PrimaryContactEmail",
+      "PrimaryContactPhone",
+      "PrimaryContactFax",
+      "SecondaryContactTitle",
+      "SecondaryContactFullname",
+      "SecondaryContactEmail",
+      "SecondaryContactPhone",
+      "SecondaryContactFax",
+      "OrganizationType",
+      "State",
+      "City",
+      "ZipCode",
+      "CountryCode",
+      "AdditionalInfoLink",
+      "Link",
+      "Description"
+    ],
+    "found_key_columns": {
+      "solicitation_id": [
+        "NoticeId",
+        "SetASideCode",
+        "SetASide",
+        "AwardNumber"
+      ],
+      "title": [
+        "Title",
+        "PrimaryContactTitle",
+        "SecondaryContactTitle",
+        "Description"
+      ],
+      "agency": [
+        "Department/Ind.Agency",
+        "Office",
+        "OrganizationType"
+      ],
+      "posting_date": [
+        "PostedDate",
+        "ArchiveDate",
+        "AwardDate"
+      ],
+      "deadline": [
+        "ResponseDeadLine"
+      ],
+      "naics": [
+        "NaicsCode",
+        "ClassificationCode"
+      ],
+      "location": [
+        "PopStreetAddress",
+        "PopState",
+        "State"
+      ]
+    },
+    "target_categories": {
+      "bottled_water": [
+        "065",
+        "water",
+        "beverage",
+        "drink"
+      ],
+      "construction": [
+        "236",
+        "237",
+        "construction",
+        "building",
+        "contractor"
+      ],
+      "delivery": [
+        "484",
+        "492",
+        "delivery",
+        "transport",
+        "logistics",
+        "shipping"
+      ]
+    },
+    "sample_data": {
+      "NoticeId": "1197781f02574d8eba56efda3e7a62a9",
+      "Title": "30 SFS Cold Weather Gear- Vandenberg SFB, CA",
+      "Sol#": "FA461023P0125",
+      "Department/Ind.Agency": "DEPT OF DEFENSE",
+      "CGAC": "057",
+      "Sub-Tier": "DEPT OF THE AIR FORCE",
+      "FPDS Code": "5700",
+      "Office": "FA4610  30 CONS PK",
+      "AAC Code": "FA4610",
+      "PostedDate": "2023-09-30 23:56:44.565-04",
+      "Type": "Award Notice",
+      "BaseType": "Combined Synopsis/Solicitation",
+      "ArchiveType": "auto15",
+      "ArchiveDate": "2023-10-15",
+      "SetASideCode": "SBA",
+      "SetASide": "Total Small Business Set-Aside (FAR 19.5)",
+      "ResponseDeadLine": NaN,
+      "NaicsCode": "315990",
+      "ClassificationCode": "8415",
+      "PopStreetAddress": NaN,
+      "PopCity": "Ann Arbor",
+      "PopState": "MI",
+      "PopZip": "48108",
+      "PopCountry": "USA",
+      "Active": "No",
+      "AwardNumber": "FA461023P0125",
+      "AwardDate": "2023-09-30",
+      "Award$": "220755.00",
+      "Awardee": "Inventory Management Solutions Ann Arbor MI 48108 USA",
+      "PrimaryContactTitle": NaN,
+      "PrimaryContactFullname": "Nisa Oh",
+      "PrimaryContactEmail": "nisa.oh@spaceforce.mil",
+      "PrimaryContactPhone": NaN,
+      "PrimaryContactFax": NaN,
+      "SecondaryContactTitle": NaN,
+      "SecondaryContactFullname": NaN,
+      "SecondaryContactEmail": NaN,
+      "SecondaryContactPhone": NaN,
+      "SecondaryContactFax": NaN,
+      "OrganizationType": "OFFICE",
+      "State": "CA",
+      "City": "VANDENBERG SFB",
+      "ZipCode": "93437-5212",
+      "CountryCode": "USA",
+      "AdditionalInfoLink": NaN,
+      "Link": "https://sam.gov/workspace/contract/opp/1197781f02574d8eba56efda3e7a62a9/view",
+      "Description": NaN
+    }
+  },
+  "FY2024_archived_opportunities.csv": {
+    "status": "SUCCESS",
+    "encoding": "latin1",
+    "shape": [
+      1000,
+      47
+    ],
+    "columns": [
+      "NoticeId",
+      "Title",
+      "Sol#",
+      "Department/Ind.Agency",
+      "CGAC",
+      "Sub-Tier",
+      "FPDS Code",
+      "Office",
+      "AAC Code",
+      "PostedDate",
+      "Type",
+      "BaseType",
+      "ArchiveType",
+      "ArchiveDate",
+      "SetASideCode",
+      "SetASide",
+      "ResponseDeadLine",
+      "NaicsCode",
+      "ClassificationCode",
+      "PopStreetAddress",
+      "PopCity",
+      "PopState",
+      "PopZip",
+      "PopCountry",
+      "Active",
+      "AwardNumber",
+      "AwardDate",
+      "Award$",
+      "Awardee",
+      "PrimaryContactTitle",
+      "PrimaryContactFullname",
+      "PrimaryContactEmail",
+      "PrimaryContactPhone",
+      "PrimaryContactFax",
+      "SecondaryContactTitle",
+      "SecondaryContactFullname",
+      "SecondaryContactEmail",
+      "SecondaryContactPhone",
+      "SecondaryContactFax",
+      "OrganizationType",
+      "State",
+      "City",
+      "ZipCode",
+      "CountryCode",
+      "AdditionalInfoLink",
+      "Link",
+      "Description"
+    ],
+    "found_key_columns": {
+      "solicitation_id": [
+        "NoticeId",
+        "SetASideCode",
+        "SetASide",
+        "AwardNumber"
+      ],
+      "title": [
+        "Title",
+        "PrimaryContactTitle",
+        "SecondaryContactTitle",
+        "Description"
+      ],
+      "agency": [
+        "Department/Ind.Agency",
+        "Office",
+        "OrganizationType"
+      ],
+      "posting_date": [
+        "PostedDate",
+        "ArchiveDate",
+        "AwardDate"
+      ],
+      "deadline": [
+        "ResponseDeadLine"
+      ],
+      "naics": [
+        "NaicsCode",
+        "ClassificationCode"
+      ],
+      "location": [
+        "PopStreetAddress",
+        "PopState",
+        "State"
+      ]
+    },
+    "target_categories": {
+      "bottled_water": [
+        "065",
+        "water",
+        "beverage",
+        "drink"
+      ],
+      "construction": [
+        "236",
+        "237",
+        "construction",
+        "building",
+        "contractor"
+      ],
+      "delivery": [
+        "484",
+        "492",
+        "delivery",
+        "transport",
+        "logistics",
+        "shipping"
+      ]
+    },
+    "sample_data": {
+      "NoticeId": "da0ae9ff7d984396ba8986c4f195d00b",
+      "Title": "JB MDL Handheld Radios",
+      "Sol#": "FA44842410025",
+      "Department/Ind.Agency": "DEPT OF DEFENSE",
+      "CGAC": "057",
+      "Sub-Tier": "DEPT OF THE AIR FORCE",
+      "FPDS Code": "5700",
+      "Office": "FA4484  87 CONS PK",
+      "AAC Code": "FA4484",
+      "PostedDate": "2024-09-30 23:48:19.894-04",
+      "Type": "Award Notice",
+      "BaseType": "Combined Synopsis/Solicitation",
+      "ArchiveType": "auto15",
+      "ArchiveDate": "2024-10-15",
+      "SetASideCode": "SBA",
+      "SetASide": "Total Small Business Set-Aside (FAR 19.5)",
+      "ResponseDeadLine": NaN,
+      "NaicsCode": "334220",
+      "ClassificationCode": "5820",
+      "PopStreetAddress": NaN,
+      "PopCity": "Joint Base MDL",
+      "PopState": "NJ",
+      "PopZip": "08641",
+      "PopCountry": "USA",
+      "Active": "No",
+      "AwardNumber": "FA448424C0010",
+      "AwardDate": "2024-09-30",
+      "Award$": "7463004.20",
+      "Awardee": "PERSISTENT SYSTEMS LLC New York NY 10001 USA",
+      "PrimaryContactTitle": NaN,
+      "PrimaryContactFullname": "Caitlin Rodriguez",
+      "PrimaryContactEmail": "caitlin.rodriguez.1@us.af.mil",
+      "PrimaryContactPhone": "6097542420",
+      "PrimaryContactFax": NaN,
+      "SecondaryContactTitle": NaN,
+      "SecondaryContactFullname": "Sarah Brown",
+      "SecondaryContactEmail": "sarah.brown.53@us.af.mil",
+      "SecondaryContactPhone": NaN,
+      "SecondaryContactFax": NaN,
+      "OrganizationType": "OFFICE",
+      "State": "NJ",
+      "City": "JB MDL",
+      "ZipCode": "08641",
+      "CountryCode": "USA",
+      "AdditionalInfoLink": NaN,
+      "Link": "https://sam.gov/workspace/contract/opp/da0ae9ff7d984396ba8986c4f195d00b/view",
+      "Description": NaN
+    }
+  },
+  "ContractOpportunitiesFullCSV.csv": {
+    "status": "SUCCESS",
+    "encoding": "latin1",
+    "shape": [
+      1000,
+      47
+    ],
+    "columns": [
+      "NoticeId",
+      "Title",
+      "Sol#",
+      "Department/Ind.Agency",
+      "CGAC",
+      "Sub-Tier",
+      "FPDS Code",
+      "Office",
+      "AAC Code",
+      "PostedDate",
+      "Type",
+      "BaseType",
+      "ArchiveType",
+      "ArchiveDate",
+      "SetASideCode",
+      "SetASide",
+      "ResponseDeadLine",
+      "NaicsCode",
+      "ClassificationCode",
+      "PopStreetAddress",
+      "PopCity",
+      "PopState",
+      "PopZip",
+      "PopCountry",
+      "Active",
+      "AwardNumber",
+      "AwardDate",
+      "Award$",
+      "Awardee",
+      "PrimaryContactTitle",
+      "PrimaryContactFullname",
+      "PrimaryContactEmail",
+      "PrimaryContactPhone",
+      "PrimaryContactFax",
+      "SecondaryContactTitle",
+      "SecondaryContactFullname",
+      "SecondaryContactEmail",
+      "SecondaryContactPhone",
+      "SecondaryContactFax",
+      "OrganizationType",
+      "State",
+      "City",
+      "ZipCode",
+      "CountryCode",
+      "AdditionalInfoLink",
+      "Link",
+      "Description"
+    ],
+    "found_key_columns": {
+      "solicitation_id": [
+        "NoticeId",
+        "SetASideCode",
+        "SetASide",
+        "AwardNumber"
+      ],
+      "title": [
+        "Title",
+        "PrimaryContactTitle",
+        "SecondaryContactTitle",
+        "Description"
+      ],
+      "agency": [
+        "Department/Ind.Agency",
+        "Office",
+        "OrganizationType"
+      ],
+      "posting_date": [
+        "PostedDate",
+        "ArchiveDate",
+        "AwardDate"
+      ],
+      "deadline": [
+        "ResponseDeadLine"
+      ],
+      "naics": [
+        "NaicsCode",
+        "ClassificationCode"
+      ],
+      "location": [
+        "PopStreetAddress",
+        "PopState",
+        "State"
+      ]
+    },
+    "target_categories": {
+      "bottled_water": [
+        "065",
+        "water",
+        "beverage"
+      ],
+      "construction": [
+        "236",
+        "237",
+        "construction",
+        "building",
+        "contractor"
+      ],
+      "delivery": [
+        "484",
+        "492",
+        "delivery",
+        "transport",
+        "logistics",
+        "shipping"
+      ]
+    },
+    "sample_data": {
+      "NoticeId": "7bd90daea7a440b98cb74b38ac5a843d",
+      "Title": "31--BEARING,BALL,ANNULA",
+      "Sol#": "SPE4A624T16FT",
+      "Department/Ind.Agency": "DEPT OF DEFENSE",
+      "CGAC": "097",
+      "Sub-Tier": "DEFENSE LOGISTICS AGENCY",
+      "FPDS Code": "97AS",
+      "Office": "DLA AVIATION",
+      "AAC Code": "SPE4A6",
+      "PostedDate": "2025-10-27 23:20:04.794-04",
+      "Type": "Award Notice",
+      "BaseType": "Award Notice",
+      "ArchiveType": "auto15",
+      "ArchiveDate": "2025-11-11",
+      "SetASideCode": NaN,
+      "SetASide": NaN,
+      "ResponseDeadLine": NaN,
+      "NaicsCode": "332991",
+      "ClassificationCode": "31",
+      "PopStreetAddress": NaN,
+      "PopCity": NaN,
+      "PopState": NaN,
+      "PopZip": NaN,
+      "PopCountry": NaN,
+      "Active": "Yes",
+      "AwardNumber": "SPE4A626P2423",
+      "AwardDate": "2025-10-27",
+      "Award$": "25467.00",
+      "Awardee": "INTEGRATED PROCUREMENT TECHNOLOGIES ",
+      "PrimaryContactTitle": NaN,
+      "PrimaryContactFullname": "Robye Dewitt804-279-3083",
+      "PrimaryContactEmail": "ROBYE.DEWITT@DLA.MIL",
+      "PrimaryContactPhone": NaN,
+      "PrimaryContactFax": NaN,
+      "SecondaryContactTitle": NaN,
+      "SecondaryContactFullname": NaN,
+      "SecondaryContactEmail": NaN,
+      "SecondaryContactPhone": NaN,
+      "SecondaryContactFax": NaN,
+      "OrganizationType": "OFFICE",
+      "State": "VA",
+      "City": "RICHMOND",
+      "ZipCode": "23237",
+      "CountryCode": "USA",
+      "AdditionalInfoLink": NaN,
+      "Link": "https://sam.gov/workspace/contract/opp/7bd90daea7a440b98cb74b38ac5a843d/view",
+      "Description": NaN
+    }
+  },
+  "FY2025_archived_opportunities.csv": {
+    "status": "SUCCESS",
+    "encoding": "latin1",
+    "shape": [
+      1000,
+      47
+    ],
+    "columns": [
+      "NoticeId",
+      "Title",
+      "Sol#",
+      "Department/Ind.Agency",
+      "CGAC",
+      "Sub-Tier",
+      "FPDS Code",
+      "Office",
+      "AAC Code",
+      "PostedDate",
+      "Type",
+      "BaseType",
+      "ArchiveType",
+      "ArchiveDate",
+      "SetASideCode",
+      "SetASide",
+      "ResponseDeadLine",
+      "NaicsCode",
+      "ClassificationCode",
+      "PopStreetAddress",
+      "PopCity",
+      "PopState",
+      "PopZip",
+      "PopCountry",
+      "Active",
+      "AwardNumber",
+      "AwardDate",
+      "Award$",
+      "Awardee",
+      "PrimaryContactTitle",
+      "PrimaryContactFullname",
+      "PrimaryContactEmail",
+      "PrimaryContactPhone",
+      "PrimaryContactFax",
+      "SecondaryContactTitle",
+      "SecondaryContactFullname",
+      "SecondaryContactEmail",
+      "SecondaryContactPhone",
+      "SecondaryContactFax",
+      "OrganizationType",
+      "State",
+      "City",
+      "ZipCode",
+      "CountryCode",
+      "AdditionalInfoLink",
+      "Link",
+      "Description"
+    ],
+    "found_key_columns": {
+      "solicitation_id": [
+        "NoticeId",
+        "SetASideCode",
+        "SetASide",
+        "AwardNumber"
+      ],
+      "title": [
+        "Title",
+        "PrimaryContactTitle",
+        "SecondaryContactTitle",
+        "Description"
+      ],
+      "agency": [
+        "Department/Ind.Agency",
+        "Office",
+        "OrganizationType"
+      ],
+      "posting_date": [
+        "PostedDate",
+        "ArchiveDate",
+        "AwardDate"
+      ],
+      "deadline": [
+        "ResponseDeadLine"
+      ],
+      "naics": [
+        "NaicsCode",
+        "ClassificationCode"
+      ],
+      "location": [
+        "PopStreetAddress",
+        "PopState",
+        "State"
+      ]
+    },
+    "target_categories": {
+      "bottled_water": [
+        "065",
+        "water",
+        "beverage",
+        "drink"
+      ],
+      "construction": [
+        "236",
+        "237",
+        "construction",
+        "building",
+        "contractor"
+      ],
+      "delivery": [
+        "484",
+        "492",
+        "delivery",
+        "transport",
+        "logistics",
+        "shipping"
+      ]
+    },
+    "sample_data": {
+      "NoticeId": "06f3ae0192c94ce19edff3c251dbfe78",
+      "Title": "Unlimited Monthly Service Plans for Spot X Messaging Devices",
+      "Sol#": "9531BM25P0041",
+      "Department/Ind.Agency": "NATIONAL TRANSPORTATION SAFETY BOARD",
+      "CGAC": "424",
+      "Sub-Tier": "NATIONAL TRANSPORTATION SAFETY BOARD",
+      "FPDS Code": "9508",
+      "Office": "NTSB ACQ  LEASE MGMT DIVISION",
+      "AAC Code": "9531BM",
+      "PostedDate": "2025-09-30 23:17:37.156-04",
+      "Type": "Award Notice",
+      "BaseType": "Combined Synopsis/Solicitation",
+      "ArchiveType": "auto15",
+      "ArchiveDate": "2025-10-15",
+      "SetASideCode": NaN,
+      "SetASide": NaN,
+      "ResponseDeadLine": NaN,
+      "NaicsCode": "517410",
+      "ClassificationCode": "DG11",
+      "PopStreetAddress": NaN,
+      "PopCity": "Washington",
+      "PopState": "DC",
+      "PopZip": "20594",
+      "PopCountry": "USA",
+      "Active": "No",
+      "AwardNumber": "9531BM25P0041",
+      "AwardDate": "2025-09-30",
+      "Award$": "192477.60",
+      "Awardee": "SPOT LLC Covington LA 70433 USA",
+      "PrimaryContactTitle": NaN,
+      "PrimaryContactFullname": "Ciara Bond",
+      "PrimaryContactEmail": "ciara.bond@ntsb.gov",
+      "PrimaryContactPhone": "2023146525",
+      "PrimaryContactFax": NaN,
+      "SecondaryContactTitle": NaN,
+      "SecondaryContactFullname": NaN,
+      "SecondaryContactEmail": NaN,
+      "SecondaryContactPhone": NaN,
+      "SecondaryContactFax": NaN,
+      "OrganizationType": "OFFICE",
+      "State": "DC",
+      "City": "WASHINGTON",
+      "ZipCode": "20594",
+      "CountryCode": "USA",
+      "AdditionalInfoLink": NaN,
+      "Link": "https://sam.gov/workspace/contract/opp/06f3ae0192c94ce19edff3c251dbfe78/view",
+      "Description": "The NTSB Office of the Managing Director, Special Operations Division (MD-5), has a requirement for unlimited monthly service for 126 previously purchased SpotX brand name satellite messaging devices. Funding for this requirement was provided under PUR250132 in the amount of $43,299.61. The solicitation for this effort was posted to the Contract Opportunities page on SAM.gov on September 23, 2025, as an unrestricted purchase in accordance with FAR Part 13 procedures. The evaluation methodology used was lowest-priced, technically acceptable (LPTA), and no set-asides were applied. Market research did not identify a sufficient number of small businesses to justify a small business set-aside. Due to the brand name requirement for SpotX, a Justification for Other Than Full and Open Competition (JOFOC) was prepared and posted alongside the solicitation in accordance with FAR 13.501(a)(2). Two vendors submitted quotations in response to the solicitation. SPOT LLC, an other-than-small business, quoted a total price of $192,477.60. SODO Tech Solutions LLC, a small business, submitted a quote totaling $270,900.00. SPOT LLC\u0092s quote was the lowest-priced submission and was determined to be technically acceptable after review by the technical point of contact. SPOT\u0092s quote was $78,422.40, or 29 percent, lower than SODO\u0092s. Price reasonableness was determined in accordance with FAR 13.106-3(a)(1), which encourages the use of competitive quotations when possible. In addition to the comparison of submitted quotes, a historical price analysis was conducted. The previous provider, Transpondr, performed similar services from fiscal year 2020 through fiscal year 2024 at a rate of $305.40 per unit, with no price escalation over that period. SPOT LLC quoted a per unit price of $305.52 for the FY25\u0096FY29 period, also with no escalation. This represents a negligible increase of $0.12 per unit, or essentially zero percent. Based on both the competitive quote and historical price comparison, SPOT\u0092s pricing is deemed fair and reasonable. As a result of the above analysis, SPOT LLC provided the lowest-priced, technically acceptable quote. An award in the amount of $192,477.60 will be made to SPOT LLC for one base year and up to four option years. The base year price is $38,495.52, with no escalation applied over the five-year period. The total contract value for all five years is $192,477.60."
+    }
+  }
+}

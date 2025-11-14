@@ -1,0 +1,9 @@
+{
+  "model_name": "all-MiniLM-L6-v2",
+  "embedding_dim": 384,
+  "num_documents": 4875,
+  "num_chunks": 4875,
+  "chunk_size": 256,
+  "chunk_overlap": 25,
+  "build_date": "2025-10-29T22:57:02.740446"
+}

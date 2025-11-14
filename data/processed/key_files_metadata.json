@@ -1,0 +1,58 @@
+[
+  {
+    "name": "ContractOpportunitiesFullCSV.csv",
+    "type": "Current Opportunities",
+    "size": "180.5MB",
+    "url": "https://storage.googleapis.com/dataset_rfp/sam_gov/ContractOpportunitiesFullCSV.csv",
+    "priority": 1
+  },
+  {
+    "name": "Contract Opportunities Data Extract Documentation.pdf",
+    "type": "Documentation",
+    "size": "115.4KB",
+    "url": "https://storage.googleapis.com/dataset_rfp/sam_gov/Contract Opportunities Data Extract Documentation.pdf",
+    "priority": 2
+  },
+  {
+    "name": "FY2025_archived_opportunities.csv",
+    "type": "Historical FY2025.0",
+    "size": "1.00GB",
+    "url": "https://storage.googleapis.com/dataset_rfp/sam_gov/FY2025_archived_opportunities.csv",
+    "priority": 3
+  },
+  {
+    "name": "FY2024_archived_opportunities.csv",
+    "type": "Historical FY2024.0",
+    "size": "1.07GB",
+    "url": "https://storage.googleapis.com/dataset_rfp/sam_gov/FY2024_archived_opportunities.csv",
+    "priority": 3
+  },
+  {
+    "name": "FY2023_archived_opportunities.csv",
+    "type": "Historical FY2023.0",
+    "size": "1.19GB",
+    "url": "https://storage.googleapis.com/dataset_rfp/sam_gov/FY2023_archived_opportunities.csv",
+    "priority": 3
+  },
+  {
+    "name": "FY2022_archived_opportunities.csv",
+    "type": "Historical FY2022.0",
+    "size": "1.10GB",
+    "url": "https://storage.googleapis.com/dataset_rfp/sam_gov/FY2022_archived_opportunities.csv",
+    "priority": 3
+  },
+  {
+    "name": "FY2021_archived_opportunities.csv",
+    "type": "Historical FY2021.0",
+    "size": "1.06GB",
+    "url": "https://storage.googleapis.com/dataset_rfp/sam_gov/FY2021_archived_opportunities.csv",
+    "priority": 3
+  },
+  {
+    "name": "FY2020_archived_opportunities.csv",
+    "type": "Historical FY2020.0",
+    "size": "1.07GB",
+    "url": "https://storage.googleapis.com/dataset_rfp/sam_gov/FY2020_archived_opportunities.csv",
+    "priority": 3
+  }
+]

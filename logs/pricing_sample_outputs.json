@@ -1,0 +1,284 @@
+{
+  "scenarios": [
+    {
+      "title": "Federal Office Bottled Water Delivery",
+      "sector": "bottled_water",
+      "description": "\n            24-month contract for bottled water delivery to 15 federal office buildings.\n            Weekly delivery of 5-gallon bottles, FDA compliant water quality.\n            Real-time delivery tracking and emergency delivery capability required.\n            Estimated annual consumption: 2,600 gallons per location.\n            ",
+      "rfp_requirements": {
+        "duration": "24 months",
+        "delivery_frequency": "weekly",
+        "locations": "15",
+        "gallons": "5",
+        "quality_standards": "FDA compliance required",
+        "tracking": "real-time tracking required",
+        "emergency": "24-hour emergency delivery"
+      },
+      "contract_characteristics": {
+        "estimated_value": 180000,
+        "duration_months": 24,
+        "location": "urban metro area",
+        "complexity": "medium"
+      }
+    },
+    {
+      "title": "Government Building Construction Services",
+      "sector": "construction",
+      "description": "\n            36-month contract for comprehensive building construction and maintenance\n            services for government facilities. Includes new construction, renovation,\n            HVAC maintenance, electrical work, and emergency repairs.\n            OSHA compliance and green building practices required.\n            ",
+      "rfp_requirements": {
+        "duration": "36 months",
+        "scope": "comprehensive construction renovation HVAC electrical maintenance",
+        "estimated_value": 2800000,
+        "safety": "OSHA compliance required",
+        "certifications": "green building LEED preferred",
+        "emergency": "24/7 emergency response required"
+      },
+      "contract_characteristics": {
+        "estimated_value": 2800000,
+        "duration_months": 36,
+        "location": "government campus",
+        "complexity": "high"
+      }
+    },
+    {
+      "title": "Multi-State Logistics and Delivery Services",
+      "sector": "delivery",
+      "description": "\n            18-month contract for logistics and delivery services across tri-state region.\n            Daily pickup and delivery operations, freight management, warehouse services.\n            GPS tracking, real-time reporting, and expedited delivery capabilities.\n            Average 150 deliveries per month with varying distances.\n            ",
+      "rfp_requirements": {
+        "duration": "18 months",
+        "frequency": "150",
+        "service_area": "tri-state regional",
+        "tracking": "GPS tracking real-time reporting required",
+        "expedited": "expedited delivery capability",
+        "warehouse": "warehouse services included"
+      },
+      "contract_characteristics": {
+        "estimated_value": 450000,
+        "duration_months": 18,
+        "location": "multi-state regional",
+        "complexity": "high"
+      }
+    }
+  ],
+  "pricing_results": {
+    "sample_1": {
+      "sector": "bottled_water",
+      "pricing_strategy": "hybrid",
+      "cost_breakdown": {
+        "water_cost": 27279.0,
+        "delivery_costs": 23382.0,
+        "setup_costs": 375.0,
+        "service_fees": 1200.0,
+        "emergency_allowance": 180.0,
+        "total_gallons": 7794.0,
+        "total_deliveries": 1558.8,
+        "duration_months": 24,
+        "direct_cost_total": 52416.0
+      },
+      "historical_benchmarks": {
+        "count": 1395,
+        "mean": 732109.8339641577,
+        "median": 169806.0,
+        "std": 3287039.1177025246,
+        "q10": 28036.960000000003,
+        "q25": 57066.955,
+        "q50": 169806.0,
+        "q75": 486580.20499999996,
+        "q90": 1145583.8720000044,
+        "min": 3430.0,
+        "max": 48915912.0,
+        "implied_cost_per_gallon": 3.2655,
+        "cost_per_gallon_q25": 1.0974414423076921,
+        "cost_per_gallon_q75": 9.357311634615385,
+        "target_range_min": 57066.955,
+        "target_range_max": 486580.20499999996
+      },
+      "pricing_analysis": {
+        "pricing_method": "Hybrid (cost-plus: 60.0%, market: 40.0%)",
+        "direct_cost": 52416.0,
+        "initial_bid_amount": 120338.40000000001,
+        "calculated_margin": 0.5644283121597097,
+        "risk_adjustments": {
+          "complexity_risk": 6016.920000000001,
+          "duration_risk": 2406.768
+        },
+        "total_risk_adjustment": 8423.688000000002,
+        "final_bid_amount": 128762.08800000002,
+        "final_margin": 0.5929236562240278
+      },
+      "margin_validation": {
+        "actual_margin": 0.5929236562240278,
+        "target_margin": 0.4,
+        "min_margin": 0.15,
+        "max_margin": 0.6,
+        "margin_compliant": "True",
+        "margin_vs_target": 0.19292365622402774,
+        "margin_status": "compliant",
+        "margin_issue": "none",
+        "recommended_action": "proceed_with_current_pricing"
+      },
+      "pricing_justification": "Our bid of $128,762.09 is based on a comprehensive cost analysis and market benchmarking. Direct costs of $52,416.00 include all labor, materials, and operational expenses. The proposed margin of 59.3% ensures sustainable service delivery while remaining competitive. Our competitive pricing is 24.2% below market median, offering exceptional value. Risk adjustments of $8,423.69 account for project complexity and operational factors.",
+      "recommended_bid": 128762.08800000002,
+      "competitive_position": "Competitive (Below Median)",
+      "go_no_go_factors": {
+        "margin_compliant": "True",
+        "margin_adequate": "True",
+        "competitive_position": "good",
+        "recommendation": "proceed",
+        "reason": "Margin within acceptable range"
+      },
+      "timestamp": "2025-10-30T02:50:20.678705"
+    },
+    "sample_2": {
+      "sector": "construction",
+      "pricing_strategy": "hybrid",
+      "cost_breakdown": {
+        "labor_general": 489600.0,
+        "labor_skilled": 345600.0,
+        "labor_specialist": 108000.0,
+        "materials_estimate": 840000.0,
+        "material_markup": 168000.0,
+        "equipment_costs": 144000.0,
+        "project_management": 224000.0,
+        "duration_months": 36,
+        "total_labor_hours": 9360,
+        "direct_cost_total": 2319200.0,
+        "overhead_costs": 347880.0,
+        "total_cost_estimate": 2667080.0
+      },
+      "historical_benchmarks": {
+        "count": 6920,
+        "mean": 6802712.95451734,
+        "median": 1219065.375,
+        "std": 11560901.807878157,
+        "q10": 48275.00000000001,
+        "q25": 199996.31,
+        "q50": 1219065.375,
+        "q75": 7470448.0024999995,
+        "q90": 24083821.02000001,
+        "min": 1000.0,
+        "max": 50000000.0,
+        "small_contract_median": 42369.94,
+        "medium_contract_median": 362327.0,
+        "large_contract_median": 6755826.0,
+        "small_contract_count": 1225,
+        "medium_contract_count": 2081,
+        "large_contract_count": 3614,
+        "target_range_min": -10341836.432878157,
+        "target_range_max": 12779967.182878157
+      },
+      "pricing_analysis": {
+        "pricing_method": "Hybrid (cost-plus: 60.0%, market: 40.0%)",
+        "direct_cost": 2319200.0,
+        "initial_bid_amount": 2806826.15,
+        "calculated_margin": 0.17372866146341123,
+        "risk_adjustments": {
+          "complexity_risk": 140341.3075,
+          "duration_risk": 112273.046,
+          "location_risk": 42102.39225
+        },
+        "total_risk_adjustment": 294716.74575,
+        "final_bid_amount": 3101542.89575,
+        "final_margin": 0.25224313254607356
+      },
+      "margin_validation": {
+        "actual_margin": 0.25224313254607356,
+        "target_margin": 0.4,
+        "min_margin": 0.15,
+        "max_margin": 0.6,
+        "margin_compliant": "True",
+        "margin_vs_target": -0.14775686745392647,
+        "margin_status": "compliant",
+        "margin_issue": "none",
+        "recommended_action": "proceed_with_current_pricing"
+      },
+      "pricing_justification": "Our bid of $3,101,542.90 is based on a comprehensive cost analysis and market benchmarking. Direct costs of $2,319,200.00 include all labor, materials, and operational expenses. The proposed margin of 25.2% ensures sustainable service delivery while remaining competitive. Our premium pricing reflects enhanced service quality and comprehensive coverage. Risk adjustments of $294,716.75 account for project complexity and operational factors.",
+      "recommended_bid": 3101542.89575,
+      "competitive_position": "Market Rate (Above Median)",
+      "go_no_go_factors": {
+        "margin_compliant": "True",
+        "margin_adequate": "True",
+        "competitive_position": "good",
+        "recommendation": "proceed",
+        "reason": "Margin within acceptable range"
+      },
+      "timestamp": "2025-10-30T02:50:20.679182"
+    },
+    "sample_3": {
+      "sector": "delivery",
+      "pricing_strategy": "hybrid",
+      "cost_breakdown": {
+        "mileage_costs": 675000.0,
+        "driver_costs": 135000.0,
+        "dispatcher_costs": 25200.0,
+        "vehicle_costs": 54000.0,
+        "fuel_surcharge": 86400.0,
+        "tracking_system": 3600.0,
+        "expedite_allowance": 1800.0,
+        "total_deliveries": 2700,
+        "total_miles": 270000,
+        "duration_months": 18,
+        "direct_cost_total": 981000.0
+      },
+      "historical_benchmarks": {
+        "count": 1848,
+        "mean": 594235.8389123377,
+        "median": 110792.04,
+        "std": 2103251.3392878873,
+        "q10": 11064.957000000002,
+        "q25": 41614.925,
+        "q50": 110792.04,
+        "q75": 373228.125,
+        "q90": 1150200.0,
+        "min": 1050.0,
+        "max": 50000000.0,
+        "implied_cost_per_delivery": 110.79204,
+        "cost_per_delivery_q25": 41.614925,
+        "cost_per_delivery_q75": 373.228125,
+        "target_range_min": 41614.925,
+        "target_range_max": 373228.125
+      },
+      "pricing_analysis": {
+        "pricing_method": "Hybrid (cost-plus: 60.0%, market: 40.0%)",
+        "direct_cost": 981000.0,
+        "initial_bid_amount": 1025316.816,
+        "calculated_margin": 0.04322255844090242,
+        "risk_adjustments": {
+          "duration_risk": 10253.16816,
+          "location_risk": 15379.75224
+        },
+        "total_risk_adjustment": 25632.9204,
+        "final_bid_amount": 1050949.7364,
+        "final_margin": 0.06655859360088046
+      },
+      "margin_validation": {
+        "actual_margin": 0.06655859360088046,
+        "target_margin": 0.4,
+        "min_margin": 0.15,
+        "max_margin": 0.6,
+        "margin_compliant": "False",
+        "margin_vs_target": -0.33344140639911957,
+        "margin_status": "non_compliant",
+        "margin_issue": "below_minimum",
+        "recommended_action": "increase_bid_price"
+      },
+      "pricing_justification": "Our bid of $1,050,949.74 is based on a comprehensive cost analysis and market benchmarking. Direct costs of $981,000.00 include all labor, materials, and operational expenses. The proposed margin of 6.7% ensures sustainable service delivery while remaining competitive. Our premium pricing reflects enhanced service quality and comprehensive coverage. Risk adjustments of $25,632.92 account for project complexity and operational factors.",
+      "recommended_bid": 1050949.7364,
+      "competitive_position": "Premium Pricing (Top 25%)",
+      "go_no_go_factors": {
+        "margin_compliant": "False",
+        "margin_adequate": "False",
+        "competitive_position": "good",
+        "recommendation": "no_go",
+        "reason": "Margin below minimum threshold"
+      },
+      "timestamp": "2025-10-30T02:50:20.679771"
+    }
+  },
+  "generation_summary": {
+    "total_samples": 3,
+    "successful_samples": 3,
+    "total_generation_time": 0.0010342597961425781,
+    "avg_generation_time": 0.0003447532653808594
+  },
+  "timestamp": "2025-10-30 02:50:20"
+}

@@ -1,0 +1,11 @@
+# LLM Infrastructure Dependencies
+# Core LLM Support
+openai>=1.0.0
+python-dotenv>=1.0.0
+# For future local model support
+transformers>=4.30.0
+torch>=2.0.0
+sentence-transformers>=2.2.0
+# Utilities
+requests>=2.28.0
+pydantic>=2.0.0

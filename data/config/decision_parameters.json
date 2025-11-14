@@ -1,0 +1,11 @@
+{
+  "margin_weight": 0.3,
+  "complexity_weight": 0.25,
+  "duration_weight": 0.2,
+  "historical_weight": 0.15,
+  "resource_weight": 0.1,
+  "margin_threshold_go": 70.0,
+  "margin_threshold_review": 50.0,
+  "complexity_threshold_review": 70.0,
+  "confidence_threshold_go": 70.0
+}

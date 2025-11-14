@@ -1,0 +1,55 @@
+{
+  "processing_date": "2025-10-29T19:48:24.581804",
+  "total_records": 100178,
+  "category_distribution": {
+    "construction": 79076,
+    "delivery": 12471,
+    "bottled_water": 8631
+  },
+  "fiscal_year_distribution": {
+    "2025": 35317,
+    "2024": 33016,
+    "2023": 31845
+  },
+  "source_file_distribution": {
+    "FY2024_archived_opportunities.csv": 33016,
+    "FY2023_archived_opportunities.csv": 31845,
+    "FY2025_archived_opportunities.csv": 26922,
+    "ContractOpportunitiesFullCSV.csv": 8395
+  },
+  "data_quality_stats": {
+    "mean_quality_score": 0.8695162610553214,
+    "high_quality_records": "89047",
+    "low_quality_records": "69"
+  },
+  "category_counts_by_file": {
+    "FY2023_archived_opportunities.csv": {
+      "bottled_water": 2596,
+      "construction": 25438,
+      "delivery": 3821,
+      "total_target": 31845,
+      "original_total": 390802
+    },
+    "FY2024_archived_opportunities.csv": {
+      "bottled_water": 2922,
+      "construction": 26325,
+      "delivery": 3772,
+      "total_target": 33016,
+      "original_total": 396484
+    },
+    "ContractOpportunitiesFullCSV.csv": {
+      "bottled_water": 314,
+      "construction": 7286,
+      "delivery": 798,
+      "total_target": 8398,
+      "original_total": 66438
+    },
+    "FY2025_archived_opportunities.csv": {
+      "bottled_water": 2818,
+      "construction": 20032,
+      "delivery": 4081,
+      "total_target": 26924,
+      "original_total": 372520
+    }
+  }
+}

@@ -1,0 +1,21 @@
+{
+    "data_source_path": "/app/government_rfp_bid_1927/data/processed/rfp_master_dataset.parquet",
+    "target_categories": {
+        "nigp": ["065-XX"], 
+        "naics": ["312112", "236XXX", "237XXX", "484XXX", "492XXX"]
+    },
+    "triage_thresholds": {
+        "award_min": 50000,
+        "award_max": 5000000,
+        "duration_min_months": 6,
+        "duration_max_months": 36,
+        "complexity_weight": 0.25,
+        "category_match_weight": 0.25,
+        "award_size_weight": 0.2,
+        "deadline_weight": 0.15,
+        "agency_history_weight": 0.15
+    },
+    "monitoring_interval_hours": 4,
+    "output_directory": "/app/government_rfp_bid_1927/data/discovery/",
+    "go_nogo_threshold": 60
+}

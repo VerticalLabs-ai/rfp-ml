@@ -1,0 +1,61 @@
+{
+  "technical_requirements": {
+    "pattern_keywords": [
+      "technical",
+      "specification",
+      "requirement",
+      "standard"
+    ],
+    "response_template": "Our solution meets this technical requirement through {approach}. We have {experience} experience with {technology} and can deliver {outcome}."
+  },
+  "financial_requirements": {
+    "pattern_keywords": [
+      "cost",
+      "price",
+      "budget",
+      "financial",
+      "payment"
+    ],
+    "response_template": "We comply with the financial requirements by {pricing_approach}. Our pricing structure includes {cost_breakdown} with total cost of {amount}."
+  },
+  "legal_requirements": {
+    "pattern_keywords": [
+      "legal",
+      "regulation",
+      "compliance",
+      "law",
+      "statute"
+    ],
+    "response_template": "We fully comply with all legal requirements including {regulations}. Our compliance program ensures {compliance_measures}."
+  },
+  "administrative_requirements": {
+    "pattern_keywords": [
+      "submission",
+      "deadline",
+      "format",
+      "document",
+      "administrative"
+    ],
+    "response_template": "We will meet all administrative requirements by {approach}. Our submission will include {deliverables} by {timeline}."
+  },
+  "performance_requirements": {
+    "pattern_keywords": [
+      "performance",
+      "metric",
+      "kpi",
+      "benchmark",
+      "target"
+    ],
+    "response_template": "We commit to meeting performance requirements with {performance_approach}. Our track record shows {metrics} with {success_rate}."
+  },
+  "security_requirements": {
+    "pattern_keywords": [
+      "security",
+      "clearance",
+      "background",
+      "confidential",
+      "classified"
+    ],
+    "response_template": "We maintain compliance with security requirements through {security_measures}. Our personnel have {clearance_level} and follow {protocols}."
+  }
+}

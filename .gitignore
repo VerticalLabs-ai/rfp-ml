@@ -1,0 +1,101 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+env/
+venv/
+ENV/
+.venv
+pip-log.txt
+pip-delete-this-directory.txt
+.pytest_cache/
+*.egg-info/
+dist/
+build/
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+.DS_Store
+
+# Environment
+.env
+.env.local
+
+# Large Data Files - Raw datasets
+data/raw/*.csv
+data/raw/*.parquet
+data/raw/*.json
+data/raw/*.txt
+
+# Large Data Files - Processed datasets
+data/processed/*.parquet
+data/processed/*.csv
+data/processed/rfp_master_dataset.*
+
+# Embeddings and Vector Indices (large binary files)
+data/embeddings/*.pkl
+data/embeddings/*.npy
+data/embeddings/*.bin
+data/embeddings/faiss_index.*
+data/embeddings/embeddings.*
+data/embeddings/documents.pkl
+data/embeddings/metadata.pkl
+
+# Generated Outputs - Bid Documents
+data/bid_documents/*.html
+data/bid_documents/*.json
+data/bid_documents/*.md
+data/bid_documents/*.pdf
+
+# Generated Outputs - Compliance Matrices
+data/compliance/*.csv
+data/compliance/*.html
+data/compliance/*.json
+data/compliance/*.pdf
+
+# Generated Outputs - Pricing
+data/pricing/*.csv
+data/pricing/*.json
+data/pricing/*.xlsx
+
+# Generated Outputs - Discovery
+data/discovery/*.csv
+data/discovery/*.json
+
+# Generated Outputs - Decision Analysis
+data/config/decision_analysis_*.json
+
+# Logs
+logs/*.log
+logs/*.txt
+*.log
+
+# Models (if any trained models are saved)
+models/*.pkl
+models/*.h5
+models/*.pt
+models/*.pth
+models/*.ckpt
+models/*.safetensors
+
+# Analysis reports (generated)
+analysis/*.json
+analysis/*.md
+
+# Keep these small config/template files (using negation)
+!data/config/decision_parameters.json
+!data/content_library/company_profile.json
+!data/content_library/standard_clauses.json
+!data/embeddings/config.json
+!data/embeddings/index_info.json
+
+# Temporary files
+*.tmp
+*.temp
+.cache/

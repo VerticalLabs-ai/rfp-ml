@@ -1,0 +1,20 @@
+{
+  "timestamp": "2025-10-29 20:15:13",
+  "infrastructure_tests": {
+    "base_llm": true,
+    "bid_manager": true
+  },
+  "functionality_tests": {
+    "text_generation": false,
+    "requirements_extraction": false,
+    "integration_ready": true
+  },
+  "overall_status": "mostly_ready",
+  "summary": {
+    "total_tests": 5,
+    "passed_tests": 3,
+    "pass_rate": 0.6,
+    "infrastructure_score": 2,
+    "functionality_score": 1
+  }
+}

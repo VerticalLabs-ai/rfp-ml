@@ -1,0 +1,244 @@
+{
+  "status": "GOOD",
+  "timestamp": "2025-10-30 02:39:10",
+  "overall_metrics": {
+    "total_queries": 20,
+    "successful_queries": 20,
+    "avg_search_time": 0.37439053058624266,
+    "avg_results_per_query": 5.0,
+    "avg_relevance_score": 0.40375878235537527
+  },
+  "overall_success_rate": 1.0,
+  "sector_results": {
+    "bottled_water": {
+      "sector": "bottled_water",
+      "total_queries": 5,
+      "successful_queries": 5,
+      "failed_queries": 0,
+      "avg_search_time": 0.3798098564147949,
+      "avg_results": 5.0,
+      "avg_relevance": 0.4316545163924884,
+      "query_results": [
+        {
+          "query": "bottled water delivery service weekly FDA compliant",
+          "search_time": 0.19242191314697266,
+          "results_count": 5,
+          "top_score": 0.6125289797782898,
+          "relevance_score": 0.42743952752872033,
+          "status": "success"
+        },
+        {
+          "query": "5 gallon water bottles office delivery tracking",
+          "search_time": 0.4220907688140869,
+          "results_count": 5,
+          "top_score": 0.6998762488365173,
+          "relevance_score": 0.4770711449147664,
+          "status": "success"
+        },
+        {
+          "query": "water quality standards FDA emergency delivery",
+          "search_time": 0.500206708908081,
+          "results_count": 5,
+          "top_score": 0.5890486836433411,
+          "relevance_score": 0.40892400106598104,
+          "status": "success"
+        },
+        {
+          "query": "bottled water supply government contract requirements",
+          "search_time": 0.41106653213500977,
+          "results_count": 5,
+          "top_score": 0.6441124677658081,
+          "relevance_score": 0.44860451182026573,
+          "status": "success"
+        },
+        {
+          "query": "water cooler service maintenance cleaning",
+          "search_time": 0.3732633590698242,
+          "results_count": 5,
+          "top_score": 0.5754147171974182,
+          "relevance_score": 0.3962333966327083,
+          "status": "success"
+        }
+      ]
+    },
+    "construction": {
+      "sector": "construction",
+      "total_queries": 5,
+      "successful_queries": 5,
+      "failed_queries": 0,
+      "avg_search_time": 0.42063250541687014,
+      "avg_results": 5.0,
+      "avg_relevance": 0.41493318910081883,
+      "query_results": [
+        {
+          "query": "construction services building maintenance government facility",
+          "search_time": 0.41407012939453125,
+          "results_count": 5,
+          "top_score": 0.6503420472145081,
+          "relevance_score": 0.455239419142406,
+          "status": "success"
+        },
+        {
+          "query": "general contractor license bonding insurance construction",
+          "search_time": 0.4114382266998291,
+          "results_count": 5,
+          "top_score": 0.595604658126831,
+          "relevance_score": 0.4169232606887817,
+          "status": "success"
+        },
+        {
+          "query": "renovation repair HVAC electrical commercial building",
+          "search_time": 0.4071195125579834,
+          "results_count": 5,
+          "top_score": 0.6212621331214905,
+          "relevance_score": 0.4348834931850434,
+          "status": "success"
+        },
+        {
+          "query": "construction project management OSHA safety compliance",
+          "search_time": 0.42018580436706543,
+          "results_count": 5,
+          "top_score": 0.5948338508605957,
+          "relevance_score": 0.41541105152509583,
+          "status": "success"
+        },
+        {
+          "query": "building maintenance janitorial grounds keeping",
+          "search_time": 0.4503488540649414,
+          "results_count": 5,
+          "top_score": 0.503189742565155,
+          "relevance_score": 0.35220872096276745,
+          "status": "success"
+        }
+      ]
+    },
+    "delivery": {
+      "sector": "delivery",
+      "total_queries": 5,
+      "successful_queries": 5,
+      "failed_queries": 0,
+      "avg_search_time": 0.3193051338195801,
+      "avg_results": 5.0,
+      "avg_relevance": 0.3996409035304621,
+      "query_results": [
+        {
+          "query": "delivery services logistics transportation government contract",
+          "search_time": 0.4125790596008301,
+          "results_count": 5,
+          "top_score": 0.6383877396583557,
+          "relevance_score": 0.44687141776084904,
+          "status": "success"
+        },
+        {
+          "query": "freight shipping supply chain management tracking",
+          "search_time": 0.42511701583862305,
+          "results_count": 5,
+          "top_score": 0.4905868172645569,
+          "relevance_score": 0.3422852642649348,
+          "status": "success"
+        },
+        {
+          "query": "warehouse distribution emergency delivery capability",
+          "search_time": 0.4143409729003906,
+          "results_count": 5,
+          "top_score": 0.5866116285324097,
+          "relevance_score": 0.40228482083521155,
+          "status": "success"
+        },
+        {
+          "query": "logistics transportation 24 hour response service",
+          "search_time": 0.1210324764251709,
+          "results_count": 5,
+          "top_score": 0.6761137247085571,
+          "relevance_score": 0.45285483956128936,
+          "status": "success"
+        },
+        {
+          "query": "delivery truck fleet management GPS tracking",
+          "search_time": 0.22345614433288574,
+          "results_count": 5,
+          "top_score": 0.5055831074714661,
+          "relevance_score": 0.3539081752300262,
+          "status": "success"
+        }
+      ]
+    },
+    "general": {
+      "sector": "general",
+      "total_queries": 5,
+      "successful_queries": 5,
+      "failed_queries": 0,
+      "avg_search_time": 0.37781462669372556,
+      "avg_results": 5.0,
+      "avg_relevance": 0.3688065203977313,
+      "query_results": [
+        {
+          "query": "government procurement requirements bid submission",
+          "search_time": 0.20967864990234375,
+          "results_count": 5,
+          "top_score": 0.6667745113372803,
+          "relevance_score": 0.4667421579360961,
+          "status": "success"
+        },
+        {
+          "query": "contract terms conditions payment schedule performance",
+          "search_time": 0.4282257556915283,
+          "results_count": 5,
+          "top_score": 0.47387030720710754,
+          "relevance_score": 0.32537268044971046,
+          "status": "success"
+        },
+        {
+          "query": "small business enterprise certification requirements",
+          "search_time": 0.4084961414337158,
+          "results_count": 5,
+          "top_score": 0.5269219875335693,
+          "relevance_score": 0.3683254659073419,
+          "status": "success"
+        },
+        {
+          "query": "quality assurance ISO certification audit documentation",
+          "search_time": 0.4118199348449707,
+          "results_count": 5,
+          "top_score": 0.46108901500701904,
+          "relevance_score": 0.31829722132526916,
+          "status": "success"
+        },
+        {
+          "query": "safety compliance environmental regulations standards",
+          "search_time": 0.43085265159606934,
+          "results_count": 5,
+          "top_score": 0.5218501091003418,
+          "relevance_score": 0.3652950763702392,
+          "status": "success"
+        }
+      ]
+    }
+  },
+  "system_stats": {
+    "total_chunks": 207276,
+    "index_size": 207276,
+    "embedding_dimension": 384,
+    "source_distribution": {
+      "rfp_master_dataset.parquet": 103638,
+      "construction_rfps.parquet": 81527,
+      "delivery_rfps.parquet": 13536,
+      "bottled_water_rfps.parquet": 8575
+    },
+    "total_sources": 207276
+  },
+  "system_health": {
+    "index_integrity": true,
+    "embedding_consistency": true,
+    "search_performance": {
+      "avg_search_time": 0.31495102246602374,
+      "max_search_time": 0.47074246406555176,
+      "min_search_time": 0.1966876983642578,
+      "total_test_queries": 3
+    },
+    "overall_health": "healthy"
+  },
+  "recommendations": [
+    "Improve embedding quality or similarity thresholds for better relevance"
+  ]
+}

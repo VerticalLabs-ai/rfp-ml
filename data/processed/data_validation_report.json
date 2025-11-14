@@ -1,0 +1,48 @@
+{
+  "validation_timestamp": "2025-10-29T19:36:15.295438",
+  "files_validated": 4,
+  "successful_validations": 0,
+  "total_size_mb": 3522.2202320098877,
+  "file_details": {
+    "FY2023_archived_opportunities.csv": {
+      "status": "ERROR",
+      "error": "'utf-8' codec can't decode byte 0xa7 in position 2118: invalid start byte",
+      "file_size_mb": 1219.1112489700317
+    },
+    "FY2024_archived_opportunities.csv": {
+      "status": "ERROR",
+      "error": "'utf-8' codec can't decode byte 0x92 in position 3774: invalid start byte",
+      "file_size_mb": 1095.798433303833
+    },
+    "ContractOpportunitiesFullCSV.csv": {
+      "status": "ERROR",
+      "error": "'utf-8' codec can't decode byte 0x96 in position 1910: invalid start byte",
+      "file_size_mb": 180.52966976165771
+    },
+    "FY2025_archived_opportunities.csv": {
+      "status": "ERROR",
+      "error": "'utf-8' codec can't decode byte 0x92 in position 2493: invalid start byte",
+      "file_size_mb": 1026.7808799743652
+    }
+  },
+  "field_mapping_analysis": {
+    "solicitation_id": [],
+    "title": [],
+    "agency": [],
+    "posting_date": [],
+    "response_deadline": [],
+    "estimated_value": [],
+    "nigp_codes": [],
+    "naics_codes": [],
+    "requirements": [],
+    "location": []
+  },
+  "category_analysis": {},
+  "next_steps": [
+    "Load full datasets and apply filtering for target categories",
+    "Standardize schema across all datasets",
+    "Extract and clean key fields (dates, values, categories)",
+    "Perform comprehensive EDA on filtered data",
+    "Create master processed dataset"
+  ]
+}

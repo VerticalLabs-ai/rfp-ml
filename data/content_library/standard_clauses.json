@@ -1,0 +1,23 @@
+{
+  "terms_and_conditions": {
+    "payment_terms": "Net 30 days from invoice date. Progress payments available for contracts exceeding $100,000.",
+    "warranty": "We provide comprehensive warranty coverage for all deliverables as specified in the contract terms.",
+    "performance_guarantee": "We guarantee performance according to all specified metrics and will provide remediation at no additional cost for any non-compliance.",
+    "liability": "Professional liability insurance maintained at minimum $2M coverage as required by federal regulations.",
+    "compliance": "Full compliance with all applicable federal, state, and local regulations including labor standards and safety requirements."
+  },
+  "technical_approach": {
+    "methodology": "Our proven methodology combines industry best practices with innovative solutions tailored to government requirements.",
+    "quality_assurance": "Comprehensive quality management system with regular audits, performance monitoring, and continuous improvement processes.",
+    "project_management": "Dedicated project management using PMI standards with regular reporting, milestone tracking, and stakeholder communication.",
+    "risk_management": "Proactive risk identification and mitigation strategies with contingency planning for all critical project elements.",
+    "security": "Robust security protocols including background checks, secure facilities, and compliance with all federal security requirements."
+  },
+  "value_propositions": {
+    "cost_effectiveness": "Competitive pricing with transparent cost structure and proven ability to deliver within budget.",
+    "expertise": "Deep domain expertise with specialized knowledge of government requirements and industry best practices.",
+    "reliability": "Consistent track record of on-time, on-budget delivery with exceptional customer satisfaction ratings.",
+    "innovation": "Cutting-edge solutions leveraging latest technologies and methodologies to enhance performance and efficiency.",
+    "partnership": "Collaborative approach focused on long-term partnership and mutual success with government clients."
+  }
+}
