@@ -42,7 +42,9 @@ data/processed/rfp_master_dataset.*
 data/embeddings/*.pkl
 data/embeddings/*.npy
 data/embeddings/*.bin
+data/embeddings/*.faiss
 data/embeddings/faiss_index.*
+data/embeddings/rag_index.faiss
 data/embeddings/embeddings.*
 data/embeddings/documents.pkl
 data/embeddings/metadata.pkl
