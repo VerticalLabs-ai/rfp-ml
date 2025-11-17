@@ -5,6 +5,7 @@ An intelligent, end-to-end automated system for discovering, analyzing, and gene
 ## 🚀 Features
 
 ### Core Capabilities
+
 - **Autonomous RFP Discovery**: Automatically discovers and filters relevant government RFPs from multiple sources
 - **Intelligent Triage**: Scores and prioritizes opportunities based on alignment with business objectives
 - **RAG-Powered Context Retrieval**: Semantic search across historical RFP data using FAISS vector indexing
@@ -14,6 +15,7 @@ An intelligent, end-to-end automated system for discovering, analyzing, and gene
 - **Automated Document Generation**: Produces complete bid documents in multiple formats (HTML, JSON, Markdown, PDF)
 
 ### Technical Highlights
+
 - Vector-based semantic search with 431M+ embedding vectors
 - Support for multiple LLM providers (OpenAI, HuggingFace, local models)
 - Scalable processing of multi-gigabyte RFP datasets
@@ -83,48 +85,77 @@ The system follows a modular pipeline architecture:
 ### Prerequisites
 
 - Python 3.8 or higher
-- pip package manager
+- [uv](https://docs.astral.sh/uv/) - Fast Python package installer and resolver
 - 8GB+ RAM recommended for embeddings
 - 10GB+ disk space for datasets and models
+
+### Install uv
+
+If you don't have `uv` installed, install it first:
+
+```bash
+# macOS/Linux
+curl -LsSf https://astral.sh/uv/install.sh | sh
+
+# Windows
+powershell -c "irm https://astral.sh/uv/install.ps1 | iex"
+
+# Or with pip
+pip install uv
+```
 
 ### Install Dependencies
 
 ```bash
 # Clone the repository
-git clone <repository-url>
+git clone https://github.com/VerticalLabs-ai/rfp-ml
 cd rfp_ml
 
-# Install core ML dependencies
-pip install -r requirements_fixed.txt
+# Create virtual environment with uv
+uv venv
 
-# Install LLM infrastructure
-pip install -r requirements_llm.txt
+# Activate virtual environment
+# On macOS/Linux:
+source .venv/bin/activate
+# On Windows:
+.venv\Scripts\activate
+
+# Install core ML and LLM dependencies
+uv pip install -r requirements.txt
+
+# (Optional) Install API/Dashboard dependencies if running the web interface
+uv pip install -r requirements_api.txt
 ```
 
 ### Key Dependencies
 
-**Core ML Stack:**
-- `sentence-transformers>=2.2.2` - Text embeddings
-- `faiss-cpu>=1.7.0` - Vector similarity search
-- `langchain>=0.1.0` - LLM orchestration
-- `numpy<2.0.0` - Numerical computing
-- `pandas>=1.5.0` - Data processing
+**Core ML & LLM Stack (`requirements.txt`):**
 
-**LLM Infrastructure:**
-- `openai>=1.0.0` - OpenAI API integration
-- `transformers>=4.30.0` - HuggingFace models
-- `torch>=2.0.0` - Deep learning framework
+- **LLM Integration**: `openai>=1.3.0`, `transformers>=4.30.0`, `torch>=2.0.0`
+- **Vector Search & RAG**: `faiss-cpu>=1.7.0`, `langchain>=0.1.0`, `sentence-transformers>=2.2.2`
+- **Data Processing**: `pandas>=1.5.0`, `numpy<2.0.0`, `scikit-learn>=1.2.0`
+- **Utilities**: `pydantic>=2.0.0`, `jinja2>=3.1.0`, `requests>=2.28.0`
+
+**API/Dashboard (`requirements_api.txt` - Optional):**
+
+- **Web Framework**: `fastapi>=0.104.0`, `uvicorn[standard]>=0.24.0`
+- **Database**: `sqlalchemy>=2.0.0`, `alembic>=1.12.0`
+- **Real-time**: `websockets>=12.0`
+- **Automation**: `playwright>=1.40.0`, `selenium>=4.15.0`
+- **Task Queue**: `celery>=5.3.0`, `redis>=5.0.0`
 
 ## ⚙️ Configuration
 
 ### Environment Setup
 
 1. Copy the environment template:
+
 ```bash
 cp env.example .env
 ```
 
 2. Configure your `.env` file:
+
 ```bash
 # OpenAI Configuration (Primary)
 OPENAI_API_KEY=your_openai_api_key_here
@@ -137,7 +168,7 @@ HUGGINGFACE_BASE_URL=https://api-inference.huggingface.co/models
 LLM_PROVIDER=openai  # Options: openai, huggingface, local
 
 # Model Configuration
-LLM_MODEL_NAME=gpt-4-turbo-preview
+LLM_MODEL_NAME=gpt-5.1
 LLM_TEMPERATURE=0.7
 LLM_MAX_TOKENS=2000
 LLM_TIMEOUT=30.0
@@ -154,10 +185,14 @@ The system defaults to Docker-style absolute paths (`/app/government_rfp_bid_192
 Before running the system, build the vector index from your processed RFP data:
 
 ```bash
+# Make sure virtual environment is activated
+source .venv/bin/activate  # or .venv\Scripts\activate on Windows
+
 python build_and_test_rag.py
 ```
 
 This will:
+
 - Load processed RFP datasets from `data/processed/`
 - Generate embeddings using sentence transformers
 - Build FAISS vector index
@@ -357,17 +392,17 @@ data/
 
 Processed RFP datasets include:
 
-| Field | Type | Description |
-|-------|------|-------------|
-| `title` | string | RFP title |
-| `description` | string | Full RFP description |
-| `agency` | string | Issuing government agency |
-| `office` | string | Specific office/department |
-| `naics_code` | string | Industry classification code |
-| `award_amount` | float | Contract award amount |
-| `award_date` | datetime | Award date |
-| `response_deadline` | datetime | Submission deadline |
-| `category` | string | RFP category (bottled_water, construction, delivery, general) |
+| Field               | Type     | Description                                                   |
+| ------------------- | -------- | ------------------------------------------------------------- |
+| `title`             | string   | RFP title                                                     |
+| `description`       | string   | Full RFP description                                          |
+| `agency`            | string   | Issuing government agency                                     |
+| `office`            | string   | Specific office/department                                    |
+| `naics_code`        | string   | Industry classification code                                  |
+| `award_amount`      | float    | Contract award amount                                         |
+| `award_date`        | datetime | Award date                                                    |
+| `response_deadline` | datetime | Submission deadline                                           |
+| `category`          | string   | RFP category (bottled_water, construction, delivery, general) |
 
 ## 📚 API Documentation
 
@@ -455,7 +490,7 @@ rfp_ml/
 ├── data/                         # Data directories
 ├── docs/                         # Documentation
 ├── analysis/                     # Analysis reports
-├── requirements_fixed.txt        # Core ML dependencies
+├── requirements.txt        # Core ML dependencies
 ├── requirements_llm.txt          # LLM dependencies
 ├── CLAUDE.md                     # AI assistant guidance
 └── README.md                     # This file
@@ -498,12 +533,14 @@ fd "filename"
 ### Common Issues
 
 **Issue**: RAG index not found
+
 ```bash
 # Solution: Build the index
 python build_and_test_rag.py
 ```
 
 **Issue**: LLM API errors
+
 ```bash
 # Solution: Check your .env configuration
 cat .env | grep API_KEY
@@ -513,12 +550,22 @@ python debug_scripts/demo_llm_usage.py
 ```
 
 **Issue**: Out of memory during embedding generation
+
 ```bash
 # Solution: Process in smaller batches (edit chunk_size in RAGEngine)
 # Or use a smaller embedding model
 ```
 
+**Issue**: Package installation is slow
+
+```bash
+# Solution: Use uv for faster package installation
+uv pip install -r requirements.txt
+uv pip install -r requirements_llm.txt
+```
+
 **Issue**: Path errors in Docker vs. local
+
 ```python
 # Solution: Override paths when initializing components
 rag = RAGEngine(

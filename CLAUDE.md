@@ -33,14 +33,25 @@ LLM_MODEL_NAME=gpt-4-turbo-preview
 
 ## Dependencies
 
-Two separate requirements files:
-- `requirements_fixed.txt` - Core ML packages (sentence-transformers, faiss-cpu, langchain, numpy<2.0.0)
-- `requirements_llm.txt` - LLM infrastructure (openai, transformers, torch)
+Two requirements files:
 
-Install both:
+- `requirements.txt` - Core ML & LLM packages (sentence-transformers, faiss-cpu, langchain, openai, transformers, torch, numpy<2.0.0)
+- `requirements_api.txt` - API/Dashboard (fastapi, uvicorn, sqlalchemy, websockets) - **Optional**, only needed for web interface
+
+Install using uv:
+
 ```bash
-pip install -r requirements_fixed.txt
-pip install -r requirements_llm.txt
+# Create virtual environment
+uv venv
+
+# Activate virtual environment
+source .venv/bin/activate  # or .venv\Scripts\activate on Windows
+
+# Install core dependencies (ML + LLM)
+uv pip install -r requirements.txt
+
+# (Optional) Install API/Dashboard dependencies
+uv pip install -r requirements_api.txt
 ```
 
 ## Common Development Tasks
@@ -93,6 +104,9 @@ python tests/test_discovery_integration.py
 ### Building and Testing RAG Index
 
 ```bash
+# Make sure virtual environment is activated
+source .venv/bin/activate  # or .venv\Scripts\activate on Windows
+
 # Build or rebuild RAG index from processed datasets
 python build_and_test_rag.py
 
@@ -106,6 +120,7 @@ python build_and_test_rag.py
 ### Debug Scripts
 
 Located in `debug_scripts/` for development and troubleshooting:
+
 - `demo_llm_usage.py` - Test LLM configuration
 - `demo_pricing_samples.py` - Test pricing calculations
 - `comprehensive_rag_validation.py` - Deep RAG system validation
@@ -132,21 +147,27 @@ data/
 ## Key Design Patterns
 
 ### Path Configuration
+
 All components use absolute paths defaulting to `/app/government_rfp_bid_1927/` for Docker compatibility. When running locally, these paths may need adjustment in component initialization.
 
 ### Component Integration
+
 Components are designed for loose coupling with optional dependencies:
+
 - RAG engine can be passed to Compliance, Pricing, and Document generators
 - LLM config is optional with mock fallback
 - Each component works standalone or integrated
 
 ### Text Processing
+
 - RAG uses chunking (default 512 tokens with 50 token overlap)
 - Embeddings generated using `sentence-transformers` (all-MiniLM-L6-v2)
 - FAISS IndexFlatIP for cosine similarity search
 
 ### Data Models
+
 Components use dataclasses for structured data:
+
 - `PricingResult`, `PricingStrategy`, `CostBaseline`
 - `RAGConfig`, `RetrievalResult`, `RAGContext`
 - Serializable to JSON for persistence
@@ -162,6 +183,7 @@ Components use dataclasses for structured data:
 ## Working with Components
 
 When modifying components:
+
 1. Check component dependencies (RAG engine, LLM config, etc.)
 2. Update corresponding test scripts
 3. Rebuild RAG index if document processing changes

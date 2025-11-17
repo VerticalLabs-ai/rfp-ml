@@ -101,3 +101,6 @@ analysis/*.md
 *.tmp
 *.temp
 .cache/
+
+# Frontend node modules
+frontend/node_modules/*

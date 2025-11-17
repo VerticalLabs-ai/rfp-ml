@@ -1,0 +1,84 @@
+import React from 'react'
+import { Link, useLocation } from 'react-router-dom'
+import { LayoutDashboard, Search, GitBranch, CheckSquare, Send, Zap } from 'lucide-react'
+
+interface LayoutProps {
+  children: React.ReactNode
+}
+
+const navigation = [
+  { name: 'Dashboard', path: '/dashboard', icon: LayoutDashboard },
+  { name: 'RFP Discovery', path: '/discovery', icon: Search },
+  { name: 'Pipeline', path: '/pipeline', icon: GitBranch },
+  { name: 'Decisions', path: '/decisions', icon: CheckSquare },
+  { name: 'Submissions', path: '/submissions', icon: Send }
+]
+
+export default function Layout({ children }: LayoutProps) {
+  const location = useLocation()
+
+  return (
+    <div className="min-h-screen bg-gray-50 dark:bg-gray-900">
+      {/* Header */}
+      <header className="bg-white dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700 shadow-sm">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center space-x-3">
+              <div className="w-10 h-10 bg-gradient-to-br from-blue-600 to-purple-600 rounded-lg flex items-center justify-center">
+                <Zap className="w-6 h-6 text-white" />
+              </div>
+              <div>
+                <h1 className="text-xl font-bold text-gray-900 dark:text-white">
+                  RFP Bid Generation System
+                </h1>
+                <p className="text-xs text-gray-500 dark:text-gray-400">
+                  AI-Powered Proposal Management
+                </p>
+              </div>
+            </div>
+            <div className="flex items-center space-x-4">
+              <span className="inline-flex items-center px-3 py-1 rounded-full text-xs font-medium bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400">
+                <span className="w-2 h-2 bg-green-500 rounded-full mr-2 animate-pulse"></span>
+                System Online
+              </span>
+            </div>
+          </div>
+        </div>
+      </header>
+
+      {/* Navigation */}
+      <nav className="bg-white dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+          <div className="flex space-x-1">
+            {navigation.map((item) => {
+              const isActive = location.pathname === item.path
+              const Icon = item.icon
+              return (
+                <Link
+                  key={item.path}
+                  to={item.path}
+                  className={`
+                    inline-flex items-center gap-2 px-4 py-4 border-b-2 text-sm font-medium
+                    transition-colors duration-200
+                    ${isActive
+                      ? 'border-blue-600 text-blue-600 dark:border-blue-400 dark:text-blue-400 bg-blue-50/50 dark:bg-blue-900/10'
+                      : 'border-transparent text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-200 hover:border-gray-300 dark:hover:border-gray-600'
+                    }
+                  `}
+                >
+                  <Icon className="w-4 h-4" />
+                  <span>{item.name}</span>
+                </Link>
+              )
+            })}
+          </div>
+        </div>
+      </nav>
+
+      {/* Main Content */}
+      <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+        {children}
+      </main>
+    </div>
+  )
+}

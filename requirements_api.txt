@@ -1,0 +1,32 @@
+# API and Dashboard Dependencies
+fastapi>=0.104.0
+uvicorn[standard]>=0.24.0
+pydantic>=2.0.0
+pydantic-settings>=2.0.0
+sqlalchemy>=2.0.0
+alembic>=1.12.0
+python-multipart>=0.0.6
+python-jose[cryptography]>=3.3.0
+passlib[bcrypt]>=1.7.4
+websockets>=12.0
+
+# Database
+psycopg2-binary>=2.9.9
+aiosqlite>=0.19.0
+
+# Task Queue
+celery>=5.3.0
+redis>=5.0.0
+
+# Notifications
+emails>=0.6
+slack-sdk>=3.23.0
+
+# Browser Automation
+playwright>=1.40.0
+selenium>=4.15.0
+
+# Document Processing
+PyPDF2>=3.0.0
+python-docx>=1.1.0
+reportlab>=4.0.0
