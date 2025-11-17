@@ -8,7 +8,7 @@ from typing import Dict, Any, List, Optional
 from dataclasses import dataclass
 import sys
 import os
-sys.path.append('/app/government_rfp_bid_1927')
+sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..'))
 from src.rag.rag_engine import create_rag_engine, RAGEngine, RAGContext
 from src.config.llm_adapter import create_llm_interface
 @dataclass

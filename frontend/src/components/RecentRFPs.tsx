@@ -2,6 +2,9 @@ import React from 'react';
 import { Link } from 'react-router-dom';
 import { Calendar, Building2, TrendingUp, ArrowRight } from 'lucide-react';
 import { RFPOpportunity } from '../types/rfp';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { Badge } from '@/components/ui/badge';
+import { cn } from '@/lib/utils';
 
 interface RecentRFPsProps {
   rfps?: RFPOpportunity[];
@@ -19,15 +22,15 @@ const stageColors: Record<string, string> = {
 
 export default function RecentRFPs({ rfps = [] }: RecentRFPsProps) {
   return (
-    <div className="bg-white dark:bg-gray-800 rounded-xl shadow-lg border border-gray-100 dark:border-gray-700">
-      <div className="px-6 py-4 border-b border-gray-200 dark:border-gray-700">
-        <h3 className="text-lg font-semibold text-gray-900 dark:text-white">Recent RFPs</h3>
-        <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">
+    <Card>
+      <CardHeader>
+        <CardTitle>Recent RFPs</CardTitle>
+        <CardDescription>
           Latest opportunities in your pipeline
-        </p>
-      </div>
+        </CardDescription>
+      </CardHeader>
 
-      <div className="divide-y divide-gray-200 dark:divide-gray-700">
+      <CardContent className="divide-y divide-gray-200 dark:divide-gray-700 -mx-6 px-6">
         {rfps.length === 0 ? (
           <div className="px-6 py-12 text-center">
             <div className="inline-flex items-center justify-center w-16 h-16 rounded-full bg-gray-100 dark:bg-gray-700 mb-4">
@@ -77,18 +80,15 @@ export default function RecentRFPs({ rfps = [] }: RecentRFPsProps) {
                 </div>
 
                 <div className="flex-shrink-0">
-                  <span className={`
-                    inline-flex items-center px-3 py-1 rounded-full text-xs font-medium
-                    ${stageColors[rfp.current_stage] || stageColors.discovered}
-                  `}>
+                  <Badge className={cn(stageColors[rfp.current_stage] || stageColors.discovered)}>
                     {rfp.current_stage.replace('_', ' ')}
-                  </span>
+                  </Badge>
                 </div>
               </div>
             </Link>
           ))
         )}
-      </div>
-    </div>
+      </CardContent>
+    </Card>
   );
 }

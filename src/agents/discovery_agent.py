@@ -1,6 +1,7 @@
 # Extends the RFPDiscoveryAgent class for end-to-end triage, Go/No-Go scoring, and output format
 
 import os
+import sys
 import json
 import pandas as pd
 import numpy as np
@@ -8,11 +9,15 @@ from typing import List, Dict, Any, Optional
 from datetime import datetime
 from dataclasses import asdict
 
+# Add src to path for imports
+sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..'))
+from config.paths import PathConfig
+
 # Try import of GoNoGoEngine; it's optional and handled gracefully in methods
 try:
-from src.decision.go_nogo_engine import GoNoGoEngine
+    from decision.go_nogo_engine import GoNoGoEngine
 except Exception:
-GoNoGoEngine = None
+    GoNoGoEngine = None
 
 
 class RFPDiscoveryAgent:
@@ -38,7 +43,7 @@ self.triage_thresholds = self.config.get(
 },
 )
 self.output_directory = self.config.get(
-"output_directory", "/app/government_rfp_bid_1927/data/discovered_rfps"
+"output_directory", str(PathConfig.DATA_DIR / "discovered_rfps")
 )
 self.target_categories = self.config.get("target_categories", ["bottled_water", "construction", "delivery"])
 self.agent_version = self.config.get("agent_version", "v1.0.0")
@@ -204,13 +209,13 @@ return df_out
 
 
 if __name__ == "__main__":
-config_path = "/app/government_rfp_bid_1927/src/agents/discovery_config.json"
+    config_path = str(PathConfig.SRC_DIR / "agents" / "discovery_config.json")
 
-agent = RFPDiscoveryAgent(config_path=config_path)
+    agent = RFPDiscoveryAgent(config_path=config_path)
 
-# If the agent has a discover_opportunities method, use it; otherwise create a small sample DataFrame
-if hasattr(agent, "discover_opportunities"):
-try:
+    # If the agent has a discover_opportunities method, use it; otherwise create a small sample DataFrame
+    if hasattr(agent, "discover_opportunities"):
+        try:
 df_rfps = agent.discover_opportunities(days_window=30, log_samples=2)
 except Exception as e:
 print(f"discover_opportunities failed: {e}")

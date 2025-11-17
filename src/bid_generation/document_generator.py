@@ -12,8 +12,14 @@ from jinja2 import Template, Environment, FileSystemLoader
 import markdown
 from io import BytesIO
 import base64
+
 # Add src to path for imports
-sys.path.insert(0, '/app/government_rfp_bid_1927/src')
+import sys
+import os
+sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..'))
+from config.paths import PathConfig
+# Add src to path for imports
+sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..'))
 class BidDocumentGenerator:
 """
 Generate complete, structured bid documents integrating all pipeline components.
@@ -27,9 +33,9 @@ self,
 rag_engine=None,
 compliance_generator=None,
 pricing_engine=None,
-templates_dir: str = "/app/government_rfp_bid_1927/data/templates",
-content_library_dir: str = "/app/government_rfp_bid_1927/data/content_library",
-output_dir: str = "/app/government_rfp_bid_1927/data/bid_documents"
+templates_dir: str = str(PathConfig.DATA_DIR / "templates"),
+content_library_dir: str = str(PathConfig.DATA_DIR / "content_library"),
+output_dir: str = str(PathConfig.DATA_DIR / "bid_documents")
 ):
 """
 Initialize bid document generator.
@@ -528,7 +534,7 @@ pricing_engine=pricing_engine
 print("✅ Initialized with full pipeline integration")
 print(f"⚠️  Initialized in standalone mode: {e}")
 # Load test RFP
-df = pd.read_parquet('/app/government_rfp_bid_1927/data/processed/rfp_master_dataset.parquet')
+df = pd.read_parquet(str(PathConfig.PROCESSED_DATA_DIR / "rfp_master_dataset.parquet"))
 test_rfp = df[df['description'].notna()].iloc[0].to_dict()
 print(f"\nTest RFP: {test_rfp['title']}")
 print(f"Agency: {test_rfp['agency']}")

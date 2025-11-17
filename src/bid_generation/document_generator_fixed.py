@@ -552,7 +552,7 @@ def main():
         )
         print("✅ Initialized with full pipeline integration")
         # Load test RFP
-        df = pd.read_parquet('/app/government_rfp_bid_1927/data/processed/rfp_master_dataset.parquet')
+        df = pd.read_parquet(str(PathConfig.PROCESSED_DATA_DIR / "rfp_master_dataset.parquet"))
         test_rfp = df[df['description'].notna()].iloc[0].to_dict()
         print(f"\nTest RFP: {test_rfp['title']}")
         print(f"Agency: {test_rfp['agency']}")

@@ -8,7 +8,7 @@ from typing import Dict, Any, List, Optional
 from dataclasses import dataclass
 import sys
 import os
-sys.path.append('/app/government_rfp_bid_1927')
+sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..'))
 from src.pricing.pricing_engine import create_pricing_engine, PricingStrategy, PricingResult
 from src.rag.rag_llm_integration import create_rag_llm_integrator
 @dataclass

@@ -1,6 +1,11 @@
 import React from 'react'
 import { Link, useLocation } from 'react-router-dom'
 import { LayoutDashboard, Search, GitBranch, CheckSquare, Send, Zap } from 'lucide-react'
+import { Button } from '@/components/ui/button'
+import { Badge } from '@/components/ui/badge'
+import { cn } from '@/lib/utils'
+import { WebSocketStatus } from '@/components/WebSocketStatus'
+import { useWebSocket } from '@/hooks/useWebSocket'
 
 interface LayoutProps {
   children: React.ReactNode
@@ -16,6 +21,15 @@ const navigation = [
 
 export default function Layout({ children }: LayoutProps) {
   const location = useLocation()
+
+  // WebSocket connection for real-time updates
+  const { isConnected, reconnect } = useWebSocket({
+    url: 'ws://localhost:8000/ws/pipeline',
+    onMessage: (message) => {
+      console.log('WebSocket message:', message)
+      // Handle real-time updates here
+    }
+  })
 
   return (
     <div className="min-h-screen bg-gray-50 dark:bg-gray-900">
@@ -37,10 +51,7 @@ export default function Layout({ children }: LayoutProps) {
               </div>
             </div>
             <div className="flex items-center space-x-4">
-              <span className="inline-flex items-center px-3 py-1 rounded-full text-xs font-medium bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400">
-                <span className="w-2 h-2 bg-green-500 rounded-full mr-2 animate-pulse"></span>
-                System Online
-              </span>
+              <WebSocketStatus isConnected={isConnected} onReconnect={reconnect} />
             </div>
           </div>
         </div>

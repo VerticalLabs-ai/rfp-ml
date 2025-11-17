@@ -13,8 +13,9 @@ from enum import Enum
 import json
 from pathlib import Path
 
-# Add src to path
-sys.path.insert(0, '/app/government_rfp_bid_1927/src')
+# Add src to path for imports
+sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..'))
+from config.paths import PathConfig
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
@@ -75,7 +76,7 @@ class SubmissionAgent:
         document_generator=None,
         notification_service=None,
         max_concurrent_submissions: int = 5,
-        data_dir: str = "/app/government_rfp_bid_1927/data"
+        data_dir: str | None = None
     ):
         """
         Initialize Submission Agent.
@@ -86,10 +87,13 @@ class SubmissionAgent:
             max_concurrent_submissions: Max parallel submissions
             data_dir: Data directory path
         """
+        # Ensure PathConfig directories are initialized
+        PathConfig.ensure_directories()
+
         self.document_generator = document_generator
         self.notification_service = notification_service
         self.max_concurrent = max_concurrent_submissions
-        self.data_dir = data_dir
+        self.data_dir = data_dir or str(PathConfig.DATA_DIR)
 
         # Submission queue
         self.queue: List[SubmissionJob] = []

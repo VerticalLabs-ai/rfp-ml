@@ -8,7 +8,7 @@ from typing import Optional, Dict, Any
 from dataclasses import dataclass, field
 import sys
 import os
-sys.path.append('/app/government_rfp_bid_1927')
+sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..'))
 from src.config.llm_config import LLMManager, LLMConfig
 @dataclass
 class BidGenerationLLMConfig(LLMConfig):

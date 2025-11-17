@@ -1,7 +1,7 @@
 {
-    "data_source_path": "/app/government_rfp_bid_1927/data/processed/rfp_master_dataset.parquet",
+    "data_source_path": "data/processed/rfp_master_dataset.parquet",
     "target_categories": {
-        "nigp": ["065-XX"], 
+        "nigp": ["065-XX"],
         "naics": ["312112", "236XXX", "237XXX", "484XXX", "492XXX"]
     },
     "triage_thresholds": {
@@ -16,6 +16,6 @@
         "agency_history_weight": 0.15
     },
     "monitoring_interval_hours": 4,
-    "output_directory": "/app/government_rfp_bid_1927/data/discovery/",
+    "output_directory": "data/discovery/",
     "go_nogo_threshold": 60
 }

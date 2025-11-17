@@ -1,5 +1,7 @@
 import React from 'react'
 import { LucideIcon } from 'lucide-react'
+import { Card, CardContent } from '@/components/ui/card'
+import { cn } from '@/lib/utils'
 
 interface StatsCardProps {
   title: string
@@ -39,24 +41,20 @@ export default function StatsCard({ title, value, icon: Icon, trend, highlight, 
   }
 
   return (
-    <div className={`
-      relative overflow-hidden
-      bg-white dark:bg-gray-800
-      rounded-xl shadow-lg hover:shadow-xl
-      transition-all duration-300 hover:-translate-y-1
-      border border-gray-100 dark:border-gray-700
-      ${highlight ? 'ring-2 ring-yellow-400 dark:ring-yellow-500' : ''}
-    `}>
+    <Card className={cn(
+      "relative overflow-hidden hover:shadow-xl transition-all duration-300 hover:-translate-y-1",
+      highlight && "ring-2 ring-yellow-400 dark:ring-yellow-500"
+    )}>
       {/* Gradient accent bar */}
       <div className={`absolute top-0 left-0 right-0 h-1 bg-gradient-to-r ${colorClasses[color]}`} />
 
-      <div className="px-6 py-5">
+      <CardContent className="px-6 py-5">
         <div className="flex items-center">
-          <div className={`
-            flex-shrink-0 rounded-lg p-3
-            ${iconBgClasses[color]}
-          `}>
-            <Icon className={`w-6 h-6 ${iconColorClasses[color]}`} />
+          <div className={cn(
+            "flex-shrink-0 rounded-lg p-3",
+            iconBgClasses[color]
+          )}>
+            <Icon className={cn("w-6 h-6", iconColorClasses[color])} />
           </div>
           <div className="ml-5 w-0 flex-1">
             <dl>
@@ -68,10 +66,10 @@ export default function StatsCard({ title, value, icon: Icon, trend, highlight, 
                   {value}
                 </div>
                 {trend && (
-                  <div className={`
-                    ml-2 flex items-baseline text-sm font-semibold
-                    ${trend.positive ? 'text-green-600 dark:text-green-400' : 'text-red-600 dark:text-red-400'}
-                  `}>
+                  <div className={cn(
+                    "ml-2 flex items-baseline text-sm font-semibold",
+                    trend.positive ? "text-green-600 dark:text-green-400" : "text-red-600 dark:text-red-400"
+                  )}>
                     <span>{trend.positive ? '↑' : '↓'}</span>
                     <span className="ml-0.5">{trend.value}</span>
                   </div>
@@ -80,7 +78,7 @@ export default function StatsCard({ title, value, icon: Icon, trend, highlight, 
             </dl>
           </div>
         </div>
-      </div>
-    </div>
+      </CardContent>
+    </Card>
   )
 }

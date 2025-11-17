@@ -4,6 +4,12 @@ import json
 import pandas as pd
 from datetime import datetime
 
+# Add src to path for imports
+import sys
+import os
+sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..'))
+from config.paths import PathConfig
+
 def evaluate_go_nogo(agent, triaged_df: pd.DataFrame) -> pd.DataFrame:
     from src.decision.go_nogo_engine import GoNoGoEngine
     from dataclasses import asdict
@@ -23,7 +29,7 @@ def evaluate_go_nogo(agent, triaged_df: pd.DataFrame) -> pd.DataFrame:
 
 def export_outputs(df: pd.DataFrame, file_tag="discovered_rfps_sample"):
     now = datetime.now().strftime("%Y%m%d_%H%M%S")
-    out_dir = "/app/government_rfp_bid_1927/data/discovered_rfps"
+    out_dir = str(PathConfig.DATA_DIR / "discovered_rfps")
     os.makedirs(out_dir, exist_ok=True)
     meta = {
         "discovery_timestamp": datetime.now().isoformat(),
@@ -46,9 +52,9 @@ def export_outputs(df: pd.DataFrame, file_tag="discovered_rfps_sample"):
 if __name__ == "__main__":
     from src.agents.discovery_agent import RFPDiscoveryAgent
     agent = RFPDiscoveryAgent(
-        config_path="/app/government_rfp_bid_1927/src/agents/discovery_config.json"
+        config_path=str(PathConfig.SRC_DIR / "agents" / "discovery_config.json")
     )
-    df_all = pd.read_parquet("/app/government_rfp_bid_1927/data/processed/rfp_master_dataset.parquet")
+    df_all = pd.read_parquet(str(PathConfig.PROCESSED_DATA_DIR / "rfp_master_dataset.parquet"))
     triaged = agent.triage_rfps(df_all)
     go_nogo_scored = evaluate_go_nogo(agent, triaged)
     export_outputs(go_nogo_scored)

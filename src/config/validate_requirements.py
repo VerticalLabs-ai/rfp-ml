@@ -3,6 +3,10 @@ Validation script to verify LLM infrastructure meets all requirements
 """
 import sys
 import os
+
+# Add src to path for imports
+sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..'))
+from config.paths import PathConfig
 import time
 import json
 # Add src to path for imports
@@ -38,7 +42,7 @@ def validate_requirement_2():
         except ImportError:
             print("  ✓ python-dotenv not installed, using system environment variables")
         # Check if .env.example exists as documentation
-        env_example_path = "/app/government_rfp_bid_1927/.env.example"
+        env_example_path = str(PathConfig.PROJECT_ROOT / ".env.example")
         if os.path.exists(env_example_path):
             print(f"  ✓ Environment configuration template available at {env_example_path}")
         return True
@@ -131,8 +135,8 @@ def validate_requirement_7():
     """Validate: File structure and organization"""
     print("✓ Checking file structure...")
     required_files = [
-        "/app/government_rfp_bid_1927/src/config/llm_config.py",
-        "/app/government_rfp_bid_1927/.env.example"
+        str(PathConfig.SRC_DIR / "config" / "llm_config.py"),
+        str(PathConfig.PROJECT_ROOT / ".env.example")
     ]
     try:
         for file_path in required_files:
@@ -142,7 +146,7 @@ def validate_requirement_7():
                 print(f"  ✗ {file_path} missing")
                 return False
         # Check if config directory exists
-        config_dir = "/app/government_rfp_bid_1927/src/config"
+        config_dir = str(PathConfig.SRC_DIR / "config")
         if os.path.isdir(config_dir):
             print(f"  ✓ Configuration directory structure created")
         return True

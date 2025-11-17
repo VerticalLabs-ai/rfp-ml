@@ -7,9 +7,11 @@ import os
 import time
 import json
 from typing import Dict, Any
-# Add project root to path
-sys.path.append('/app/government_rfp_bid_1927')
-from src.rag.rag_engine import RAGEngine, RAGConfig
+
+# Add src to path for imports
+sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..'))
+from rag.rag_engine import RAGEngine, RAGConfig
+from config.paths import PathConfig
 def build_comprehensive_index(force_rebuild: bool = False) -> Dict[str, Any]:
     """
     Build comprehensive FAISS index from all RFP datasets
@@ -118,8 +120,9 @@ def build_comprehensive_index(force_rebuild: bool = False) -> Dict[str, Any]:
             "total_build_time": total_time
         }
         # Save results to file
-        results_path = "/app/government_rfp_bid_1927/logs/rag_build_results.json"
-        os.makedirs(os.path.dirname(results_path), exist_ok=True)
+        logs_dir = PathConfig.PROJECT_ROOT / "logs"
+        logs_dir.mkdir(exist_ok=True)
+        results_path = logs_dir / "rag_build_results.json"
         with open(results_path, 'w') as f:
             json.dump(final_results, f, indent=2)
         print(f"\n📄 Results saved to: {results_path}")

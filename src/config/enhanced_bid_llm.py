@@ -9,7 +9,7 @@ import time
 from typing import Dict, Any, List, Optional
 from dataclasses import dataclass
 # Add project root to path
-sys.path.append('/app/government_rfp_bid_1927')
+sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..'))
 from src.config.llm_config import LLMManager, LLMConfig
 @dataclass
 class EnhancedBidConfig:

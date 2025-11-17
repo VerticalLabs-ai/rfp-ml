@@ -3,9 +3,11 @@ import os
 import time
 import json
 from typing import Dict, List, Any
-# Add the src directory to path
-sys.path.append('/app/government_rfp_bid_1927/src')
+
+# Add src to path for imports
+sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..'))
 from rag.rag_engine import RAGEngine
+from config.paths import PathConfig
 class RAGValidator:
     """Validate RAG system performance and operational metrics."""
     def __init__(self):
@@ -190,7 +192,7 @@ def main():
     # Generate comprehensive validation report
     report = validator.generate_comprehensive_report()
     # Save report
-    report_path = '/app/government_rfp_bid_1927/data/embeddings/validation_report.json'
+    report_path = PathConfig.EMBEDDINGS_DIR / 'validation_report.json'
     with open(report_path, 'w') as f:
         json.dump(report, f, indent=2)
     print(f"\nDetailed report saved to: {report_path}")

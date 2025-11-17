@@ -13,6 +13,12 @@ from dataclasses import dataclass
 from enum import Enum
 import warnings
 from datetime import datetime
+
+# Add src to path for imports
+import sys
+import os
+sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..'))
+from config.paths import PathConfig
 # Configure logging
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
@@ -56,8 +62,8 @@ class PricingEngineFixed:
     Simplified AI-powered pricing engine with robust error handling
     """
     def __init__(self, 
-                 processed_data_dir: str = "/app/government_rfp_bid_1927/data/processed",
-                 pricing_data_dir: str = "/app/government_rfp_bid_1927/data/pricing",
+                 processed_data_dir: str = str(PathConfig.DATA_DIR / "processed"),
+                 pricing_data_dir: str = str(PathConfig.DATA_DIR / "pricing"),
                  default_margin: float = 0.40,
                  min_margin: float = 0.15,
                  max_margin: float = 0.50):

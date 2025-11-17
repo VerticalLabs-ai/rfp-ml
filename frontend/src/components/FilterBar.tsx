@@ -1,4 +1,14 @@
 import React from 'react';
+import { Card, CardContent } from '@/components/ui/card';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
 
 interface FilterBarProps {
   onFilterChange: (filters: any) => void;
@@ -11,45 +21,55 @@ interface FilterBarProps {
 
 export default function FilterBar({ onFilterChange, filters }: FilterBarProps) {
   return (
-    <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-4 mb-6">
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-        <div>
-          <label className="block text-sm font-medium mb-1">Search</label>
-          <input
-            type="text"
-            placeholder="Search RFPs..."
-            value={filters.search || ''}
-            onChange={(e) => onFilterChange({ ...filters, search: e.target.value })}
-            className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700"
-          />
+    <Card>
+      <CardContent className="p-4">
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+          <div className="space-y-2">
+            <Label htmlFor="search">Search</Label>
+            <Input
+              id="search"
+              type="text"
+              placeholder="Search RFPs..."
+              value={filters.search || ''}
+              onChange={(e) => onFilterChange({ ...filters, search: e.target.value })}
+            />
+          </div>
+          <div className="space-y-2">
+            <Label htmlFor="stage">Stage</Label>
+            <Select
+              value={filters.stage || ''}
+              onValueChange={(value) => onFilterChange({ ...filters, stage: value })}
+            >
+              <SelectTrigger id="stage">
+                <SelectValue placeholder="All Stages" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="">All Stages</SelectItem>
+                <SelectItem value="discovered">Discovered</SelectItem>
+                <SelectItem value="triaged">Triaged</SelectItem>
+                <SelectItem value="analyzing">Analyzing</SelectItem>
+                <SelectItem value="approved">Approved</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+          <div className="space-y-2">
+            <Label htmlFor="sortBy">Sort By</Label>
+            <Select
+              value={filters.sortBy || 'score'}
+              onValueChange={(value) => onFilterChange({ ...filters, sortBy: value })}
+            >
+              <SelectTrigger id="sortBy">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="score">Score (High to Low)</SelectItem>
+                <SelectItem value="deadline">Deadline (Nearest)</SelectItem>
+                <SelectItem value="recent">Most Recent</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
         </div>
-        <div>
-          <label className="block text-sm font-medium mb-1">Stage</label>
-          <select
-            value={filters.stage || ''}
-            onChange={(e) => onFilterChange({ ...filters, stage: e.target.value })}
-            className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700"
-          >
-            <option value="">All Stages</option>
-            <option value="discovered">Discovered</option>
-            <option value="triaged">Triaged</option>
-            <option value="analyzing">Analyzing</option>
-            <option value="approved">Approved</option>
-          </select>
-        </div>
-        <div>
-          <label className="block text-sm font-medium mb-1">Sort By</label>
-          <select
-            value={filters.sortBy || 'score'}
-            onChange={(e) => onFilterChange({ ...filters, sortBy: e.target.value })}
-            className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700"
-          >
-            <option value="score">Score (High to Low)</option>
-            <option value="deadline">Deadline (Nearest)</option>
-            <option value="recent">Most Recent</option>
-          </select>
-        </div>
-      </div>
-    </div>
+      </CardContent>
+    </Card>
   );
 }

@@ -515,7 +515,7 @@ def main():
         )
         print("✅ Decision engine initialized with full pipeline integration")
         # Load test RFPs
-        df = pd.read_parquet('/app/government_rfp_bid_1927/data/processed/rfp_master_dataset.parquet')
+        df = pd.read_parquet(str(PathConfig.PROCESSED_DATA_DIR / "rfp_master_dataset.parquet"))
         test_rfps = []
         # Get diverse test cases
         for i in [0, 5, 10]:  # Different RFPs for variety

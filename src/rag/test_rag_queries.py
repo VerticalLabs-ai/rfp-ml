@@ -4,9 +4,11 @@ Quick test script to demonstrate RAG functionality with sample queries.
 """
 import sys
 import os
-sys.path.append('/app/government_rfp_bid_1927/src')
-from rag.rag_engine import RAGEngine
 import json
+
+# Add src to path for imports
+sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..'))
+from rag.rag_engine import RAGEngine
 def test_rag_queries():
     """Test RAG with specific queries for each sector."""
     print("Initializing RAG Engine...")

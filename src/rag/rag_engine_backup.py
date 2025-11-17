@@ -1,4 +1,5 @@
 import os
+import sys
 import pickle
 import logging
 from typing import List, Dict, Any, Optional, Tuple
@@ -8,6 +9,10 @@ from sentence_transformers import SentenceTransformer
 import faiss
 import json
 from datetime import datetime
+
+# Add src to path for imports
+sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..'))
+from config.paths import PathConfig
 class RAGEngine:
     """
     Retrieval-Augmented Generation engine for RFP datasets.
@@ -18,8 +23,8 @@ class RAGEngine:
         model_name: str = "all-MiniLM-L6-v2",
         chunk_size: int = 512,
         chunk_overlap: int = 50,
-        embeddings_dir: str = "/app/government_rfp_bid_1927/data/embeddings",
-        processed_data_dir: str = "/app/government_rfp_bid_1927/data/processed"
+        embeddings_dir: str | None = None,
+        processed_data_dir: str | None = None
     ):
         """
         Initialize RAG engine with configurable parameters.
@@ -30,11 +35,14 @@ class RAGEngine:
             embeddings_dir: Directory to store embeddings and FAISS index
             processed_data_dir: Directory containing processed RFP data
         """
+        # Ensure PathConfig directories are initialized
+        PathConfig.ensure_directories()
+
         self.model_name = model_name
         self.chunk_size = chunk_size
         self.chunk_overlap = chunk_overlap
-        self.embeddings_dir = embeddings_dir
-        self.processed_data_dir = processed_data_dir
+        self.embeddings_dir = embeddings_dir or str(PathConfig.EMBEDDINGS_DIR)
+        self.processed_data_dir = processed_data_dir or str(PathConfig.PROCESSED_DATA_DIR)
         # Create directories if they don't exist
         os.makedirs(self.embeddings_dir, exist_ok=True)
         # Initialize logging

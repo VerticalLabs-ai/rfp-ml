@@ -4,6 +4,7 @@ This module implements a vector-based retrieval system that indexes processed RF
 and provides semantic search capabilities for generating contextual bid responses.
 """
 import os
+import sys
 import json
 import pickle
 import logging
@@ -12,6 +13,10 @@ import pandas as pd
 from typing import List, Dict, Any, Optional, Tuple
 from dataclasses import dataclass, field
 from pathlib import Path
+
+# Add src to path for imports
+sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..'))
+from config.paths import PathConfig
 try:
     import faiss
     FAISS_AVAILABLE = True
@@ -34,9 +39,9 @@ except ImportError:
 @dataclass
 class RAGConfig:
     """Configuration for RAG Engine"""
-    # Paths
-    data_dir: str = "/app/government_rfp_bid_1927/data/processed"
-    embeddings_dir: str = "/app/government_rfp_bid_1927/data/embeddings"
+    # Paths - use PathConfig for environment-agnostic paths
+    data_dir: str = field(default_factory=lambda: str(PathConfig.PROCESSED_DATA_DIR))
+    embeddings_dir: str = field(default_factory=lambda: str(PathConfig.EMBEDDINGS_DIR))
     # Model settings
     embedding_model: str = "all-MiniLM-L6-v2"  # Fast and efficient
     # embedding_model: str = "all-mpnet-base-v2"  # Higher quality option

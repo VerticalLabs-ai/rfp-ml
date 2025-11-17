@@ -6,6 +6,12 @@ import os
 import time
 import json
 from pathlib import Path
+
+# Add src to path for imports
+import sys
+import os
+sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..'))
+from config.paths import PathConfig
 # Add src to path for imports
 sys.path.append(os.path.join(os.path.dirname(__file__), '..'))
 from pricing.pricing_engine import (
@@ -262,13 +268,13 @@ def validate_requirement_7():
     print("✓ Checking file structure and API design...")
     try:
         # Check file structure
-        pricing_module = Path("/app/government_rfp_bid_1927/src/pricing/pricing_engine.py")
+        pricing_module = PathConfig.SRC_DIR / "pricing" / "pricing_engine.py"
         if not pricing_module.exists():
             print(f"  ✗ Pricing module not found: {pricing_module}")
             return False
         print(f"  ✓ Pricing module exists: {pricing_module}")
         # Check cost baselines file
-        baselines_file = Path("/app/government_rfp_bid_1927/data/pricing/cost_baselines.json")
+        baselines_file = PathConfig.PRICING_DIR / "cost_baselines.json"
         if baselines_file.exists():
             print(f"  ✓ Cost baselines file created: {baselines_file}")
         # Check API functions

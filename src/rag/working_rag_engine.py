@@ -11,18 +11,21 @@ import time
 from typing import List, Dict, Any, Optional, Tuple
 import numpy as np
 import pandas as pd
+
 # Core ML libraries
 import faiss
 from sentence_transformers import SentenceTransformer
-# Add project root to path
-sys.path.append('/app/government_rfp_bid_1927')
+
+# Add src to path for imports
+sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..'))
+from config.paths import PathConfig
 class WorkingRAGEngine:
     """
     Working RAG Engine that uses existing FAISS index and embeddings
     for semantic search across RFP datasets
     """
-    def __init__(self, embeddings_dir: str = "/app/government_rfp_bid_1927/data/embeddings/"):
-        self.embeddings_dir = embeddings_dir
+    def __init__(self, embeddings_dir: str | None = None):
+        self.embeddings_dir = embeddings_dir or str(PathConfig.EMBEDDINGS_DIR)
         self.index = None
         self.metadata = []
         self.embedding_model = None

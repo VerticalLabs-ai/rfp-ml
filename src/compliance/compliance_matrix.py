@@ -540,12 +540,12 @@ class ComplianceMatrixGenerator:
 def main():
     """Main function for testing compliance matrix generator."""
     import sys
-    sys.path.insert(0, '/app/government_rfp_bid_1927/src')
+    sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
     # Initialize compliance matrix generator
     generator = ComplianceMatrixGenerator()
     # Load a sample RFP for testing
     try:
-        df = pd.read_parquet('/app/government_rfp_bid_1927/data/processed/rfp_master_dataset.parquet')
+        df = pd.read_parquet(str(PathConfig.PROCESSED_DATA_DIR / "rfp_master_dataset.parquet"))
         sample_rfp = df[df['description'].notna()].iloc[0].to_dict()
         print("Testing Compliance Matrix Generator")
         print("=" * 50)
