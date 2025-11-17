@@ -12,8 +12,9 @@ import pandas as pd
 import numpy as np
 from dataclasses import dataclass, asdict
 import statistics
-# Add src to path for imports
-sys.path.insert(0, '/app/government_rfp_bid_1927/src')
+
+# Import path configuration
+from config.paths import PathConfig
 @dataclass
 class PricingStrategy:
     """Pricing strategy configuration."""
@@ -54,8 +55,8 @@ class PricingEngine:
         self,
         rag_engine=None,
         compliance_generator=None,
-        data_dir: str = "/app/government_rfp_bid_1927/data/processed",
-        pricing_dir: str = "/app/government_rfp_bid_1927/data/pricing",
+        data_dir: str | None = None,
+        pricing_dir: str | None = None,
         target_margin: float = 0.40,
         minimum_margin: float = 0.15
     ):
@@ -69,10 +70,13 @@ class PricingEngine:
             target_margin: Target profit margin (default 40%)
             minimum_margin: Minimum acceptable margin (default 15%)
         """
+        # Ensure PathConfig directories are initialized
+        PathConfig.ensure_directories()
+
         self.rag_engine = rag_engine
         self.compliance_generator = compliance_generator
-        self.data_dir = data_dir
-        self.pricing_dir = pricing_dir
+        self.data_dir = data_dir or str(PathConfig.PROCESSED_DATA_DIR)
+        self.pricing_dir = pricing_dir or str(PathConfig.PRICING_DIR)
         self.target_margin = target_margin
         self.minimum_margin = minimum_margin
         # Create directories
@@ -652,7 +656,7 @@ def main():
         # Initialize pricing engine
         pricing_engine = PricingEngine()
         # Load a sample RFP
-        df = pd.read_parquet('/app/government_rfp_bid_1927/data/processed/rfp_master_dataset.parquet')
+        df = pd.read_parquet(os.path.join(pricing_engine.data_dir, 'rfp_master_dataset.parquet'))
         sample_rfp = df[df['description'].notna()].iloc[0].to_dict()
         print(f"Sample RFP: {sample_rfp['title']}")
         print(f"Agency: {sample_rfp['agency']}")

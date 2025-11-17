@@ -12,8 +12,9 @@ from datetime import datetime
 import pandas as pd
 import numpy as np
 from dataclasses import dataclass, asdict
-# Add src to path for imports
-sys.path.insert(0, '/app/government_rfp_bid_1927/src')
+
+# Import path configuration
+from config.paths import PathConfig
 @dataclass
 class DecisionCriteria:
     """Decision criteria configuration."""
@@ -52,8 +53,8 @@ class GoNoGoEngine:
         compliance_generator=None,
         pricing_engine=None,
         document_generator=None,
-        config_dir: str = "/app/government_rfp_bid_1927/data/config",
-        historical_data_dir: str = "/app/government_rfp_bid_1927/data/processed"
+        config_dir: str | None = None,
+        historical_data_dir: str | None = None
     ):
         """
         Initialize Go/No-Go decision engine.
@@ -65,12 +66,15 @@ class GoNoGoEngine:
             config_dir: Directory for decision configuration
             historical_data_dir: Directory with historical RFP data
         """
+        # Ensure PathConfig directories are initialized
+        PathConfig.ensure_directories()
+
         self.rag_engine = rag_engine
         self.compliance_generator = compliance_generator
         self.pricing_engine = pricing_engine
         self.document_generator = document_generator
-        self.config_dir = config_dir
-        self.historical_data_dir = historical_data_dir
+        self.config_dir = config_dir or str(PathConfig.DATA_DIR / "config")
+        self.historical_data_dir = historical_data_dir or str(PathConfig.PROCESSED_DATA_DIR)
         # Create directories
         os.makedirs(self.config_dir, exist_ok=True)
         # Initialize logging

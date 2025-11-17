@@ -8,8 +8,9 @@ import os
 import time
 import json
 import pandas as pd
-# Add src to path
-sys.path.insert(0, '/app/government_rfp_bid_1927/src')
+
+# Add src to path for imports
+sys.path.insert(0, os.path.join(os.path.dirname(__file__), 'src'))
 def test_complete_bid_generation_system():
     """Test the complete autonomous bid generation system."""
     print("=" * 80)
@@ -36,9 +37,13 @@ def test_complete_bid_generation_system():
             document_generator=doc_generator
         )
         print("✅ Complete system initialized with all integrations")
+        # Import PathConfig for consistent path handling
+        from config.paths import PathConfig
+
         # Load diverse test RFPs
         print("\n📋 Loading diverse test RFPs...")
-        df = pd.read_parquet('/app/government_rfp_bid_1927/data/processed/rfp_master_dataset.parquet')
+        data_path = PathConfig.PROCESSED_DATA_DIR / 'rfp_master_dataset.parquet'
+        df = pd.read_parquet(data_path)
         # Select test cases with different characteristics
         test_rfps = []
         for i in [0, 3, 7, 12]:  # Different RFPs for variety

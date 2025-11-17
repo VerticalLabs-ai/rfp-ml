@@ -11,8 +11,9 @@ from typing import List, Dict, Any, Optional, Tuple
 from datetime import datetime
 import pandas as pd
 import numpy as np
-# Add src to path for imports
-sys.path.insert(0, '/app/government_rfp_bid_1927/src')
+
+# Import path configuration
+from config.paths import PathConfig
 class ComplianceMatrixGenerator:
     """
     Generate compliance matrices that map RFP requirements to bid responses.
@@ -22,21 +23,24 @@ class ComplianceMatrixGenerator:
         self,
         rag_engine=None,
         llm_config=None,
-        output_dir: str = "/app/government_rfp_bid_1927/data/compliance",
-        templates_dir: str = "/app/government_rfp_bid_1927/data/templates"
+        output_dir: str | None = None,
+        templates_dir: str | None = None
     ):
         """
         Initialize compliance matrix generator.
         Args:
             rag_engine: RAG engine instance for context retrieval
             llm_config: LLM configuration for requirement extraction
-            output_dir: Directory for compliance matrix outputs
-            templates_dir: Directory for response templates
+            output_dir: Directory for compliance matrix outputs (defaults to PathConfig)
+            templates_dir: Directory for response templates (defaults to PathConfig)
         """
+        # Ensure PathConfig directories are initialized
+        PathConfig.ensure_directories()
+
         self.rag_engine = rag_engine
         self.llm_config = llm_config
-        self.output_dir = output_dir
-        self.templates_dir = templates_dir
+        self.output_dir = output_dir or str(PathConfig.COMPLIANCE_DIR)
+        self.templates_dir = templates_dir or str(PathConfig.TEMPLATES_DIR)
         # Create directories
         os.makedirs(self.output_dir, exist_ok=True)
         os.makedirs(self.templates_dir, exist_ok=True)

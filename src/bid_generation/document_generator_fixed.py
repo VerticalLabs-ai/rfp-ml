@@ -12,8 +12,9 @@ from datetime import datetime, timedelta
 import pandas as pd
 from jinja2 import Template, Environment, FileSystemLoader
 import markdown
-# Add src to path for imports
-sys.path.insert(0, '/app/government_rfp_bid_1927/src')
+
+# Import path configuration
+from config.paths import PathConfig
 class BidDocumentGenerator:
     """
     Generate complete, structured bid documents integrating all pipeline components.
@@ -23,17 +24,20 @@ class BidDocumentGenerator:
         rag_engine=None,
         compliance_generator=None,
         pricing_engine=None,
-        templates_dir: str = "/app/government_rfp_bid_1927/data/templates",
-        content_library_dir: str = "/app/government_rfp_bid_1927/data/content_library",
-        output_dir: str = "/app/government_rfp_bid_1927/data/bid_documents"
+        templates_dir: str | None = None,
+        content_library_dir: str | None = None,
+        output_dir: str | None = None
     ):
         """Initialize bid document generator."""
+        # Ensure PathConfig directories are initialized
+        PathConfig.ensure_directories()
+
         self.rag_engine = rag_engine
         self.compliance_generator = compliance_generator
         self.pricing_engine = pricing_engine
-        self.templates_dir = templates_dir
-        self.content_library_dir = content_library_dir
-        self.output_dir = output_dir
+        self.templates_dir = templates_dir or str(PathConfig.TEMPLATES_DIR)
+        self.content_library_dir = content_library_dir or str(PathConfig.CONTENT_LIBRARY_DIR)
+        self.output_dir = output_dir or str(PathConfig.BID_DOCUMENTS_DIR)
         # Create directories
         os.makedirs(self.templates_dir, exist_ok=True)
         os.makedirs(self.content_library_dir, exist_ok=True)
