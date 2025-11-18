@@ -23,8 +23,9 @@ export default function Layout({ children }: LayoutProps) {
   const location = useLocation()
 
   // WebSocket connection for real-time updates
+  const wsUrl = import.meta.env.VITE_WS_URL || 'ws://localhost:8000/ws/pipeline'
   const { isConnected, reconnect } = useWebSocket({
-    url: 'ws://localhost:8000/ws/pipeline',
+    url: wsUrl,
     onMessage: (message) => {
       console.log('WebSocket message:', message)
       // Handle real-time updates here

@@ -60,7 +60,7 @@ A modern, robust frontend UI for the RFP (Request for Proposal) Bid Generation S
 
 ## Project Structure
 
-```
+```text
 frontend/
 ├── src/
 │   ├── components/       # React components

@@ -1,12 +1,11 @@
 # This script defines Go/No-Go scoring and export for discovered RFPs using the agent.
 import os
+import sys
 import json
 import pandas as pd
 from datetime import datetime
 
 # Add src to path for imports
-import sys
-import os
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..'))
 from config.paths import PathConfig
 
@@ -20,7 +19,7 @@ def evaluate_go_nogo(agent, triaged_df: pd.DataFrame) -> pd.DataFrame:
         try:
             decision = nogo_engine.analyze_rfp_opportunity(rfp_data)
             decision_dict = asdict(decision)
-        except Exception as e:
+        except Exception:
             decision_dict = {"recommendation": "error", "overall_score": -1, "confidence_level": 0}
         full_row = rfp_data.copy()
         full_row.update(decision_dict)
@@ -48,6 +47,7 @@ def export_outputs(df: pd.DataFrame, file_tag="discovered_rfps_sample"):
     df.to_csv(csv_path, index=False)
     print(f"Exported JSON: {json_path}\nExported CSV: {csv_path}")
     return json_path, csv_path
+
 
 if __name__ == "__main__":
     from src.agents.discovery_agent import RFPDiscoveryAgent

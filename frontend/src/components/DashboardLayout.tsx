@@ -90,20 +90,21 @@ export function DashboardLayout() {
           <div className="flex items-center justify-between">
             <div className="flex items-center flex-1 max-w-2xl">
               <div className="relative w-full">
-                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
+                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" aria-hidden="true" />
                 <Input
                   type="search"
                   placeholder="Search RFPs..."
                   className="pl-10 w-full"
+                  aria-label="Search RFPs"
                 />
               </div>
             </div>
 
             <div className="flex items-center space-x-4 ml-6">
-              <Button variant="ghost" size="icon">
+              <Button variant="ghost" size="icon" aria-label="Notifications">
                 <Bell className="h-5 w-5" />
               </Button>
-              <Button variant="ghost" size="icon">
+              <Button variant="ghost" size="icon" aria-label="User account">
                 <User className="h-5 w-5" />
               </Button>
             </div>

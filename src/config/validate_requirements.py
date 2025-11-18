@@ -3,14 +3,12 @@ Validation script to verify LLM infrastructure meets all requirements
 """
 import sys
 import os
+import time
+import json
 
 # Add src to path for imports
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..'))
 from config.paths import PathConfig
-import time
-import json
-# Add src to path for imports
-sys.path.append(os.path.join(os.path.dirname(__file__), '..'))
 from config.llm_config import (
     LLMConfigManager, 
     test_llm_connection,

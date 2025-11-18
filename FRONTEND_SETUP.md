@@ -72,7 +72,7 @@ The frontend will be available at: **[http://localhost:3000](http://localhost:30
 
 ### Tech Stack
 
-```
+```text
 React 18.3 + TypeScript 5.7
 Vite 6.0 (Build Tool)
 Tailwind CSS 4.1
@@ -85,7 +85,7 @@ Sonner (Toast Notifications)
 
 ### Project Structure
 
-```
+```text
 frontend/
 ├── src/
 │   ├── components/

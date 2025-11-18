@@ -31,9 +31,10 @@ export function WebSocketStatus({
         ) : (
           <WifiOff className="w-3 h-3 mr-1" />
         )}
-        <span className="w-2 h-2 rounded-full mr-2 animate-pulse"
-          style={{ backgroundColor: isConnected ? '#22c55e' : '#ef4444' }}
-        />
+        <span className={cn(
+          "w-2 h-2 rounded-full mr-2 animate-pulse",
+          isConnected ? "bg-green-500" : "bg-red-500"
+        )} />
         {isConnected ? 'Live' : 'Disconnected'}
       </Badge>
 

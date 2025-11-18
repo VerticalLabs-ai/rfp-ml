@@ -8,12 +8,8 @@ import json
 from pathlib import Path
 
 # Add src to path for imports
-import sys
-import os
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..'))
 from config.paths import PathConfig
-# Add src to path for imports
-sys.path.append(os.path.join(os.path.dirname(__file__), '..'))
 from pricing.pricing_engine import (
     create_pricing_engine, calculate_bid_price, validate_pricing_compliance,
     PricingStrategy, RiskLevel

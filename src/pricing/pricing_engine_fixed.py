@@ -3,6 +3,7 @@ Fixed AI-Powered Pricing Engine for Government RFP Bid Generation
 Simplified version with robust error handling and fallback mechanisms
 """
 import os
+import sys
 import json
 import logging
 import numpy as np
@@ -15,8 +16,6 @@ import warnings
 from datetime import datetime
 
 # Add src to path for imports
-import sys
-import os
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..'))
 from config.paths import PathConfig
 # Configure logging
