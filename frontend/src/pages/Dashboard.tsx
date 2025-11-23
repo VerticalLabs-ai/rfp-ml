@@ -1,4 +1,3 @@
-import React from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { Search, Settings, FileText, Send, CheckCircle, Clock, XCircle } from 'lucide-react';
 import { api } from '../services/api';
@@ -68,7 +67,7 @@ export default function Dashboard() {
             value={stats?.pending_reviews || 0}
             icon={FileText}
             color="orange"
-            highlight={stats?.pending_reviews > 0}
+            highlight={(stats?.pending_reviews || 0) > 0}
           />
           <StatsCard
             title="Submitted"
@@ -103,7 +102,7 @@ export default function Dashboard() {
             value={submissionStats?.failed || 0}
             icon={XCircle}
             color="red"
-            highlight={submissionStats?.failed > 0}
+            highlight={(submissionStats?.failed || 0) > 0}
           />
         </div>
       </div>

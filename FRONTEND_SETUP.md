@@ -4,7 +4,20 @@ This guide explains how to run the robust RFP Dashboard frontend built with Reac
 
 ## Quick Start
 
-### 1. Navigate to Frontend Directory
+### 1. Run with Docker (Recommended)
+
+The easiest way to run the frontend (along with the backend) is using Docker Compose:
+
+```bash
+docker-compose up -d --build
+```
+
+- **Frontend**: http://localhost:80
+- **Backend**: http://localhost:8000
+
+### 2. Manual Setup (Alternative)
+
+#### Navigate to Frontend Directory
 
 ```bash
 cd frontend
@@ -115,7 +128,8 @@ frontend/
 
 ```bash
 # From project root
-uvicorn api.app.main:app --reload --host 0.0.0.0 --port 8000
+cd api
+uvicorn app.main:app --reload --host 0.0.0.0 --port 8000
 ```
 
 Backend will be available at: [http://localhost:8000](http://localhost:8000)

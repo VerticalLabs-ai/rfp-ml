@@ -1,7 +1,6 @@
-import React from 'react'
 import { useQuery } from '@tanstack/react-query'
-import { api } from '../services/api'
 import PipelineKanban from '../components/PipelineKanban'
+import { api } from '../services/api'
 
 export default function PipelineMonitor() {
   const { data: pipelineStatus, isLoading } = useQuery({
@@ -21,7 +20,7 @@ export default function PipelineMonitor() {
       {isLoading ? (
         <div className="text-center py-12">Loading pipeline...</div>
       ) : (
-        <PipelineKanban stages={pipelineStatus?.stages || {}} />
+        <PipelineKanban rfps={pipelineStatus?.rfps || []} />
       )}
     </div>
   )

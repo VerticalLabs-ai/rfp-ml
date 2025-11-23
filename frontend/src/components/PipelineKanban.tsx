@@ -1,4 +1,3 @@
-import React from 'react';
 import { Link } from 'react-router-dom';
 
 interface RFP {
@@ -25,7 +24,7 @@ const stages = [
 
 export default function PipelineKanban({ rfps }: PipelineKanbanProps) {
   const getRFPsByStage = (stage: string) => {
-    return rfps.filter((rfp) => rfp.current_stage === stage);
+    return (rfps || []).filter((rfp) => rfp.current_stage === stage);
   };
 
   return (

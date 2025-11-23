@@ -1,41 +1,79 @@
 """
 WebSocket endpoints for real-time updates.
 """
-from fastapi import APIRouter, WebSocket, WebSocketDisconnect
-from typing import List
+from fastapi import APIRouter, WebSocket, WebSocketDisconnect, Depends
+from typing import List, Optional, Dict
 import json
 import asyncio
+from sqlalchemy.orm import Session
+from app.core.database import get_db
+from app.services.rfp_service import RFPService
+from app.services.rfp_processor import processor # To get current bid content
 
 router = APIRouter()
 
 
 class ConnectionManager:
-    """Manages WebSocket connections."""
+    """Manages WebSocket connections for general updates and specific document editing."""
 
     def __init__(self):
-        self.active_connections: List[WebSocket] = []
+        self.active_connections: List[WebSocket] = [] # For general pipeline updates
+        self.document_connections: Dict[str, List[WebSocket]] = {} # For document-specific editing
 
-    async def connect(self, websocket: WebSocket):
-        """Accept and store new WebSocket connection."""
+    async def connect(self, websocket: WebSocket, doc_id: Optional[str] = None):
+        """Accept and store new WebSocket connection.
+        If doc_id is provided, connection is for document editing.
+        """
         await websocket.accept()
-        self.active_connections.append(websocket)
+        if doc_id:
+            if doc_id not in self.document_connections:
+                self.document_connections[doc_id] = []
+            self.document_connections[doc_id].append(websocket)
+            print(f"WebSocket connected for document {doc_id}. Total connections: {len(self.document_connections[doc_id])}")
+        else:
+            self.active_connections.append(websocket)
+            print(f"General WebSocket connected. Total connections: {len(self.active_connections)}")
 
-    def disconnect(self, websocket: WebSocket):
-        """Remove WebSocket connection."""
-        self.active_connections.remove(websocket)
+    def disconnect(self, websocket: WebSocket, doc_id: Optional[str] = None):
+        """Remove WebSocket connection.
+        If doc_id is provided, remove from document connections, otherwise from general.
+        """
+        if doc_id and doc_id in self.document_connections:
+            self.document_connections[doc_id].remove(websocket)
+            if not self.document_connections[doc_id]: # Remove doc_id if no more connections
+                del self.document_connections[doc_id]
+            print(f"WebSocket disconnected for document {doc_id}.")
+        elif websocket in self.active_connections:
+            self.active_connections.remove(websocket)
+            print(f"General WebSocket disconnected.")
 
     async def send_personal_message(self, message: str, websocket: WebSocket):
         """Send message to specific client."""
         await websocket.send_text(message)
 
     async def broadcast(self, message: dict):
-        """Broadcast message to all connected clients."""
+        """Broadcast message to all general connected clients."""
         message_str = json.dumps(message)
         for connection in self.active_connections:
             try:
                 await connection.send_text(message_str)
             except:
-                pass  # Connection may be closed
+                print(f"Error broadcasting to a general connection. Removing.")
+                self.active_connections.remove(connection) # Remove dead connection
+
+    async def broadcast_document_update(self, doc_id: str, message: dict, exclude_websocket: Optional[WebSocket] = None):
+        """Broadcast message to all clients connected to a specific document, excluding sender if specified."""
+        if doc_id not in self.document_connections:
+            return
+        
+        message_str = json.dumps(message)
+        for connection in self.document_connections[doc_id]:
+            if connection != exclude_websocket: # Don't send back to the client who sent it
+                try:
+                    await connection.send_text(message_str)
+                except:
+                    print(f"Error broadcasting to a document connection ({doc_id}). Removing.")
+                    self.document_connections[doc_id].remove(connection) # Remove dead connection
 
 
 manager = ConnectionManager()
@@ -59,6 +97,42 @@ async def websocket_pipeline_updates(websocket: WebSocket):
 
     except WebSocketDisconnect:
         manager.disconnect(websocket)
+
+
+@router.websocket("/edit/{bid_document_id}")
+async def websocket_document_edit(websocket: WebSocket, bid_document_id: str, db: Session = Depends(get_db)):
+    """WebSocket endpoint for real-time collaborative document editing."""
+    await manager.connect(websocket, doc_id=bid_document_id)
+    try:
+        # On connect, send the current document content to the new client
+        bid_doc_content = processor.get_bid_document(bid_document_id)
+        if bid_doc_content:
+            await manager.send_personal_message(json.dumps({"type": "initial_content", "content": bid_doc_content["content"]["markdown"]}), websocket)
+        else:
+            await manager.send_personal_message(json.dumps({"type": "error", "message": "Document not found"}), websocket)
+
+        while True:
+            data = await websocket.receive_text()
+            message = json.loads(data)
+
+            if message["type"] == "document_update":
+                # This is a simplified approach: client sends full content, server broadcasts.
+                # For true OT/CRDT, changes would be operational transforms.
+                updated_content = message["content"]
+                # Optional: Persist update to DB (or periodically save)
+                # Update the in-memory processor as well
+                processor.update_bid_document_content(bid_document_id, updated_content)
+
+                # Broadcast to other clients for this document
+                await manager.broadcast_document_update(
+                    bid_document_id,
+                    {"type": "document_update", "content": updated_content},
+                    exclude_websocket=websocket
+                )
+            # Add other message types if needed (e.g., cursor position, comments)
+
+    except WebSocketDisconnect:
+        manager.disconnect(websocket, doc_id=bid_document_id)
 
 
 async def broadcast_rfp_update(rfp_id: str, stage: str, data: dict = None):

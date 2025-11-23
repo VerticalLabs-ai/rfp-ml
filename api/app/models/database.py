@@ -25,6 +25,7 @@ class PipelineStage(str, PyEnum):
     SUBMITTED = "submitted"
     REJECTED = "rejected"
     FAILED = "failed"
+    AWARDED = "awarded"
 
 
 class SubmissionStatus(str, PyEnum):
@@ -88,6 +89,7 @@ class RFPOpportunity(Base):
     bid_document = relationship("BidDocument", back_populates="rfp", uselist=False)
     submissions = relationship("Submission", back_populates="rfp")
     pipeline_events = relationship("PipelineEvent", back_populates="rfp")
+    post_award_checklist = relationship("PostAwardChecklist", back_populates="rfp", uselist=False)
 
 
 class ComplianceMatrix(Base):
@@ -256,6 +258,55 @@ class PipelineEvent(Base):
     rfp = relationship("RFPOpportunity", back_populates="pipeline_events")
 
 
+class PostAwardChecklist(Base):
+    """Post-award compliance checklist for an awarded RFP."""
+    __tablename__ = "post_award_checklists"
+
+    id = Column(Integer, primary_key=True, index=True)
+    rfp_id = Column(Integer, ForeignKey("rfp_opportunities.id"), unique=True, nullable=False)
+    bid_document_id = Column(String, nullable=True) # Reference to the specific bid that won
+
+    generated_at = Column(DateTime, default=datetime.utcnow)
+    status = Column(String, default="draft") # draft, active, completed
+    items = Column(JSON, default=[]) # List of checklist items
+    summary = Column(JSON, default={}) # Summary statistics about the checklist
+
+    created_at = Column(DateTime, default=datetime.utcnow)
+    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+
+    rfp = relationship("RFPOpportunity", back_populates="post_award_checklist")
+
+    def to_dict(self):
+        return {
+            "id": self.id,
+            "rfp_id": self.rfp_id,
+            "solicitation_number": self.solicitation_number,
+            "title": self.title,
+            "description": self.description,
+            "agency": self.agency,
+            "office": self.office,
+            "naics_code": self.naics_code,
+            "category": self.category,
+            "posted_date": self.posted_date.isoformat() if self.posted_date else None,
+            "response_deadline": self.response_deadline.isoformat() if self.response_deadline else None,
+            "award_date": self.award_date.isoformat() if self.award_date else None,
+            "award_amount": self.award_amount,
+            "estimated_value": self.estimated_value,
+            "current_stage": self.current_stage.value if self.current_stage else None,
+            "triage_score": self.triage_score,
+            "overall_score": self.overall_score,
+            "decision_recommendation": self.decision_recommendation,
+            "confidence_level": self.confidence_level,
+            "discovered_at": self.discovered_at.isoformat() if self.discovered_at else None,
+            "started_at": self.started_at.isoformat() if self.started_at else None,
+            "updated_at": self.updated_at.isoformat() if self.updated_at else None,
+            "completed_at": self.completed_at.isoformat() if self.completed_at else None,
+            "assigned_to": self.assigned_to,
+            "priority": self.priority,
+            "rfp_metadata": self.rfp_metadata
+        }
+
+
 class DashboardMetrics(Base):
     """Cached dashboard metrics for performance."""
     __tablename__ = "dashboard_metrics"
@@ -280,3 +331,81 @@ class DashboardMetrics(Base):
     performance_stats = Column(JSON, default={})
 
     created_at = Column(DateTime, default=datetime.utcnow)
+
+
+class SamEntity(Base):
+    """Represents an entity from SAM.gov Public Entity Extracts."""
+    __tablename__ = "sam_entities"
+
+    id = Column(Integer, primary_key=True, index=True)
+    uei = Column(String, unique=True, index=True, nullable=False) # Unique Entity Identifier
+    legal_business_name = Column(String, nullable=False)
+    duns = Column(String, nullable=True) # Old DUNS number, might still be present in some datasets
+
+    # Address Information
+    address_line1 = Column(String, nullable=True)
+    address_line2 = Column(String, nullable=True)
+    address_city = Column(String, nullable=True)
+    address_state = Column(String, nullable=True)
+    address_zip = Column(String, nullable=True)
+    address_country = Column(String, default="US")
+
+    # Business Details
+    entity_type = Column(String, nullable=True) # e.g., For-Profit Organization, Non-Profit
+    business_start_date = Column(DateTime, nullable=True)
+    organization_structure = Column(String, nullable=True)
+
+    # Codes and Classifications
+    naics_codes = Column(JSON, default=[]) # List of NAICS codes
+    psc_codes = Column(JSON, default=[])   # List of Product Service Codes
+
+    # Certifications and Business Types (Socioeconomic)
+    business_types = Column(JSON, default=[]) # List of certifications (e.g., SDB, WOSB, SDVOSB, HUBZone)
+
+    # Capabilities and Keywords
+    purpose_of_registration = Column(Text, nullable=True)
+    capabilities_narrative = Column(Text, nullable=True)
+    keywords = Column(Text, nullable=True) # Comma-separated or similar
+    
+    # Contact Info
+    primary_poc_name = Column(String, nullable=True)
+    primary_poc_email = Column(String, nullable=True)
+    website = Column(String, nullable=True)
+
+    # Registration Dates
+    registration_date = Column(DateTime, nullable=True)
+    expiration_date = Column(DateTime, nullable=True)
+
+    created_at = Column(DateTime, default=datetime.utcnow)
+    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+
+    def to_dict(self):
+        return {
+            "id": self.id,
+            "uei": self.uei,
+            "legal_business_name": self.legal_business_name,
+            "duns": self.duns,
+            "address_line1": self.address_line1,
+            "address_line2": self.address_line2,
+            "address_city": self.address_city,
+            "address_state": self.address_state,
+            "address_zip": self.address_zip,
+            "address_country": self.address_country,
+            "entity_type": self.entity_type,
+            "business_start_date": self.business_start_date.isoformat() if self.business_start_date else None,
+            "organization_structure": self.organization_structure,
+            "naics_codes": self.naics_codes,
+            "psc_codes": self.psc_codes,
+            "business_types": self.business_types,
+            "purpose_of_registration": self.purpose_of_registration,
+            "capabilities_narrative": self.capabilities_narrative,
+            "keywords": self.keywords,
+            "primary_poc_name": self.primary_poc_name,
+            "primary_poc_email": self.primary_poc_email,
+            "website": self.website,
+            "registration_date": self.registration_date.isoformat() if self.registration_date else None,
+            "expiration_date": self.expiration_date.isoformat() if self.expiration_date else None,
+            "created_at": self.created_at.isoformat(),
+            "updated_at": self.updated_at.isoformat()
+        }
+

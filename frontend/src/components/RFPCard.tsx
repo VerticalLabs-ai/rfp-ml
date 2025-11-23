@@ -1,9 +1,9 @@
-import React from 'react'
-import { formatDistance } from 'date-fns'
-import { Card, CardContent } from '@/components/ui/card'
-import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
-import { Check, AlertTriangle, X } from 'lucide-react'
+import { Button } from '@/components/ui/button'
+import { Card, CardContent } from '@/components/ui/card'
+import { formatDistance } from 'date-fns'
+import { AlertTriangle, Check, X } from 'lucide-react'
+import GenerateBidButton from './GenerateBidButton'
 
 interface RFPCardProps {
   rfp: any
@@ -55,6 +55,7 @@ export default function RFPCard({ rfp, onTriageDecision }: RFPCardProps) {
           </div>
 
           <div className="flex space-x-2">
+            <GenerateBidButton rfpId={rfp.rfp_id} rfpTitle={rfp.title} />
             <Button
               onClick={() => onTriageDecision(rfp.rfp_id, 'approve')}
               size="sm"

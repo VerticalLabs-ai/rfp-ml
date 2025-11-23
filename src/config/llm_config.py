@@ -196,7 +196,8 @@ class LLMInterface:
     def generate_completion(self, 
                           prompt: str, 
                           task_type: Optional[str] = None,
-                          system_message: Optional[str] = None) -> Dict[str, Any]:
+                          system_message: Optional[str] = None,
+                          **kwargs) -> Dict[str, Any]:
         """Generate completion using configured LLM"""
         try:
             config = self.config_manager.get_config(task_type)
@@ -264,6 +265,35 @@ class LLMInterface:
             "usage": {"tokens": len(full_prompt.split())},
             "model": config.model_name
         }
+
+class LLMManager:
+    """
+    Facade for LLM interaction to maintain backward compatibility 
+    and simplify usage for agents.
+    """
+    def __init__(self):
+        self.config_manager = LLMConfigManager()
+        self.interface = LLMInterface(self.config_manager)
+
+    def generate_text(self, prompt: str, task_type: str = None, max_tokens: int = None, temperature: float = None, **kwargs) -> str:
+        """
+        Simplified text generation method.
+        Returns just the content string or empty string on failure.
+        """
+        # Temporarily override config if needed (not fully implemented in this facade but noted)
+        # For now we rely on task_type config lookups
+        
+        response = self.interface.generate_completion(prompt, task_type)
+        if response['status'] == 'success' and response['content']:
+            return response['content']
+        return ""
+
+    def validate_setup(self) -> Dict[str, Any]:
+        """Validate setup"""
+        res = self.config_manager.validate_configuration()
+        # Add 'setup_valid' key as expected by EnhancedBidLLMManager
+        res['setup_valid'] = (res['status'] == 'success')
+        return res
 # Global instances
 config_manager = LLMConfigManager()
 llm_interface = LLMInterface(config_manager)

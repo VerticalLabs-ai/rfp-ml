@@ -180,7 +180,21 @@ The system defaults to Docker-style absolute paths (`/app/government_rfp_bid_192
 
 ## 🚀 Quick Start
 
-### 1. Build the RAG Index
+### 1. Run with Docker (Recommended)
+
+The easiest way to run the entire system is using Docker Compose:
+
+```bash
+docker-compose up -d --build
+```
+
+- **Frontend**: http://localhost:80
+- **Backend**: http://localhost:8000
+- **API Docs**: http://localhost:8000/docs
+
+### 2. Manual Setup (Alternative)
+
+#### Build the RAG Index
 
 Before running the system, build the vector index from your processed RFP data:
 

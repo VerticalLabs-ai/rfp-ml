@@ -1,4 +1,4 @@
-import React from 'react'
+
 import { formatDistance } from 'date-fns'
 
 interface SubmissionCardProps {

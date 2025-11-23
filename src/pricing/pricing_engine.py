@@ -12,6 +12,7 @@ import pandas as pd
 import numpy as np
 from dataclasses import dataclass, asdict
 import statistics
+from src.pricing.win_probability import WinProbabilityModel
 
 # Import path configuration
 from config.paths import PathConfig
@@ -24,6 +25,23 @@ class PricingStrategy:
     risk_adjustment: float
     minimum_margin: float
     maximum_margin: float
+
+@dataclass
+class ScenarioParams:
+    """Parameters for pricing simulation scenarios."""
+    labor_cost_multiplier: float = 1.0
+    material_cost_multiplier: float = 1.0
+    risk_contingency_percent: float = 0.0
+    desired_margin: float = 0.0  # Overrides strategy if set (0.0 = use strategy)
+
+@dataclass
+class SimulationResult:
+    """Result of a specific pricing simulation scenario."""
+    scenario_name: str
+    total_price: float
+    margin_percent: float
+    breakdown: Dict[str, float]
+
 @dataclass
 class CostBaseline:
     """Cost baseline for a category or service type."""
@@ -90,6 +108,8 @@ class PricingEngine:
         self.cost_baselines = self._load_cost_baselines()
         # Initialize pricing strategies
         self.pricing_strategies = self._initialize_pricing_strategies()
+        # Initialize PTW model
+        self.ptw_model = WinProbabilityModel()
         # Load NAICS pricing patterns
         self.naics_patterns = self._analyze_naics_pricing()
     def _load_historical_data(self) -> pd.DataFrame:
@@ -608,6 +628,164 @@ class PricingEngine:
             except Exception as e:
                 self.logger.error(f"Failed to generate pricing for strategy {strategy_name}: {e}")
         return results
+
+    def run_war_gaming(self, rfp_data: Dict[str, Any], custom_params: Optional[ScenarioParams] = None) -> Dict[str, SimulationResult]:
+        """
+        Run 'War Gaming' scenarios: Best Case, Worst Case, Most Likely, and Custom.
+        Calculates impact of cost variances on final price and margin.
+        """
+        # Define standard scenarios
+        scenarios = {
+            "most_likely": ScenarioParams(1.0, 1.0, 0.05, 0.0),
+            "best_case": ScenarioParams(0.9, 0.9, 0.0, 0.0),       # Efficiency gains, no risk
+            "worst_case": ScenarioParams(1.2, 1.15, 0.15, 0.0),    # Cost overruns, high risk
+        }
+        
+        if custom_params:
+            scenarios["custom"] = custom_params
+            
+        results = {}
+        category = self._determine_category(rfp_data)
+        baseline = self.cost_baselines.get(category, self.cost_baselines['professional_services'])
+
+        # 1. Get Base Cost (Unadjusted)
+        base_cost_raw = self._estimate_base_cost(rfp_data)
+        
+        # 2. Decompose (Simulated breakdown based on baseline assumptions)
+        # Note: In a real system, this comes from detailed estimation.
+        # Here we reverse-engineer from the aggregate base cost using approximate ratios.
+        material_ratio = 0.40
+        labor_ratio = 0.45
+        # overhead is separate add-on in _estimate_base_cost (base * overhead_rate)
+        # But _estimate_base_cost returns the FULL cost including overhead.
+        # Let's decompose it roughly:
+        # Cost = (Base * Complexity) * MatMult * (1+Overhead)
+        # We need to strip overhead to get Direct Cost
+        
+        direct_cost_raw = base_cost_raw / (1 + baseline.overhead_rate)
+        # Now split Direct Cost
+        material_raw = direct_cost_raw * (material_ratio / (material_ratio + labor_ratio))
+        labor_raw = direct_cost_raw * (labor_ratio / (material_ratio + labor_ratio))
+        overhead_raw = base_cost_raw - direct_cost_raw
+
+        for name, params in scenarios.items():
+            # 3. Apply Scenario Multipliers
+            material_adj = material_raw * params.material_cost_multiplier
+            labor_adj = labor_raw * params.labor_cost_multiplier
+            overhead_adj = overhead_raw # Fixed overhead assumption
+            
+            base_cost_adj = material_adj + labor_adj + overhead_adj
+            
+            # 4. Apply Risk Contingency
+            # Contingency is added ON TOP of adjusted cost
+            risk_val = base_cost_adj * params.risk_contingency_percent
+            cost_with_risk = base_cost_adj + risk_val
+            
+            # 5. Calculate Price
+            # If desired_margin is set, we target that margin ON TOP of cost_with_risk
+            # If not, we use self.target_margin
+            margin_target = params.desired_margin if params.desired_margin > 0 else self.target_margin
+            
+            final_price = cost_with_risk * (1 + margin_target)
+            
+            # 6. Calculate resulting metrics
+            actual_margin_percent = margin_target * 100
+            
+            results[name] = SimulationResult(
+                scenario_name=name,
+                total_price=final_price,
+                margin_percent=actual_margin_percent,
+                breakdown={
+                    "material": round(material_adj, 2),
+                    "labor": round(labor_adj, 2),
+                    "overhead": round(overhead_adj, 2),
+                    "risk_contingency": round(risk_val, 2),
+                    "profit": round(final_price - cost_with_risk, 2)
+                }
+            )
+            
+        return results
+
+    def identify_subcontractors(self, rfp_data: Dict[str, Any]) -> List[Dict[str, Any]]:
+        """
+        Identify potential subcontracting opportunities based on description/SOW.
+        Analyzes text for trade-specific keywords and estimates budget allocation.
+        """
+        description = str(rfp_data.get('description', '')).lower()
+        opportunities = []
+        
+        # Keywords mapping to potential subcontracting trades
+        trades = {
+            "plumbing": ["plumbing", "pipe", "water line", "sewer", "drainage"],
+            "electrical": ["electrical", "wiring", "lighting", "voltage", "circuit"],
+            "hvac": ["hvac", "heating", "cooling", "ventilation", "air conditioning"],
+            "security": ["security guard", "surveillance", "cctv", "alarm", "access control"],
+            "landscaping": ["mowing", "landscaping", "tree trimming", "lawn", "irrigation"],
+            "paving": ["asphalt", "paving", "concrete", "roadwork", "parking lot"],
+            "fencing": ["fencing", "gate", "perimeter", "barrier"],
+            "hauling": ["debris removal", "hauling", "dumpster", "waste disposal", "trucking"],
+            "it_cabling": ["cat6", "fiber optic", "cabling", "network drop"],
+            "consulting": ["consultant", "sme", "subject matter expert", "advisory"]
+        }
+        
+        # Base cost for proportional estimation
+        base_est = self._estimate_base_cost(rfp_data)
+        
+        for trade, keywords in trades.items():
+            matches = [k for k in keywords if k in description]
+            if matches:
+                # Heuristic: Assume between 5% and 20% of budget depending on match count
+                allocation_pct = min(0.05 * len(matches), 0.25)
+                est_cost = base_est * allocation_pct
+                
+                opportunities.append({
+                    "trade": trade,
+                    "keywords_found": matches,
+                    "estimated_budget": round(est_cost, 2),
+                    "allocation_percent": round(allocation_pct * 100, 1),
+                    "rationale": f"RFP mentions: {', '.join(matches)}"
+                })
+                
+        return opportunities
+
+    def calculate_price_to_win(self, rfp_data: Dict[str, Any], target_prob: float = 0.7) -> Dict[str, Any]:
+        """
+        Calculate Price-to-Win (PTW) metrics.
+        Reverse-engineers the maximum price to achieve a target win probability.
+        """
+        context = self._get_historical_pricing_context(rfp_data)
+        
+        # Determine market median
+        market_median = 0.0
+        basis = "None"
+        
+        if context.get('naics_statistics'):
+            market_median = context['naics_statistics']['median']
+            basis = f"NAICS Historical Median ({context['naics_statistics']['count']} records)"
+        elif context.get('category_statistics'):
+            market_median = context['category_statistics']['median']
+            basis = f"Category Historical Median ({context['category_statistics']['count']} records)"
+        else:
+            # Fallback
+            base = self._estimate_base_cost(rfp_data)
+            market_median = base * 1.3
+            basis = "Cost-Plus Estimation (No historical data)"
+            
+        ptw_price = self.ptw_model.solve_for_price(target_prob, market_median)
+        
+        # Also calculate probability for our "Competitive" strategy price
+        comp_result = self.generate_pricing(rfp_data, strategy_name="competitive")
+        our_prob = self.ptw_model.predict(comp_result.total_price, market_median)
+        
+        return {
+            "target_probability": target_prob,
+            "price_to_win": ptw_price,
+            "market_median": market_median,
+            "basis": basis,
+            "our_competitive_price": comp_result.total_price,
+            "our_win_probability": our_prob
+        }
+
     def export_pricing_analysis(self, rfp_data: Dict[str, Any], 
                                pricing_results: Dict[str, PricingResult],
                                output_format: str = "json") -> str:

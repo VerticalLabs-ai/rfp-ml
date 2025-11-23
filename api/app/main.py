@@ -7,7 +7,7 @@ from contextlib import asynccontextmanager
 
 from app.core.config import settings
 from app.core.database import init_db
-from app.routes import rfps, pipeline, submissions
+from app.routes import rfps, pipeline, submissions, predictions, generation
 from app.websockets import websocket_router
 
 
@@ -42,6 +42,8 @@ app.add_middleware(
 app.include_router(rfps.router, prefix=f"{settings.API_V1_STR}/rfps", tags=["rfps"])
 app.include_router(pipeline.router, prefix=f"{settings.API_V1_STR}/pipeline", tags=["pipeline"])
 app.include_router(submissions.router, prefix=f"{settings.API_V1_STR}/submissions", tags=["submissions"])
+app.include_router(predictions.router, prefix=f"{settings.API_V1_STR}/predictions", tags=["predictions"])
+app.include_router(generation.router, prefix=f"{settings.API_V1_STR}/generation", tags=["generation"])
 app.include_router(websocket_router.router, prefix="/ws", tags=["websocket"])
 
 

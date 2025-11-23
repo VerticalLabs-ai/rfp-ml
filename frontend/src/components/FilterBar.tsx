@@ -1,4 +1,3 @@
-import React from 'react';
 import { Card, CardContent } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -44,7 +43,7 @@ export default function FilterBar({ onFilterChange, filters }: FilterBarProps) {
                 <SelectValue placeholder="All Stages" />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="">All Stages</SelectItem>
+                <SelectItem value="all">All Stages</SelectItem>
                 <SelectItem value="discovered">Discovered</SelectItem>
                 <SelectItem value="triaged">Triaged</SelectItem>
                 <SelectItem value="analyzing">Analyzing</SelectItem>

@@ -1,9 +1,5 @@
-import React from 'react'
 import { Link, useLocation } from 'react-router-dom'
-import { LayoutDashboard, Search, GitBranch, CheckSquare, Send, Zap } from 'lucide-react'
-import { Button } from '@/components/ui/button'
-import { Badge } from '@/components/ui/badge'
-import { cn } from '@/lib/utils'
+import { LayoutDashboard, Search, GitBranch, CheckSquare, Send, Zap, TrendingUp, Settings } from 'lucide-react'
 import { WebSocketStatus } from '@/components/WebSocketStatus'
 import { useWebSocket } from '@/hooks/useWebSocket'
 
@@ -14,9 +10,11 @@ interface LayoutProps {
 const navigation = [
   { name: 'Dashboard', path: '/dashboard', icon: LayoutDashboard },
   { name: 'RFP Discovery', path: '/discovery', icon: Search },
+  { name: 'Forecasts', path: '/forecasts', icon: TrendingUp },
   { name: 'Pipeline', path: '/pipeline', icon: GitBranch },
   { name: 'Decisions', path: '/decisions', icon: CheckSquare },
-  { name: 'Submissions', path: '/submissions', icon: Send }
+  { name: 'Submissions', path: '/submissions', icon: Send },
+  { name: 'Settings', path: '/settings', icon: Settings }
 ]
 
 export default function Layout({ children }: LayoutProps) {

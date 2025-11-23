@@ -1,7 +1,6 @@
-import React from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { api } from '../services/api'
-import toast from 'react-hot-toast'
+import { toast } from 'sonner'
 import DecisionCard from '../components/DecisionCard'
 
 export default function DecisionReview() {
@@ -41,12 +40,12 @@ export default function DecisionReview() {
         <div className="text-center py-12">Loading decisions...</div>
       ) : (
         <div className="grid grid-cols-1 gap-6">
-          {pendingDecisions?.map((decision: any) => (
+          {pendingDecisions?.map((rfp: any) => (
             <DecisionCard
-              key={decision.id}
-              decision={decision}
-              onApprove={() => approveMutation.mutate(decision.rfp_id)}
-              onReject={() => rejectMutation.mutate(decision.rfp_id)}
+              key={rfp.id}
+              rfp={rfp}
+              onApprove={() => approveMutation.mutate(rfp.rfp_id)}
+              onReject={() => rejectMutation.mutate(rfp.rfp_id)}
             />
           ))}
           {pendingDecisions?.length === 0 && (

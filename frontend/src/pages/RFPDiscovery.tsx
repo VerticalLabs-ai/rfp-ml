@@ -1,15 +1,22 @@
-import React, { useState } from 'react'
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
-import { api } from '../services/api'
+import { Button } from '@/components/ui/button'
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
+import { Activity } from 'lucide-react'
+import { useState } from 'react'
 import toast from 'react-hot-toast'
-import RFPCard from '../components/RFPCard'
+import { useNavigate } from 'react-router-dom'
+import AddRFPDialog from '../components/AddRFPDialog'
+import DiscoveryButton from '../components/DiscoveryButton'
 import FilterBar from '../components/FilterBar'
+import RFPCard from '../components/RFPCard'
+import { api } from '../services/api'
 
 export default function RFPDiscovery() {
+  const navigate = useNavigate()
   const queryClient = useQueryClient()
   const [filters, setFilters] = useState({
-    category: '',
-    minScore: 60
+    stage: 'all',
+    search: '',
+    sortBy: 'score'
   })
 
   const { data: rfps, isLoading } = useQuery({
@@ -35,11 +42,21 @@ export default function RFPDiscovery() {
 
   return (
     <div className="space-y-6">
-      <div>
-        <h2 className="text-2xl font-bold text-gray-900">RFP Discovery</h2>
-        <p className="mt-1 text-sm text-gray-500">
-          Review and triage discovered RFP opportunities
-        </p>
+      <div className="flex items-center justify-between">
+        <div>
+          <h2 className="text-2xl font-bold text-gray-900">RFP Discovery</h2>
+          <p className="mt-1 text-sm text-gray-500">
+            Review and triage discovered RFP opportunities
+          </p>
+        </div>
+        <div className="flex gap-3">
+          <Button variant="outline" onClick={() => navigate('/discovery/live')}>
+            <Activity className="mr-2 h-4 w-4" />
+            Live View
+          </Button>
+          <DiscoveryButton />
+          <AddRFPDialog />
+        </div>
       </div>
 
       <FilterBar filters={filters} onFilterChange={setFilters} />

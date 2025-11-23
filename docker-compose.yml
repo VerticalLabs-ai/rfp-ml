@@ -1,0 +1,36 @@
+version: '3.8'
+
+services:
+  backend:
+    build:
+      context: .
+      dockerfile: backend.Dockerfile
+    container_name: rfp_backend
+    ports:
+      - "8000:8000"
+    env_file:
+      - .env
+    volumes:
+      - ./api/rfp_dashboard.db:/app/api/rfp_dashboard.db # Persist SQLite DB
+      - ./logs:/app/logs # Persist logs
+      - ./data:/app/data # Persist raw/processed data
+    restart: unless-stopped
+    networks:
+      - rfp_network
+
+  frontend:
+    build:
+      context: .
+      dockerfile: frontend.Dockerfile
+    container_name: rfp_frontend
+    ports:
+      - "80:80"
+    depends_on:
+      - backend
+    restart: unless-stopped
+    networks:
+      - rfp_network
+
+networks:
+  rfp_network:
+    driver: bridge

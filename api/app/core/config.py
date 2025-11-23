@@ -3,7 +3,17 @@ Configuration for FastAPI application.
 """
 from pydantic_settings import BaseSettings
 from typing import Optional
+import os
+from pathlib import Path
+from dotenv import load_dotenv
 
+# Explicitly load .env from project root
+env_path = Path(__file__).parent.parent.parent.parent / ".env"
+if env_path.exists():
+    print(f"Loading .env from: {env_path}")
+    load_dotenv(env_path)
+else:
+    print(f"Warning: .env file not found at {env_path}")
 
 class Settings(BaseSettings):
     """Application settings."""
@@ -21,7 +31,7 @@ class Settings(BaseSettings):
     REDIS_URL: str = "redis://localhost:6379/0"
 
     # CORS
-    BACKEND_CORS_ORIGINS: list = ["http://localhost:3000", "http://localhost:8000"]
+    BACKEND_CORS_ORIGINS: list = ["http://localhost:3000", "http://localhost:8000", "http://localhost:3300"]
 
     # Security
     SECRET_KEY: str = "your-secret-key-change-in-production"
@@ -57,7 +67,33 @@ class Settings(BaseSettings):
 
     class Config:
         env_file = ".env"
+        env_file_encoding = "utf-8"
         case_sensitive = True
+        extra = "ignore"
+
+        @classmethod
+        def customise_sources(
+            cls,
+            init_settings,
+            env_settings,
+            file_secret_settings,
+        ):
+            return (
+                init_settings,
+                env_settings,
+                file_secret_settings,
+            )
+
+    def __init__(self, **kwargs):
+        # Try to load from parent directory if not found in current
+        import os
+        from pathlib import Path
+        
+        parent_env = Path(__file__).parent.parent.parent.parent / ".env"
+        if parent_env.exists():
+            self.Config.env_file = str(parent_env)
+            
+        super().__init__(**kwargs)
 
 
 settings = Settings()

@@ -7,6 +7,11 @@ const apiClient = axios.create({
   }
 })
 
+export interface DiscoveryParams {
+  limit?: number
+  days_back?: number
+}
+
 export const api = {
   // RFP endpoints
   getDiscoveredRFPs: (filters: any) =>
@@ -55,8 +60,70 @@ export const api = {
     apiClient.post(`/submissions/${submissionId}/retry`).then(res => res.data),
 
   getSubmissionStats: () =>
-    apiClient.get('/submissions/stats/overview').then(res => res.data)
+    apiClient.get('/submissions/stats/overview').then(res => res.data),
+
+  // ML Pipeline Integration endpoints
+  discoverRFPs: (params?: DiscoveryParams) =>
+    apiClient.post('/rfps/discover', params).then(res => res.data),
+
+  getDiscoveryStatus: (jobId: string) =>
+    apiClient.get(`/rfps/discover/status/${jobId}`).then(res => res.data),
+
+  processManualRFP: (data: {
+    title: string
+    agency?: string
+    solicitation_number?: string
+    description?: string
+    url?: string
+    award_amount?: number
+    response_deadline?: string
+    category?: string
+  }) =>
+    apiClient.post('/rfps/process', data).then(res => res.data),
+
+  // Bid Generation endpoints
+  generateBid: (rfpId: string) =>
+    apiClient.post(`/rfps/${rfpId}/generate-bid`).then(res => res.data),
+
+  getBidDocument: (bidId: string) =>
+    apiClient.get(`/rfps/bids/${bidId}`).then(res => res.data),
+
+  downloadBid: (bidId: string, format: 'markdown' | 'html' | 'json') =>
+    apiClient.get(`/rfps/bids/${bidId}/download/${format}`, { responseType: 'blob' }).then(res => res.data),
+
+  // Prediction endpoints
+  getPredictions: (confidence: number = 0.7) =>
+    apiClient.get('/predictions/upcoming', { params: { confidence } }).then(res => res.data),
+
+  // Pricing endpoints
+  runPricingScenarios: (rfpId: string, params: any) =>
+    apiClient.post(`/rfps/${rfpId}/pricing/scenarios`, params).then(res => res.data),
+    
+  getSubcontractors: (rfpId: string) =>
+    apiClient.get(`/rfps/${rfpId}/pricing/subcontractors`).then(res => res.data),
+    
+  getPriceToWin: (rfpId: string, targetProb: number = 0.7) =>
+    apiClient.get(`/rfps/${rfpId}/pricing/ptw`, { params: { target_prob: targetProb } }).then(res => res.data),
+    
+  // Competitor endpoints
+  getCompetitors: (rfpId: string) =>
+    apiClient.get(`/rfps/${rfpId}/competitors`).then(res => res.data),
+
+  // Generation endpoints
+  refineText: (text: string, instruction: string, context?: string) =>
+    apiClient.post('/generation/refine', { text, instruction, context }).then(res => res.data),
+
+  // Post-Award endpoints
+  getPostAwardChecklist: (rfpInternalId: number) =>
+    apiClient.get(`/rfps/${rfpInternalId}/checklist`).then(res => res.data),
+
+  // Teaming endpoints
+  getTeamingPartners: (rfpId: string) =>
+    apiClient.get(`/rfps/${rfpId}/partners`).then(res => res.data)
 }
+
+
+
 
 // WebSocket connection
 export const connectWebSocket = (onMessage: (data: any) => void) => {

@@ -11,6 +11,7 @@ from dataclasses import dataclass
 # Add project root to path
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..'))
 from src.config.llm_config import LLMManager, LLMConfig
+from src.bid_generation.style_manager import style_manager, StyleExample
 @dataclass
 class EnhancedBidConfig:
     """Enhanced configuration for bid generation"""
@@ -127,6 +128,30 @@ A dedicated account manager will serve as your primary point of contact, ensurin
         except Exception as e:
             self.logger.error(f"Error generating {section_type}: {e}")
             return self._generate_from_template(section_type, rfp_context, requirements, max_words)
+
+    def refine_content(self, text: str, instruction: str, context: str = "") -> str:
+        """Refine existing content based on user instruction."""
+        
+        prompt = f"""
+You are a professional government proposal editor.
+Original Text:
+"{text}"
+
+Context: {context}
+
+Instruction: {instruction}
+
+Please rewrite the text to satisfy the instruction while maintaining professional tone and accuracy.
+Refined Text:
+"""
+        response = self.llm_manager.generate_text(
+            prompt,
+            task_type="refinement",
+            max_tokens=len(text.split()) * 2 + 100,
+            temperature=0.7
+        )
+        return response.strip()
+
     def _try_llm_generation(
         self, 
         section_type: str, 
@@ -160,13 +185,23 @@ A dedicated account manager will serve as your primary point of contact, ensurin
         requirements: Dict[str, Any], 
         max_words: int
     ) -> str:
-        """Create enhanced prompts for better LLM output"""
+        """Create enhanced prompts for better LLM output with Style Tuning"""
+        
+        # Retrieve style examples
+        style_examples = style_manager.retrieve_examples(rfp_context, section_type, k=2)
+        style_context = ""
+        if style_examples:
+            style_context = "\nSTYLE REFERENCE (Mimic this tone and structure):\n"
+            for i, ex in enumerate(style_examples):
+                style_context += f"--- Example {i+1} ---\n{ex.text[:500]}...\n"
+        
         base_context = f"""
 Company: {self.config.company_name}
 Experience: {self.config.years_experience} years
 Certifications: {', '.join(self.config.key_certifications[:3])}
 RFP Context: {rfp_context}
 Requirements: {self._format_requirements(requirements)}
+{style_context}
 """
         prompts = {
             "executive_summary": f"""
@@ -176,7 +211,7 @@ Create a compelling 3-paragraph executive summary that:
 1. States our understanding and commitment to the project
 2. Highlights our key qualifications and competitive advantages  
 3. Demonstrates confidence in successful project delivery
-Write in a professional, confident tone. Maximum {max_words} words.
+Write in a professional, confident tone matching the Style Reference if provided. Maximum {max_words} words.
 Executive Summary:
             """,
             "company_qualifications": f"""
