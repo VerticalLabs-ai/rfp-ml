@@ -1,19 +1,56 @@
 version: '3.8'
 
 services:
+  redis:
+    image: redis:7-alpine
+    ports:
+      - "6379:6379"
+    networks:
+      - rfp_network
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+
+  worker:
+    build:
+      context: .
+      dockerfile: Dockerfile.backend
+    command: celery -A src.celery_app worker --loglevel=info
+    volumes:
+      - ./src:/app/src
+      - ./data:/app/data
+      - ./api:/app/api
+    environment:
+      - REDIS_URL=redis://redis:6379/0
+      - PYTHONPATH=/app
+    depends_on:
+      - redis
+      - backend
+    networks:
+      - rfp_network
+
   backend:
     build:
       context: .
-      dockerfile: backend.Dockerfile
+      dockerfile: Dockerfile.backend
     container_name: rfp_backend
     ports:
       - "8000:8000"
     env_file:
       - .env
     volumes:
-      - ./api/rfp_dashboard.db:/app/api/rfp_dashboard.db # Persist SQLite DB
-      - ./logs:/app/logs # Persist logs
-      - ./data:/app/data # Persist raw/processed data
+      - ./src:/app/src
+      - ./data:/app/data
+      - ./api:/app/api
+      - ./scripts:/app/scripts
+      - ./tests:/app/tests
+    environment:
+      - PYTHONPATH=/app
+      - REDIS_URL=redis://redis:6379/0
+    depends_on:
+      - redis
     restart: unless-stopped
     networks:
       - rfp_network

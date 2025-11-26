@@ -1,11 +1,76 @@
-import axios from 'axios'
+import axios, { AxiosError, InternalAxiosRequestConfig } from 'axios'
+import { toast } from 'sonner'
 
 const apiClient = axios.create({
   baseURL: '/api/v1',
   headers: {
     'Content-Type': 'application/json'
-  }
+  },
+  timeout: 30000 // 30 seconds timeout
 })
+
+// Request interceptor
+apiClient.interceptors.request.use(
+  (config) => {
+    // You can add auth tokens here if needed
+    return config
+  },
+  (error) => {
+    return Promise.reject(error)
+  }
+)
+
+// Response interceptor with retry logic
+apiClient.interceptors.response.use(
+  (response) => response,
+  async (error: AxiosError) => {
+    const originalRequest = error.config as InternalAxiosRequestConfig & { _retry?: boolean }
+
+    // Network error or 5xx server error - Retry logic
+    if (
+      !originalRequest._retry &&
+      (error.code === 'ERR_NETWORK' || (error.response && error.response.status >= 500))
+    ) {
+      originalRequest._retry = true
+      try {
+        // Wait 1 second before retrying
+        await new Promise(resolve => setTimeout(resolve, 1000))
+        return apiClient(originalRequest)
+      } catch (retryError) {
+        return Promise.reject(retryError)
+      }
+    }
+
+    // Global Error Handling
+    if (error.response) {
+      const status = error.response.status
+      const data = error.response.data as any
+      const message = data?.detail || data?.message || 'An unexpected error occurred'
+
+      if (status >= 500) {
+        toast.error(`Server Error: ${message}`)
+      } else if (status === 401) {
+        // Handle unauthorized (redirect to login if implemented)
+        toast.error('Session expired. Please refresh.')
+      } else if (status === 403) {
+        toast.error('You do not have permission to perform this action.')
+      } else if (status === 404) {
+        // 404s might be expected in some cases, so maybe just log or show mild warning
+        console.warn('Resource not found:', originalRequest.url)
+      } else {
+        toast.error(`Error: ${message}`)
+      }
+    } else if (error.request) {
+      // The request was made but no response was received
+      toast.error('Network Error: Unable to reach the server. Please check your connection.')
+    } else {
+      // Something happened in setting up the request that triggered an Error
+      toast.error('Request Error: Failed to send request.')
+    }
+
+    return Promise.reject(error)
+  }
+)
 
 export interface DiscoveryParams {
   limit?: number

@@ -17,6 +17,7 @@ from pathlib import Path
 # Add src to path for imports
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..'))
 from config.paths import PathConfig
+from config.settings import settings
 try:
     import faiss
     FAISS_AVAILABLE = True
@@ -43,20 +44,19 @@ class RAGConfig:
     data_dir: str = field(default_factory=lambda: str(PathConfig.PROCESSED_DATA_DIR))
     embeddings_dir: str = field(default_factory=lambda: str(PathConfig.EMBEDDINGS_DIR))
     # Model settings
-    embedding_model: str = "all-MiniLM-L6-v2"  # Fast and efficient
-    # embedding_model: str = "all-mpnet-base-v2"  # Higher quality option
+    embedding_model: str = settings.rag.embedding_model
     # Text processing
-    chunk_size: int = 512  # tokens per chunk
-    chunk_overlap: int = 50  # overlap between chunks
-    max_text_length: int = 2000  # max characters per document
+    chunk_size: int = settings.rag.chunk_size
+    chunk_overlap: int = settings.rag.chunk_overlap
+    max_text_length: int = settings.rag.max_text_length
     # Retrieval settings
-    top_k: int = 5  # number of documents to retrieve
-    similarity_threshold: float = 0.3  # minimum similarity score
+    top_k: int = settings.rag.top_k
+    similarity_threshold: float = settings.rag.similarity_threshold
     # FAISS settings
-    use_gpu: bool = False  # GPU acceleration
-    index_type: str = "flat"  # "flat" or "ivf" for large datasets
+    use_gpu: bool = settings.rag.use_gpu
+    index_type: str = settings.rag.index_type
     # Fallback settings
-    use_tfidf_fallback: bool = True  # fallback to TF-IDF if embeddings fail
+    use_tfidf_fallback: bool = settings.rag.use_tfidf_fallback
 @dataclass
 class RetrievalResult:
     """Result from document retrieval"""

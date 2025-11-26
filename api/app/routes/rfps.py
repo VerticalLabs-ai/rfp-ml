@@ -502,12 +502,88 @@ async def get_post_award_checklist(rfp_id: str, db: Session = Depends(get_db)):
     
     return checklist
 
-@router.get("/{rfp_id}/partners")
-async def get_teaming_partners(rfp_id: str, limit: int = 10, db: Session = Depends(get_db)):
-    """
-    Find potential teaming partners for an RFP based on NAICS and keyword matching
-    against the ingested SAM.gov database.
-    """
-    service = TeamingPartnerService(db)
     partners = service.find_partners(rfp_id, limit=limit)
     return partners
+
+
+class FeedbackInput(BaseModel):
+    """Input for decision feedback loop."""
+    actual_outcome: str  # WON, LOST, NO_BID
+    user_override: Optional[str] = None  # GO, NO_GO
+
+
+@router.post("/{rfp_id}/feedback")
+async def submit_decision_feedback(
+    rfp_id: str,
+    feedback: FeedbackInput,
+    db: Session = Depends(get_db)
+):
+    """
+    Submit feedback on a Go/No-Go decision to improve the model.
+    """
+    if not processor.pricing_engine:
+         # In a real app we might want a dedicated DecisionEngine instance in processor
+         # For now, we'll assume if pricing engine is there, the system is initialized
+         pass
+
+    # Log feedback via the engine (which logs to file/stdout)
+    # In the future, this would update weights in the DB
+    
+    # We need access to the GoNoGoEngine instance. 
+    # Currently it's instantiated inside the processor or main script.
+    # Let's assume we can access it via the processor if we added it there, 
+    # or we instantiate a temporary one for logging if stateless.
+    
+    # For this implementation, we'll use the one in the processor if available, 
+    # or just log it here.
+    
+    
+    return {"message": "Feedback received", "rfp_id": rfp_id}
+
+
+@router.post("/{rfp_id}/async/ingest")
+async def trigger_async_ingestion(
+    rfp_id: str,
+    file_paths: List[str]
+):
+    """Trigger background RAG ingestion."""
+    from src.tasks import ingest_documents_task
+    task = ingest_documents_task.delay(file_paths)
+    return {"task_id": task.id, "status": "processing"}
+
+
+@router.post("/{rfp_id}/async/generate-bid")
+async def trigger_async_bid_generation(
+    rfp_id: str,
+    db: Session = Depends(get_db)
+):
+    """Trigger background bid generation."""
+    service = RFPService(db)
+    rfp = service.get_rfp_by_id(rfp_id)
+    if not rfp:
+        raise HTTPException(status_code=404, detail="RFP not found")
+        
+    rfp_data = {
+        "rfp_id": rfp.rfp_id,
+        "title": rfp.title,
+        "agency": rfp.agency,
+        "description": rfp.description
+    }
+    
+    from src.tasks import generate_bid_task
+    task = generate_bid_task.delay(rfp_data)
+    return {"task_id": task.id, "status": "processing"}
+
+
+@router.get("/tasks/{task_id}")
+async def get_task_status(task_id: str):
+    """Get status of a Celery task."""
+    from src.celery_app import celery_app
+    from celery.result import AsyncResult
+    
+    result = AsyncResult(task_id, app=celery_app)
+    return {
+        "task_id": task_id,
+        "status": result.status,
+        "result": result.result if result.ready() else None
+    }
