@@ -15,12 +15,8 @@ from dataclasses import dataclass, asdict
 
 # Import path configuration
 from src.config.paths import PathConfig
-from src.utils.config_loader import load_or_create_config
-from src.utils.constants import (
-    ContractValueDefaults,
-    DecisionDefaults,
-    DurationDefaults,
-)
+from src.config.settings import settings
+
 @dataclass
 class DecisionCriteria:
     """Decision criteria configuration."""
@@ -33,6 +29,7 @@ class DecisionCriteria:
     margin_threshold_review: float = 50.0
     complexity_threshold_review: float = 70.0
     confidence_threshold_go: float = 70.0
+
 @dataclass
 class DecisionResult:
     """Result of go/no-go decision analysis."""
@@ -48,9 +45,10 @@ class DecisionResult:
     opportunities: List[str]
     justification: str
     decision_timestamp: str
+
 class GoNoGoEngine:
     """
-    Go/No-Go Decision Engine that analyzes all pipeline outputs to provide 
+    Go/No-Go Decision Engine that analyzes all pipeline outputs to provide
     intelligent bid/no-bid recommendations with detailed justification.
     """
     def __init__(
@@ -89,22 +87,34 @@ class GoNoGoEngine:
         self.decision_criteria = self._load_decision_criteria()
         self.historical_data = self._load_historical_data()
         self.win_rate_patterns = self._analyze_historical_win_rates()
+
     def _load_decision_criteria(self) -> DecisionCriteria:
-        """Load or create decision criteria configuration."""
+        """Load decision criteria from settings or override with JSON."""
         config_path = os.path.join(self.config_dir, "decision_parameters.json")
-        default_config = {
-            "margin_weight": DecisionDefaults.MARGIN_WEIGHT,
-            "complexity_weight": DecisionDefaults.COMPLEXITY_WEIGHT,
-            "duration_weight": DecisionDefaults.DURATION_WEIGHT,
-            "historical_weight": DecisionDefaults.HISTORICAL_WEIGHT,
-            "resource_weight": DecisionDefaults.RESOURCE_WEIGHT,
-            "margin_threshold_go": DecisionDefaults.GO_THRESHOLD,
-            "margin_threshold_review": DecisionDefaults.REVIEW_THRESHOLD,
-            "complexity_threshold_review": DecisionDefaults.GO_THRESHOLD,
-            "confidence_threshold_go": DecisionDefaults.CONFIDENCE_THRESHOLD
-        }
-        config_data = load_or_create_config(config_path, default_config)
-        return DecisionCriteria(**config_data)
+
+        # Start with defaults from settings
+        criteria_data = settings.decision.model_dump()
+
+        # Override with JSON if exists (optional, for backward compatibility or runtime tuning)
+        if os.path.exists(config_path):
+            try:
+                with open(config_path, 'r') as f:
+                    json_data = json.load(f)
+                    # Only update keys that exist in DecisionCriteria
+                    valid_keys = DecisionCriteria.__annotations__.keys()
+                    for k, v in json_data.items():
+                        if k in valid_keys:
+                            criteria_data[k] = v
+                self.logger.info(f"Loaded decision criteria from {config_path}")
+            except Exception as e:
+                self.logger.warning(f"Failed to load decision criteria from JSON: {e}")
+
+        # Filter to match DecisionCriteria fields (in case settings has more)
+        valid_keys = DecisionCriteria.__annotations__.keys()
+        filtered_data = {k: v for k, v in criteria_data.items() if k in valid_keys}
+
+        return DecisionCriteria(**filtered_data)
+
     def _load_historical_data(self) -> pd.DataFrame:
         """Load historical RFP data for win rate analysis."""
         try:
@@ -123,6 +133,7 @@ class GoNoGoEngine:
         except OSError as e:
             self.logger.warning(f"Failed to load historical data: {e}")
             return pd.DataFrame()
+
     def _analyze_historical_win_rates(self) -> Dict[str, float]:
         """Analyze historical win rates by category and characteristics."""
         win_rates = {}
@@ -132,10 +143,9 @@ class GoNoGoEngine:
             # Analyze by NAICS code
             if 'naics_code' in self.historical_data.columns:
                 naics_groups = self.historical_data.groupby('naics_code').size()
-                # Calculate win rates (assuming all records in dataset are wins)
-                # In production, this would compare wins vs total opportunities
+                min_sample_size = 5  # Minimum samples for reliable win rate
                 for naics_code, count in naics_groups.items():
-                    if count >= DecisionDefaults.MIN_SAMPLE_SIZE:
+                    if count >= min_sample_size:
                         # Simulated win rate based on contract characteristics
                         win_rate = min(0.9, 0.3 + (count / 1000))
                         win_rates[f"naics_{naics_code}"] = win_rate
@@ -146,14 +156,15 @@ class GoNoGoEngine:
                 small_contracts = awards[awards <= awards.quantile(0.33)]
                 medium_contracts = awards[(awards > awards.quantile(0.33)) & (awards <= awards.quantile(0.67))]
                 large_contracts = awards[awards > awards.quantile(0.67)]
-                # Calculate win rates by contract size using constants
-                win_rates['small_contracts'] = ContractValueDefaults.SMALL_WIN_RATE
-                win_rates['medium_contracts'] = ContractValueDefaults.MEDIUM_WIN_RATE
-                win_rates['large_contracts'] = ContractValueDefaults.LARGE_WIN_RATE
+                # Calculate win rates by contract size
+                win_rates['small_contracts'] = settings.decision.win_rate_small_contract
+                win_rates['medium_contracts'] = settings.decision.win_rate_medium_contract
+                win_rates['large_contracts'] = settings.decision.win_rate_large_contract
             self.logger.info(f"Analyzed win rate patterns for {len(win_rates)} categories")
         except (KeyError, ValueError, TypeError) as e:
             self.logger.warning(f"Win rate analysis failed due to data issue: {e}")
         return win_rates
+
     def _calculate_margin_score(self, pricing_results: Dict[str, Any]) -> Tuple[float, List[str], List[str]]:
         """Calculate margin-based score and identify factors."""
         if not pricing_results:
@@ -171,13 +182,13 @@ class GoNoGoEngine:
         margin = getattr(recommended_strategy, 'margin_percentage', 0)
         risk_factors = getattr(recommended_strategy, 'risk_factors', [])
         # Score based on margin percentage
-        if margin >= 40:
+        if margin >= settings.decision.margin_score_excellent:
             score = 100.0
-        elif margin >= 30:
+        elif margin >= settings.decision.margin_score_good:
             score = 80.0
-        elif margin >= 20:
+        elif margin >= settings.decision.margin_score_fair:
             score = 60.0
-        elif margin >= 15:
+        elif margin >= settings.decision.margin_score_poor:
             score = 40.0
         else:
             score = 20.0
@@ -196,6 +207,7 @@ class GoNoGoEngine:
         if best_confidence > 0.8:
             opportunities.append("High pricing confidence based on market data")
         return score, risks, opportunities
+
     def _calculate_complexity_score(self, compliance_matrix: Dict[str, Any]) -> Tuple[float, List[str], List[str]]:
         """Calculate complexity-based score."""
         if not compliance_matrix:
@@ -203,13 +215,13 @@ class GoNoGoEngine:
         total_requirements = compliance_matrix.get('compliance_summary', {}).get('total_requirements', 0)
         compliance_rate = compliance_matrix.get('compliance_summary', {}).get('compliance_rate', 0)
         # Score based on complexity (inverse relationship)
-        if total_requirements <= 5:
+        if total_requirements <= settings.decision.complexity_req_low:
             complexity_score = 100.0
-        elif total_requirements <= 10:
+        elif total_requirements <= settings.decision.complexity_req_medium:
             complexity_score = 80.0
-        elif total_requirements <= 20:
+        elif total_requirements <= settings.decision.complexity_req_high:
             complexity_score = 60.0
-        elif total_requirements <= 30:
+        elif total_requirements <= settings.decision.complexity_req_very_high:
             complexity_score = 40.0
         else:
             complexity_score = 20.0
@@ -228,6 +240,7 @@ class GoNoGoEngine:
         if compliance_rate >= 0.8:
             opportunities.append("High compliance rate above 80%")
         return complexity_score, risks, opportunities
+
     def _calculate_duration_score(self, rfp_data: Dict[str, Any]) -> Tuple[float, List[str], List[str]]:
         """Calculate duration-based score."""
         # Extract duration information
@@ -242,38 +255,34 @@ class GoNoGoEngine:
         elif any(term in description for term in ['emergency', 'urgent', 'immediate']):
             estimated_duration = 1
         # Score based on optimal duration range
-        opt_min = DurationDefaults.OPTIMAL_MIN_DURATION
-        opt_max = DurationDefaults.OPTIMAL_MAX_DURATION
-        acceptable_max = DurationDefaults.ACCEPTABLE_MAX_DURATION
-        long_duration = DurationDefaults.LONG_DURATION
-
-        if opt_min <= estimated_duration <= opt_max:
+        if settings.decision.duration_optimal_min <= estimated_duration <= settings.decision.duration_optimal_max:
             duration_score = 100.0
-        elif 3 <= estimated_duration <= acceptable_max:
+        elif settings.decision.duration_acceptable_min <= estimated_duration <= settings.decision.duration_acceptable_max:
             duration_score = 80.0
-        elif estimated_duration <= long_duration:
+        elif estimated_duration <= 48:  # Long duration threshold
             duration_score = 60.0
         else:
             duration_score = 40.0
-        # Adjust for lead time using constants
-        if lead_time < DurationDefaults.SHORT_LEAD_TIME:
-            duration_score *= DurationDefaults.SHORT_LEAD_PENALTY
-        elif lead_time > DurationDefaults.LONG_LEAD_TIME:
-            duration_score *= DurationDefaults.LONG_LEAD_BONUS
+        # Adjust for lead time
+        if lead_time < settings.decision.lead_time_short:
+            duration_score *= 0.8  # Penalty for short lead times
+        elif lead_time > settings.decision.lead_time_long:
+            duration_score *= 1.1  # Bonus for longer lead times
         # Identify duration factors
         risks = []
         opportunities = []
-        if lead_time < DurationDefaults.SHORT_LEAD_TIME:
-            risks.append(f"Short lead time below {DurationDefaults.SHORT_LEAD_TIME} days")
-        if estimated_duration > acceptable_max:
-            risks.append(f"Long-term contract exceeding {acceptable_max} months")
+        if lead_time < settings.decision.lead_time_short:
+            risks.append(f"Short lead time below {settings.decision.lead_time_short} days")
+        if estimated_duration > settings.decision.duration_acceptable_max:
+            risks.append(f"Long-term contract exceeding {settings.decision.duration_acceptable_max} months")
         if any(term in description for term in ['emergency', 'urgent']):
             risks.append("Emergency/urgent timeline requirements")
-        if DurationDefaults.SHORT_LEAD_TIME <= lead_time <= 45:
+        if settings.decision.lead_time_short <= lead_time <= 45:
             opportunities.append("Adequate lead time for proposal preparation")
-        if opt_min <= estimated_duration <= opt_max:
+        if settings.decision.duration_optimal_min <= estimated_duration <= settings.decision.duration_optimal_max:
             opportunities.append("Optimal contract duration range")
         return min(100.0, duration_score), risks, opportunities
+
     def _calculate_historical_score(self, rfp_data: Dict[str, Any]) -> Tuple[float, List[str], List[str]]:
         """Calculate score based on historical win patterns."""
         naics_code = str(rfp_data.get('naics_code', ''))
@@ -308,7 +317,8 @@ class GoNoGoEngine:
             elif size_win_rate < 0.4:
                 risks.append(f"Challenging contract size category ({size_win_rate:.1%} win rate)")
         return min(100.0, historical_score), risks, opportunities
-    def _calculate_resource_score(self, rfp_data: Dict[str, Any], 
+
+    def _calculate_resource_score(self, rfp_data: Dict[str, Any],
                                 compliance_matrix: Dict[str, Any]) -> Tuple[float, List[str], List[str]]:
         """Calculate resource availability score."""
         # Base resource availability (would be configurable in production)
@@ -338,7 +348,62 @@ class GoNoGoEngine:
         if any(term in description for term in ['maintenance', 'existing', 'current']):
             opportunities.append("Leverages existing capabilities")
         return resource_score, risks, opportunities
-    def _determine_recommendation(self, overall_score: float, 
+
+    def calculate_weighted_score(self, margin_score: float, complexity_score: float,
+                               duration_score: float, historical_score: float,
+                               resource_score: float) -> float:
+        """Calculate final score using weighted average from settings."""
+        weights = settings.decision
+
+        total_score = (
+            (margin_score * weights.margin_weight) +
+            (complexity_score * weights.complexity_weight) +
+            (duration_score * weights.duration_weight) +
+            (historical_score * weights.historical_weight) +
+            (resource_score * weights.resource_weight)
+        )
+
+        return round(total_score, 2)
+
+    def generate_explanation(self, final_score: float, margin_score: float,
+                           complexity_score: float, duration_score: float,
+                           historical_score: float, resource_score: float,
+                           risks: List[str]) -> str:
+        """Generate a detailed, human-readable explanation for the score."""
+        parts = []
+        parts.append(f"Overall Score: {final_score}/100.")
+
+        # Analyze key drivers
+        if margin_score < 50:
+            parts.append("Low margin potential is a significant drag on the score.")
+        elif margin_score > 80:
+            parts.append("Strong margin potential boosts the score.")
+
+        if complexity_score < 50:
+            parts.append("High technical complexity reduces confidence.")
+
+        if historical_score > 80:
+            parts.append("Favorable historical win rates for this category.")
+        elif historical_score < 40:
+            parts.append("Historical data suggests low win probability for this profile.")
+
+        # Risk summary
+        if risks:
+            parts.append(f"Key risks identified: {', '.join(risks[:3])}.")
+
+        return " ".join(parts)
+
+    def feedback_loop(self, rfp_id: str, actual_outcome: str, user_override: Optional[str] = None):
+        """
+        Update decision weights based on feedback.
+        This is a placeholder for a more complex reinforcement learning loop.
+        """
+        self.logger.info(f"Feedback received for RFP {rfp_id}: Outcome={actual_outcome}, Override={user_override}")
+
+        if user_override == "GO" and actual_outcome == "WON":
+            self.logger.info("Suggestion: Consider reducing complexity_weight and increasing historical_weight.")
+
+    def _determine_recommendation(self, overall_score: float,
                                 individual_scores: Dict[str, float],
                                 all_risks: List[str]) -> str:
         """Determine final recommendation based on scores and risk factors."""
@@ -354,6 +419,7 @@ class GoNoGoEngine:
             return 'review'
         else:
             return 'no_go'
+
     def _generate_decision_justification(self, decision_result: DecisionResult,
                                        rfp_data: Dict[str, Any]) -> str:
         """Generate detailed justification for the decision."""
@@ -399,6 +465,7 @@ class GoNoGoEngine:
                 "or poor strategic fit. Resources better allocated to higher-probability opportunities."
             )
         return " ".join(justification_parts)
+
     def analyze_rfp_opportunity(self, rfp_data: Dict[str, Any]) -> DecisionResult:
         """
         Perform complete go/no-go analysis for an RFP opportunity.
@@ -434,33 +501,42 @@ class GoNoGoEngine:
         historical_score, historical_risks, historical_opportunities = self._calculate_historical_score(rfp_data)
         resource_score, resource_risks, resource_opportunities = self._calculate_resource_score(rfp_data, compliance_matrix)
         # Step 4: Calculate weighted overall score
-        weights = self.decision_criteria
-        overall_score = (
-            (margin_score * weights.margin_weight) +
-            (complexity_score * weights.complexity_weight) +
-            (duration_score * weights.duration_weight) +
-            (historical_score * weights.historical_weight) +
-            (resource_score * weights.resource_weight)
+        final_score = self.calculate_weighted_score(
+            margin_score,
+            complexity_score,
+            duration_score,
+            historical_score,
+            resource_score
         )
-        # Step 5: Combine risk factors and opportunities
+
+        # Step 5: Combine risks and opportunities
         all_risks = margin_risks + complexity_risks + duration_risks + historical_risks + resource_risks
         all_opportunities = margin_opportunities + complexity_opportunities + duration_opportunities + historical_opportunities + resource_opportunities
+
         # Step 6: Determine recommendation
-        individual_scores = {
-            'margin_score': margin_score,
-            'complexity_score': complexity_score,
-            'duration_score': duration_score,
-            'historical_score': historical_score,
-            'resource_score': resource_score
-        }
-        recommendation = self._determine_recommendation(overall_score, individual_scores, all_risks)
-        # Step 7: Calculate confidence level
-        score_variance = np.std(list(individual_scores.values()))
-        confidence_level = max(50.0, 100 - (score_variance * 2))  # Higher confidence with consistent scores
-        # Step 8: Create decision result
+        if final_score >= settings.decision.confidence_threshold_go:
+            recommendation = "go"
+        elif final_score >= settings.decision.margin_threshold_review:
+            recommendation = "review"
+        else:
+            recommendation = "no_go"
+
+        # Step 7: Calculate confidence level (simplified)
+        # Variance of scores indicates consistency
+        scores = [margin_score, complexity_score, duration_score, historical_score, resource_score]
+        score_variance = np.std(scores)
+        confidence_level = max(50.0, 100 - (score_variance * 2))
+
+        # Step 8: Generate explanation
+        explanation = self.generate_explanation(
+            final_score, margin_score, complexity_score, duration_score,
+            historical_score, resource_score, all_risks
+        )
+
+        # Step 9: Create decision result
         decision_result = DecisionResult(
             recommendation=recommendation,
-            overall_score=overall_score,
+            overall_score=final_score,
             confidence_level=confidence_level,
             margin_score=margin_score,
             complexity_score=complexity_score,
@@ -469,15 +545,15 @@ class GoNoGoEngine:
             resource_score=resource_score,
             risk_factors=all_risks,
             opportunities=all_opportunities,
-            justification="",  # Will be filled below
+            justification=explanation,
             decision_timestamp=datetime.now().isoformat()
         )
-        # Step 9: Generate justification
-        decision_result.justification = self._generate_decision_justification(decision_result, rfp_data)
+
         analysis_time = time.time() - analysis_start
         self.logger.info(f"Decision analysis completed in {analysis_time:.2f} seconds: {recommendation.upper()}")
         return decision_result
-    def export_decision_analysis(self, rfp_data: Dict[str, Any], 
+
+    def export_decision_analysis(self, rfp_data: Dict[str, Any],
                                decision_result: DecisionResult,
                                output_format: str = "json") -> str:
         """Export decision analysis to file."""
@@ -504,6 +580,8 @@ class GoNoGoEngine:
             raise ValueError(f"Unsupported output format: {output_format}")
         self.logger.info(f"Decision analysis exported to: {filepath}")
         return filepath
+
+
 def main():
     """Main function for testing go/no-go decision engine."""
     print("Testing Go/No-Go Decision Engine")
@@ -614,6 +692,8 @@ def main():
         import traceback
         traceback.print_exc()
         return False
+
+
 if __name__ == "__main__":
     success = main()
     sys.exit(0 if success else 1)

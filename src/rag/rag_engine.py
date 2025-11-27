@@ -7,6 +7,7 @@ import json
 import logging
 import os
 import pickle
+import sys
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Tuple
@@ -15,18 +16,22 @@ import numpy as np
 import pandas as pd
 
 from src.config.paths import PathConfig
+from src.config.settings import settings
+
 try:
     import faiss
     FAISS_AVAILABLE = True
 except ImportError:
     FAISS_AVAILABLE = False
     print("Warning: FAISS not available. Install with: pip install faiss-cpu")
+
 try:
     from sentence_transformers import SentenceTransformer
     SENTENCE_TRANSFORMERS_AVAILABLE = True
 except ImportError:
     SENTENCE_TRANSFORMERS_AVAILABLE = False
     print("Warning: Sentence Transformers not available. Install with: pip install sentence-transformers")
+
 try:
     from sklearn.feature_extraction.text import TfidfVectorizer
     from sklearn.metrics.pairwise import cosine_similarity
@@ -34,6 +39,8 @@ try:
 except ImportError:
     SKLEARN_AVAILABLE = False
     print("Warning: Scikit-learn not available. Install with: pip install scikit-learn")
+
+
 @dataclass
 class RAGConfig:
     """Configuration for RAG Engine"""
@@ -41,20 +48,21 @@ class RAGConfig:
     data_dir: str = field(default_factory=lambda: str(PathConfig.PROCESSED_DATA_DIR))
     embeddings_dir: str = field(default_factory=lambda: str(PathConfig.EMBEDDINGS_DIR))
     # Model settings
-    embedding_model: str = "all-MiniLM-L6-v2"  # Fast and efficient
-    # embedding_model: str = "all-mpnet-base-v2"  # Higher quality option
+    embedding_model: str = field(default_factory=lambda: settings.rag.embedding_model)
     # Text processing
-    chunk_size: int = 512  # tokens per chunk
-    chunk_overlap: int = 50  # overlap between chunks
-    max_text_length: int = 2000  # max characters per document
+    chunk_size: int = field(default_factory=lambda: settings.rag.chunk_size)
+    chunk_overlap: int = field(default_factory=lambda: settings.rag.chunk_overlap)
+    max_text_length: int = field(default_factory=lambda: settings.rag.max_text_length)
     # Retrieval settings
-    top_k: int = 5  # number of documents to retrieve
-    similarity_threshold: float = 0.3  # minimum similarity score
+    top_k: int = field(default_factory=lambda: settings.rag.top_k)
+    similarity_threshold: float = field(default_factory=lambda: settings.rag.similarity_threshold)
     # FAISS settings
-    use_gpu: bool = False  # GPU acceleration
-    index_type: str = "flat"  # "flat" or "ivf" for large datasets
+    use_gpu: bool = field(default_factory=lambda: settings.rag.use_gpu)
+    index_type: str = field(default_factory=lambda: settings.rag.index_type)
     # Fallback settings
-    use_tfidf_fallback: bool = True  # fallback to TF-IDF if embeddings fail
+    use_tfidf_fallback: bool = field(default_factory=lambda: settings.rag.use_tfidf_fallback)
+
+
 @dataclass
 class RetrievalResult:
     """Result from document retrieval"""
@@ -63,6 +71,8 @@ class RetrievalResult:
     metadata: Dict[str, Any]
     similarity_score: float
     source_dataset: str
+
+
 @dataclass
 class RAGContext:
     """Context for RAG-enhanced generation"""
@@ -71,11 +81,14 @@ class RAGContext:
     total_retrieved: int
     retrieval_method: str
     context_text: str
+
+
 class DocumentProcessor:
     """Handles document preprocessing and chunking"""
     def __init__(self, config: RAGConfig):
         self.config = config
         self.logger = logging.getLogger(__name__)
+
     def preprocess_text(self, text: str) -> str:
         """Preprocess text for embedding"""
         if not isinstance(text, str):
@@ -88,6 +101,7 @@ class DocumentProcessor:
         if len(text) > self.config.max_text_length:
             text = text[:self.config.max_text_length] + "..."
         return text
+
     def chunk_text(self, text: str) -> List[str]:
         """Split text into chunks for embedding"""
         if not text:
@@ -101,6 +115,7 @@ class DocumentProcessor:
             if chunk_text.strip():
                 chunks.append(chunk_text.strip())
         return chunks if chunks else [text]
+
     def extract_text_fields(self, row: pd.Series) -> str:
         """Extract and combine relevant text fields from a dataset row"""
         text_parts = []
@@ -120,6 +135,8 @@ class DocumentProcessor:
                     text_parts.append(f"{field}: {value}")
         combined_text = ' | '.join(text_parts)
         return self.preprocess_text(combined_text)
+
+
 class EmbeddingEngine:
     """Handles text embeddings using Sentence Transformers"""
     def __init__(self, config: RAGConfig):
@@ -128,6 +145,7 @@ class EmbeddingEngine:
         self.model = None
         self.model_available = False
         self._initialize_model()
+
     def _initialize_model(self):
         """Initialize the embedding model"""
         if not SENTENCE_TRANSFORMERS_AVAILABLE:
@@ -140,6 +158,7 @@ class EmbeddingEngine:
         except Exception as e:
             self.logger.error(f"Failed to load embedding model: {str(e)}")
             self.model_available = False
+
     def embed_texts(self, texts: List[str]) -> np.ndarray:
         """Generate embeddings for a list of texts"""
         if not self.model_available:
@@ -152,9 +171,12 @@ class EmbeddingEngine:
         except Exception as e:
             self.logger.error(f"Embedding generation failed: {str(e)}")
             raise
+
     def embed_single_text(self, text: str) -> np.ndarray:
         """Generate embedding for a single text"""
         return self.embed_texts([text])[0]
+
+
 class VectorIndex:
     """Handles vector indexing and similarity search using FAISS"""
     def __init__(self, config: RAGConfig):
@@ -166,6 +188,7 @@ class VectorIndex:
         self.embedding_dim = None
         # Create embeddings directory
         os.makedirs(self.config.embeddings_dir, exist_ok=True)
+
     def build_index(self, embeddings: np.ndarray, document_ids: List[str], metadata: List[Dict]):
         """Build FAISS index from embeddings"""
         if not FAISS_AVAILABLE:
@@ -182,8 +205,8 @@ class VectorIndex:
             # For larger datasets, use IVF index
             nlist = min(100, len(embeddings) // 10)  # number of clusters
             self.index = faiss.IndexIVFFlat(
-                faiss.IndexFlatIP(self.embedding_dim), 
-                self.embedding_dim, 
+                faiss.IndexFlatIP(self.embedding_dim),
+                self.embedding_dim,
                 nlist
             )
         # Normalize embeddings for cosine similarity
@@ -193,6 +216,7 @@ class VectorIndex:
             self.index.train(embeddings_normalized)
         self.index.add(embeddings_normalized)
         self.logger.info(f"Built FAISS index with {len(embeddings)} vectors")
+
     def search(self, query_embedding: np.ndarray, k: int = None) -> Tuple[List[float], List[int]]:
         """Search for similar vectors"""
         if self.index is None:
@@ -205,6 +229,7 @@ class VectorIndex:
         # Search
         scores, indices = self.index.search(query_embedding, k)
         return scores[0].tolist(), indices[0].tolist()
+
     def save_index(self, filepath: str):
         """Save index and metadata to disk"""
         if self.index is None:
@@ -225,6 +250,7 @@ class VectorIndex:
         with open(f"{filepath}_metadata.json", 'w') as f:
             json.dump(metadata_dict, f, indent=2)
         self.logger.info(f"Index saved to {filepath}")
+
     def load_index(self, filepath: str):
         """Load index and metadata from disk"""
         if not FAISS_AVAILABLE:
@@ -238,6 +264,8 @@ class VectorIndex:
         self.metadata = metadata_dict["metadata"]
         self.embedding_dim = metadata_dict["embedding_dim"]
         self.logger.info(f"Index loaded from {filepath}")
+
+
 class TFIDFRetriever:
     """Fallback retriever using TF-IDF similarity"""
     def __init__(self, config: RAGConfig):
@@ -248,6 +276,7 @@ class TFIDFRetriever:
         self.documents = []
         self.document_ids = []
         self.metadata = []
+
     def build_index(self, documents: List[str], document_ids: List[str], metadata: List[Dict]):
         """Build TF-IDF index"""
         if not SKLEARN_AVAILABLE:
@@ -265,6 +294,7 @@ class TFIDFRetriever:
         )
         self.tfidf_matrix = self.vectorizer.fit_transform(documents)
         self.logger.info(f"Built TF-IDF index with {len(documents)} documents")
+
     def search(self, query: str, k: int = None) -> Tuple[List[float], List[int]]:
         """Search for similar documents using TF-IDF"""
         if self.vectorizer is None or self.tfidf_matrix is None:
@@ -278,6 +308,8 @@ class TFIDFRetriever:
         top_indices = np.argsort(similarities)[::-1][:k]
         top_scores = similarities[top_indices]
         return top_scores.tolist(), top_indices.tolist()
+
+
 class RAGEngine:
     """Main RAG Engine that orchestrates retrieval and context generation"""
     def __init__(self, config: Optional[RAGConfig] = None):
@@ -293,6 +325,7 @@ class RAGEngine:
         self.document_ids = []
         self.document_metadata = []
         self.is_built = False
+
     def load_datasets(self) -> Dict[str, pd.DataFrame]:
         """Load all processed RFP datasets"""
         datasets = {}
@@ -309,6 +342,7 @@ class RAGEngine:
             except Exception as e:
                 self.logger.error(f"Failed to load {file_path}: {str(e)}")
         return datasets
+
     def build_index(self, force_rebuild: bool = False):
         """Build the RAG index from processed datasets"""
         index_path = os.path.join(self.config.embeddings_dir, "rag_index")
@@ -395,6 +429,7 @@ class RAGEngine:
                 self.logger.error(f"Failed to build TF-IDF index: {str(e)}")
         self.is_built = True
         self.logger.info("RAG index building complete")
+
     def retrieve(self, query: str, k: int = None, use_embeddings: bool = True) -> List[RetrievalResult]:
         """Retrieve relevant documents for a query"""
         if not self.is_built:
@@ -441,6 +476,7 @@ class RAGEngine:
                 self.logger.error(f"TF-IDF retrieval failed: {str(e)}")
         self.logger.warning("No retrieval method succeeded")
         return results
+
     def generate_context(self, query: str, k: int = None) -> RAGContext:
         """Generate RAG context for a query"""
         retrieved_docs = self.retrieve(query, k)
@@ -456,6 +492,7 @@ class RAGEngine:
             retrieval_method="embeddings" if self.embedding_engine.model_available else "tfidf",
             context_text=context_text
         )
+
     def get_statistics(self) -> Dict[str, Any]:
         """Get RAG engine statistics"""
         stats = {
@@ -473,6 +510,8 @@ class RAGEngine:
             }
         }
         return stats
+
+
 def create_rag_engine(config_overrides: Optional[Dict[str, Any]] = None) -> RAGEngine:
     """Factory function to create RAG engine with optional configuration overrides"""
     config = RAGConfig()
@@ -481,6 +520,8 @@ def create_rag_engine(config_overrides: Optional[Dict[str, Any]] = None) -> RAGE
             if hasattr(config, key):
                 setattr(config, key, value)
     return RAGEngine(config)
+
+
 if __name__ == "__main__":
     print("=== RAG Engine Test ===")
     try:
