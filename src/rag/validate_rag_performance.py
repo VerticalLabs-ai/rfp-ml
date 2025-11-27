@@ -1,13 +1,12 @@
-import sys
-import os
-import time
+"""
+RAG performance validation module.
+"""
 import json
-from typing import Dict, List, Any
+import time
+from typing import Any, Dict, List
 
-# Add src to path for imports
-sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..'))
-from rag.rag_engine import RAGEngine
-from config.paths import PathConfig
+from src.config.paths import PathConfig
+from src.rag.rag_engine import RAGEngine
 class RAGValidator:
     """Validate RAG system performance and operational metrics."""
     def __init__(self):

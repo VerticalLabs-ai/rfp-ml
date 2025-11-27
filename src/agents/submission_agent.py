@@ -1,23 +1,19 @@
 """
 Submission Agent: Autonomous bid submission to government portals.
 """
-import os
-import sys
-import uuid
-import time
-import logging
-from typing import Dict, List, Optional, Any
-from datetime import datetime, timedelta
-from dataclasses import dataclass, asdict
-from enum import Enum
 import json
+import logging
+import os
+import time
+import uuid
+from dataclasses import asdict, dataclass
+from datetime import datetime, timedelta
+from enum import Enum
 from pathlib import Path
+from typing import Any, Dict, List, Optional
 
-# Add src to path for imports
-sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..'))
-from config.paths import PathConfig
+from src.config.paths import PathConfig
 
-logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
 

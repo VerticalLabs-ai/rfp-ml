@@ -1,18 +1,17 @@
 """
 Validation script to verify AI Pricing Engine meets all specified requirements
 """
-import sys
-import os
-import time
 import json
+import time
 from pathlib import Path
 
-# Add src to path for imports
-sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..'))
-from config.paths import PathConfig
-from pricing.pricing_engine import (
-    create_pricing_engine, calculate_bid_price, validate_pricing_compliance,
-    PricingStrategy, RiskLevel
+from src.config.paths import PathConfig
+from src.pricing.pricing_engine import (
+    PricingStrategy,
+    RiskLevel,
+    calculate_bid_price,
+    create_pricing_engine,
+    validate_pricing_compliance,
 )
 def validate_requirement_1():
     """Validate: Historical award extraction and analysis"""

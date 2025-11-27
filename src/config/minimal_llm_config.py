@@ -54,11 +54,6 @@ class MinimalLLMManager:
     def __init__(self, config: Optional[MinimalLLMConfig] = None):
         self.config = config or MinimalLLMConfig()
         self.logger = logging.getLogger(__name__)
-        # Setup logging
-        logging.basicConfig(
-            level=logging.INFO,
-            format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
-        )
         self.openai_client = None
         self.current_backend = None
         self._initialize_backends()

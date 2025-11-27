@@ -13,6 +13,7 @@ import pandas as pd
 from jinja2 import Template, Environment, FileSystemLoader
 import markdown
 from .visualizer import Visualizer
+from src.utils.category import determine_category
 
 # Import path configuration
 from config.paths import PathConfig
@@ -48,7 +49,6 @@ class BidDocumentGenerator:
         os.makedirs(self.content_library_dir, exist_ok=True)
         os.makedirs(self.output_dir, exist_ok=True)
         # Initialize logging
-        logging.basicConfig(level=logging.INFO)
         self.logger = logging.getLogger(__name__)
         # Load content library
         self.content_library = self._load_content_library()
@@ -123,18 +123,7 @@ class BidDocumentGenerator:
         return content_library
     def _determine_category(self, rfp_data: Dict[str, Any]) -> str:
         """Determine RFP category for appropriate content selection."""
-        title = str(rfp_data.get('title', '')).lower()
-        description = str(rfp_data.get('description', '')).lower()
-        if any(keyword in title + description for keyword in ['water', 'beverage', 'bottle']):
-            return 'bottled_water'
-        elif any(keyword in title + description for keyword in ['construction', 'building', 'infrastructure']):
-            return 'construction'
-        elif any(keyword in title + description for keyword in ['delivery', 'transport', 'logistics']):
-            return 'delivery'
-        elif any(keyword in title + description for keyword in ['maintenance', 'repair']):
-            return 'maintenance'
-        else:
-            return 'professional_services'
+        return determine_category(rfp_data)
     def _generate_executive_summary(self, rfp_data: Dict[str, Any], 
                                   compliance_summary: Dict[str, Any],
                                   pricing_result: Any) -> str:

@@ -1,22 +1,21 @@
-# Extends the RFPDiscoveryAgent class for end-to-end triage, Go/No-Go scoring, and output format
-
-import os
-import sys
+"""
+RFP Discovery Agent for end-to-end triage, Go/No-Go scoring, and output generation.
+"""
 import json
-import pandas as pd
-import numpy as np
-from typing import List, Dict, Any, Optional
-from datetime import datetime
+import os
 from dataclasses import asdict
+from datetime import datetime
+from typing import Any, Dict, List, Optional
 
-# Add src to path for imports
-sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..'))
-from config.paths import PathConfig
+import numpy as np
+import pandas as pd
+
+from src.config.paths import PathConfig
 
 # Try import of GoNoGoEngine; it's optional and handled gracefully in methods
 try:
-    from decision.go_nogo_engine import GoNoGoEngine
-except Exception:
+    from src.decision.go_nogo_engine import GoNoGoEngine
+except ImportError:
     GoNoGoEngine = None
 
 

@@ -1,5 +1,5 @@
 import { Link, useLocation } from 'react-router-dom'
-import { LayoutDashboard, Search, GitBranch, CheckSquare, Send, Zap, TrendingUp, Settings } from 'lucide-react'
+import { LayoutDashboard, Search, GitBranch, CheckSquare, Send, Zap, TrendingUp, Settings, Building2 } from 'lucide-react'
 import { WebSocketStatus } from '@/components/WebSocketStatus'
 import { useWebSocket } from '@/hooks/useWebSocket'
 
@@ -14,6 +14,7 @@ const navigation = [
   { name: 'Pipeline', path: '/pipeline', icon: GitBranch },
   { name: 'Decisions', path: '/decisions', icon: CheckSquare },
   { name: 'Submissions', path: '/submissions', icon: Send },
+  { name: 'Profiles', path: '/profiles', icon: Building2 },
   { name: 'Settings', path: '/settings', icon: Settings }
 ]
 

@@ -3,20 +3,18 @@ RAG (Retrieval-Augmented Generation) Engine for Government RFP Bid Generation
 This module implements a vector-based retrieval system that indexes processed RFP datasets
 and provides semantic search capabilities for generating contextual bid responses.
 """
-import os
-import sys
 import json
-import pickle
 import logging
-import numpy as np
-import pandas as pd
-from typing import List, Dict, Any, Optional, Tuple
+import os
+import pickle
 from dataclasses import dataclass, field
 from pathlib import Path
+from typing import Any, Dict, List, Optional, Tuple
 
-# Add src to path for imports
-sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..'))
-from config.paths import PathConfig
+import numpy as np
+import pandas as pd
+
+from src.config.paths import PathConfig
 try:
     import faiss
     FAISS_AVAILABLE = True
@@ -295,11 +293,6 @@ class RAGEngine:
         self.document_ids = []
         self.document_metadata = []
         self.is_built = False
-        # Setup logging
-        logging.basicConfig(
-            level=logging.INFO,
-            format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
-        )
     def load_datasets(self) -> Dict[str, pd.DataFrame]:
         """Load all processed RFP datasets"""
         datasets = {}

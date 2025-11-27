@@ -2,16 +2,13 @@
 Enhanced Bid Generation LLM with better fallback content generation
 Optimized for government RFP bid writing when local models produce poor quality
 """
-import sys
-import os
 import logging
 import time
-from typing import Dict, Any, List, Optional
 from dataclasses import dataclass
-# Add project root to path
-sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..'))
-from src.config.llm_config import LLMManager, LLMConfig
-from src.bid_generation.style_manager import style_manager, StyleExample
+from typing import Any, Dict, List, Optional
+
+from src.bid_generation.style_manager import StyleExample, style_manager
+from src.config.llm_config import LLMConfig, LLMManager
 @dataclass
 class EnhancedBidConfig:
     """Enhanced configuration for bid generation"""

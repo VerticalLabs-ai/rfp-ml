@@ -14,6 +14,7 @@ import PricingSimulator from './pages/PricingSimulator'
 import SettingsPage from './pages/Settings'
 import ProjectKickoffPage from './pages/ProjectKickoff'
 import TeamingPartnersPage from './pages/TeamingPartners'
+import CompanyProfiles from './pages/CompanyProfiles'
 
 // Components
 import Layout from './components/Layout'
@@ -47,6 +48,7 @@ function App() {
             <Route path="/settings" element={<SettingsPage />} />
             <Route path="/rfps/:rfpId/kickoff" element={<ProjectKickoffPage />} />
             <Route path="/rfps/:rfpId/partners" element={<TeamingPartnersPage />} />
+            <Route path="/profiles" element={<CompanyProfiles />} />
           </Routes>
         </Layout>
       </Router>

@@ -13,8 +13,7 @@ try:
     load_dotenv()
 except ImportError:
     print("python-dotenv not installed, using system environment variables only")
-# Configure logging
-logging.basicConfig(level=logging.INFO)
+
 logger = logging.getLogger(__name__)
 class LLMProvider(Enum):
     """Supported LLM providers"""

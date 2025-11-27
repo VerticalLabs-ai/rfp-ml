@@ -13,6 +13,7 @@ import numpy as np
 from dataclasses import dataclass, asdict
 import statistics
 from src.pricing.win_probability import WinProbabilityModel
+from src.utils.category import determine_category
 
 # Import path configuration
 from config.paths import PathConfig
@@ -100,7 +101,6 @@ class PricingEngine:
         # Create directories
         os.makedirs(self.pricing_dir, exist_ok=True)
         # Initialize logging
-        logging.basicConfig(level=logging.INFO)
         self.logger = logging.getLogger(__name__)
         # Load historical pricing data
         self.historical_data = self._load_historical_data()
@@ -295,28 +295,7 @@ class PricingEngine:
         return naics_patterns
     def _determine_category(self, rfp_data: Dict[str, Any]) -> str:
         """Determine the category of an RFP for cost baseline selection."""
-        title = str(rfp_data.get('title', '')).lower()
-        description = str(rfp_data.get('description', '')).lower()
-        naics_code = str(rfp_data.get('naics_code', ''))
-        # Category mapping based on keywords and NAICS codes
-        if any(keyword in title + description for keyword in ['water', 'beverage', 'bottle']):
-            return 'bottled_water'
-        elif any(keyword in title + description for keyword in ['construction', 'building', 'infrastructure', 'renovation']):
-            return 'construction'
-        elif any(keyword in title + description for keyword in ['delivery', 'transport', 'logistics', 'shipping']):
-            return 'delivery'
-        elif any(keyword in title + description for keyword in ['maintenance', 'repair', 'service']):
-            return 'maintenance'
-        elif any(keyword in title + description for keyword in ['software', 'technology', 'system', 'network']):
-            return 'it_services'
-        elif naics_code.startswith('54'):  # Professional services
-            return 'professional_services'
-        elif naics_code.startswith('23'):  # Construction
-            return 'construction'
-        elif naics_code.startswith('48') or naics_code.startswith('49'):  # Transportation
-            return 'delivery'
-        else:
-            return 'professional_services'  # Default category
+        return determine_category(rfp_data)
     def _get_historical_pricing_context(self, rfp_data: Dict[str, Any]) -> Dict[str, Any]:
         """Get historical pricing context for similar RFPs."""
         context = {

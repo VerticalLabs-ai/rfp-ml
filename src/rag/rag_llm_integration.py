@@ -4,13 +4,11 @@ This module integrates the RAG engine with the LLM infrastructure to provide
 context-enhanced bid generation, requirement extraction, and pricing analysis.
 """
 import logging
-from typing import Dict, Any, List, Optional
 from dataclasses import dataclass
-import sys
-import os
-sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..'))
-from src.rag.rag_engine import create_rag_engine, RAGEngine, RAGContext
+from typing import Any, Dict, List, Optional
+
 from src.config.llm_adapter import create_llm_interface
+from src.rag.rag_engine import RAGContext, RAGEngine, create_rag_engine
 @dataclass
 class EnhancedGenerationResult:
     """Result from RAG-enhanced generation"""

@@ -4,12 +4,10 @@ This module integrates the AI Pricing Engine with the RAG system to provide
 context-enhanced pricing analysis using historical contract data and market intelligence.
 """
 import logging
-from typing import Dict, Any, List, Optional
 from dataclasses import dataclass
-import sys
-import os
-sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..'))
-from src.pricing.pricing_engine import create_pricing_engine, PricingStrategy, PricingResult
+from typing import Any, Dict, List, Optional
+
+from src.pricing.pricing_engine import PricingResult, PricingStrategy, create_pricing_engine
 from src.rag.rag_llm_integration import create_rag_llm_integrator
 @dataclass
 class EnhancedPricingResult:

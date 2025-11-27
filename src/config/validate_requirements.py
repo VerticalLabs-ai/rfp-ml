@@ -1,19 +1,15 @@
 """
 Validation script to verify LLM infrastructure meets all requirements
 """
-import sys
-import os
-import time
 import json
+import time
 
-# Add src to path for imports
-sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..'))
-from config.paths import PathConfig
-from config.llm_config import (
-    LLMConfigManager, 
+from src.config.llm_config import (
+    LLMConfigManager,
+    generate_completion,
     test_llm_connection,
-    generate_completion
 )
+from src.config.paths import PathConfig
 def validate_requirement_1():
     """Validate: LLM API access (OpenAI GPT-4 or local model setup)"""
     print("✓ Checking LLM API access configuration...")

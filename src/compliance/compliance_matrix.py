@@ -2,18 +2,18 @@
 Compliance Matrix Generator for RFP bid generation system.
 Extracts requirements from RFPs and generates compliance responses using RAG and LLM.
 """
-import os
-import sys
-import re
 import json
 import logging
-from typing import List, Dict, Any, Optional, Tuple
+import os
+import re
 from datetime import datetime
-import pandas as pd
-import numpy as np
+from typing import Any, Dict, List, Optional, Tuple
 
-# Import path configuration
-from config.paths import PathConfig
+import numpy as np
+import pandas as pd
+
+from src.config.paths import PathConfig
+from src.utils.config_loader import load_or_create_config
 class ComplianceMatrixGenerator:
     """
     Generate compliance matrices that map RFP requirements to bid responses.
@@ -45,7 +45,6 @@ class ComplianceMatrixGenerator:
         os.makedirs(self.output_dir, exist_ok=True)
         os.makedirs(self.templates_dir, exist_ok=True)
         # Initialize logging
-        logging.basicConfig(level=logging.INFO)
         self.logger = logging.getLogger(__name__)
         # Load response templates
         self.response_templates = self._load_response_templates()
@@ -54,7 +53,6 @@ class ComplianceMatrixGenerator:
     def _load_response_templates(self) -> Dict[str, Any]:
         """Load or create response templates for common compliance items."""
         templates_path = os.path.join(self.templates_dir, "compliance_response_templates.json")
-        # Default templates if file doesn't exist
         default_templates = {
             "technical_requirements": {
                 "pattern_keywords": ["technical", "specification", "requirement", "standard"],
@@ -81,19 +79,7 @@ class ComplianceMatrixGenerator:
                 "response_template": "We maintain compliance with security requirements through {security_measures}. Our personnel have {clearance_level} and follow {protocols}."
             }
         }
-        if os.path.exists(templates_path):
-            try:
-                with open(templates_path, 'r') as f:
-                    templates = json.load(f)
-                self.logger.info(f"Loaded response templates from {templates_path}")
-                return templates
-            except Exception as e:
-                self.logger.warning(f"Failed to load templates: {e}, using defaults")
-        # Save default templates
-        with open(templates_path, 'w') as f:
-            json.dump(default_templates, f, indent=2)
-        self.logger.info(f"Created default response templates at {templates_path}")
-        return default_templates
+        return load_or_create_config(templates_path, default_templates)
     def _get_requirement_patterns(self) -> List[Dict[str, Any]]:
         """Define patterns for extracting requirements from RFP text."""
         return [
@@ -539,8 +525,6 @@ class ComplianceMatrixGenerator:
         return html
 def main():
     """Main function for testing compliance matrix generator."""
-    import sys
-    sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
     # Initialize compliance matrix generator
     generator = ComplianceMatrixGenerator()
     # Load a sample RFP for testing

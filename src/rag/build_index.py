@@ -2,16 +2,13 @@
 Build FAISS index from all processed RFP datasets
 Comprehensive indexing script for the RAG system
 """
-import sys
+import json
 import os
 import time
-import json
-from typing import Dict, Any
+from typing import Any, Dict
 
-# Add src to path for imports
-sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..'))
-from rag.rag_engine import RAGEngine, RAGConfig
-from config.paths import PathConfig
+from src.config.paths import PathConfig
+from src.rag.rag_engine import RAGConfig, RAGEngine
 def build_comprehensive_index(force_rebuild: bool = False) -> Dict[str, Any]:
     """
     Build comprehensive FAISS index from all RFP datasets

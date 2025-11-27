@@ -83,6 +83,15 @@ class RFPOpportunity(Base):
     # Metadata (using rfp_metadata to avoid SQLAlchemy reserved name)
     rfp_metadata = Column(JSON, default={})
 
+    # Source tracking (for scraped RFPs)
+    source_url = Column(String, nullable=True)  # BeaconBid URL, etc.
+    source_platform = Column(String, nullable=True)  # "beaconbid", "sam.gov", "manual"
+    last_scraped_at = Column(DateTime, nullable=True)
+    scrape_checksum = Column(String, nullable=True)  # For detecting page changes
+
+    # Company profile for proposal generation
+    company_profile_id = Column(Integer, ForeignKey("company_profiles.id"), nullable=True)
+
     # Relationships
     compliance_matrix = relationship("ComplianceMatrix", back_populates="rfp", uselist=False)
     pricing_result = relationship("PricingResult", back_populates="rfp", uselist=False)
@@ -90,6 +99,43 @@ class RFPOpportunity(Base):
     submissions = relationship("Submission", back_populates="rfp")
     pipeline_events = relationship("PipelineEvent", back_populates="rfp")
     post_award_checklist = relationship("PostAwardChecklist", back_populates="rfp", uselist=False)
+    documents = relationship("RFPDocument", back_populates="rfp")
+    qa_items = relationship("RFPQandA", back_populates="rfp")
+    company_profile = relationship("CompanyProfile", back_populates="rfps")
+
+    def to_dict(self):
+        return {
+            "id": self.id,
+            "rfp_id": self.rfp_id,
+            "solicitation_number": self.solicitation_number,
+            "title": self.title,
+            "description": self.description,
+            "agency": self.agency,
+            "office": self.office,
+            "naics_code": self.naics_code,
+            "category": self.category,
+            "posted_date": self.posted_date.isoformat() if self.posted_date else None,
+            "response_deadline": self.response_deadline.isoformat() if self.response_deadline else None,
+            "award_date": self.award_date.isoformat() if self.award_date else None,
+            "award_amount": self.award_amount,
+            "estimated_value": self.estimated_value,
+            "current_stage": self.current_stage.value if self.current_stage else None,
+            "triage_score": self.triage_score,
+            "overall_score": self.overall_score,
+            "decision_recommendation": self.decision_recommendation,
+            "confidence_level": self.confidence_level,
+            "discovered_at": self.discovered_at.isoformat() if self.discovered_at else None,
+            "started_at": self.started_at.isoformat() if self.started_at else None,
+            "updated_at": self.updated_at.isoformat() if self.updated_at else None,
+            "completed_at": self.completed_at.isoformat() if self.completed_at else None,
+            "assigned_to": self.assigned_to,
+            "priority": self.priority,
+            "rfp_metadata": self.rfp_metadata,
+            "source_url": self.source_url,
+            "source_platform": self.source_platform,
+            "last_scraped_at": self.last_scraped_at.isoformat() if self.last_scraped_at else None,
+            "company_profile_id": self.company_profile_id,
+        }
 
 
 class ComplianceMatrix(Base):
@@ -280,30 +326,158 @@ class PostAwardChecklist(Base):
         return {
             "id": self.id,
             "rfp_id": self.rfp_id,
-            "solicitation_number": self.solicitation_number,
-            "title": self.title,
-            "description": self.description,
-            "agency": self.agency,
-            "office": self.office,
-            "naics_code": self.naics_code,
-            "category": self.category,
-            "posted_date": self.posted_date.isoformat() if self.posted_date else None,
-            "response_deadline": self.response_deadline.isoformat() if self.response_deadline else None,
-            "award_date": self.award_date.isoformat() if self.award_date else None,
-            "award_amount": self.award_amount,
-            "estimated_value": self.estimated_value,
-            "current_stage": self.current_stage.value if self.current_stage else None,
-            "triage_score": self.triage_score,
-            "overall_score": self.overall_score,
-            "decision_recommendation": self.decision_recommendation,
-            "confidence_level": self.confidence_level,
-            "discovered_at": self.discovered_at.isoformat() if self.discovered_at else None,
-            "started_at": self.started_at.isoformat() if self.started_at else None,
+            "bid_document_id": self.bid_document_id,
+            "generated_at": self.generated_at.isoformat() if self.generated_at else None,
+            "status": self.status,
+            "items": self.items,
+            "summary": self.summary,
+            "created_at": self.created_at.isoformat() if self.created_at else None,
             "updated_at": self.updated_at.isoformat() if self.updated_at else None,
-            "completed_at": self.completed_at.isoformat() if self.completed_at else None,
-            "assigned_to": self.assigned_to,
-            "priority": self.priority,
-            "rfp_metadata": self.rfp_metadata
+        }
+
+
+class CompanyProfile(Base):
+    """Multi-tenant company profiles for proposal generation."""
+    __tablename__ = "company_profiles"
+
+    id = Column(Integer, primary_key=True, index=True)
+    name = Column(String, unique=True, nullable=False)  # Display name
+    legal_name = Column(String, nullable=True)  # Full legal business name
+    is_default = Column(Boolean, default=False)  # Default profile for new RFPs
+
+    # Identifiers
+    uei = Column(String, nullable=True)  # Unique Entity Identifier
+    cage_code = Column(String, nullable=True)
+    duns_number = Column(String, nullable=True)
+
+    # Contact Information
+    headquarters = Column(String, nullable=True)
+    website = Column(String, nullable=True)
+    primary_contact_name = Column(String, nullable=True)
+    primary_contact_email = Column(String, nullable=True)
+    primary_contact_phone = Column(String, nullable=True)
+
+    # Business Information
+    established_year = Column(Integer, nullable=True)
+    employee_count = Column(String, nullable=True)  # "50-100", "150+"
+    certifications = Column(JSON, default=[])  # ["8(a)", "HUBZone", "ISO 9001"]
+    naics_codes = Column(JSON, default=[])  # ["541512", "541519"]
+    core_competencies = Column(JSON, default=[])  # List of capabilities
+    past_performance = Column(JSON, default=[])  # List of past contracts
+
+    # Timestamps
+    created_at = Column(DateTime, default=datetime.utcnow)
+    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+
+    # Relationships
+    rfps = relationship("RFPOpportunity", back_populates="company_profile")
+
+    def to_dict(self):
+        return {
+            "id": self.id,
+            "name": self.name,
+            "legal_name": self.legal_name,
+            "is_default": self.is_default,
+            "uei": self.uei,
+            "cage_code": self.cage_code,
+            "duns_number": self.duns_number,
+            "headquarters": self.headquarters,
+            "website": self.website,
+            "primary_contact_name": self.primary_contact_name,
+            "primary_contact_email": self.primary_contact_email,
+            "primary_contact_phone": self.primary_contact_phone,
+            "established_year": self.established_year,
+            "employee_count": self.employee_count,
+            "certifications": self.certifications,
+            "naics_codes": self.naics_codes,
+            "core_competencies": self.core_competencies,
+            "past_performance": self.past_performance,
+            "created_at": self.created_at.isoformat() if self.created_at else None,
+            "updated_at": self.updated_at.isoformat() if self.updated_at else None,
+        }
+
+
+class RFPDocument(Base):
+    """Document attachments for RFPs (downloaded from scraped sources)."""
+    __tablename__ = "rfp_documents"
+
+    id = Column(Integer, primary_key=True, index=True)
+    rfp_id = Column(Integer, ForeignKey("rfp_opportunities.id"), nullable=False)
+
+    filename = Column(String, nullable=False)  # Original filename
+    file_path = Column(String, nullable=False)  # Local storage path
+    file_type = Column(String, nullable=True)  # "pdf", "docx", "xlsx"
+    file_size = Column(Integer, nullable=True)  # Size in bytes
+    document_type = Column(String, nullable=True)  # "solicitation", "amendment", "attachment", "qa_response"
+    source_url = Column(String, nullable=True)  # Original download URL
+    downloaded_at = Column(DateTime, default=datetime.utcnow)
+    checksum = Column(String, nullable=True)  # For change detection (MD5/SHA256)
+
+    # Timestamps
+    created_at = Column(DateTime, default=datetime.utcnow)
+    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+
+    # Relationships
+    rfp = relationship("RFPOpportunity", back_populates="documents")
+
+    def to_dict(self):
+        return {
+            "id": self.id,
+            "rfp_id": self.rfp_id,
+            "filename": self.filename,
+            "file_path": self.file_path,
+            "file_type": self.file_type,
+            "file_size": self.file_size,
+            "document_type": self.document_type,
+            "source_url": self.source_url,
+            "downloaded_at": self.downloaded_at.isoformat() if self.downloaded_at else None,
+            "checksum": self.checksum,
+            "created_at": self.created_at.isoformat() if self.created_at else None,
+            "updated_at": self.updated_at.isoformat() if self.updated_at else None,
+        }
+
+
+class RFPQandA(Base):
+    """Q&A entries for RFPs with AI-powered analysis."""
+    __tablename__ = "rfp_qa"
+
+    id = Column(Integer, primary_key=True, index=True)
+    rfp_id = Column(Integer, ForeignKey("rfp_opportunities.id"), nullable=False)
+
+    question_number = Column(String, nullable=True)  # "Q1", "Q2", etc.
+    question_text = Column(Text, nullable=False)
+    answer_text = Column(Text, nullable=True)
+    asked_date = Column(DateTime, nullable=True)
+    answered_date = Column(DateTime, nullable=True)
+
+    # AI Analysis
+    category = Column(String, nullable=True)  # "technical", "pricing", "scope", "timeline", "compliance"
+    key_insights = Column(JSON, default=[])  # AI-extracted insights
+    related_sections = Column(JSON, default=[])  # Proposal sections affected
+
+    # Tracking
+    is_new = Column(Boolean, default=True)  # Flag for newly detected Q&A
+    created_at = Column(DateTime, default=datetime.utcnow)
+    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+
+    # Relationships
+    rfp = relationship("RFPOpportunity", back_populates="qa_items")
+
+    def to_dict(self):
+        return {
+            "id": self.id,
+            "rfp_id": self.rfp_id,
+            "question_number": self.question_number,
+            "question_text": self.question_text,
+            "answer_text": self.answer_text,
+            "asked_date": self.asked_date.isoformat() if self.asked_date else None,
+            "answered_date": self.answered_date.isoformat() if self.answered_date else None,
+            "category": self.category,
+            "key_insights": self.key_insights,
+            "related_sections": self.related_sections,
+            "is_new": self.is_new,
+            "created_at": self.created_at.isoformat() if self.created_at else None,
+            "updated_at": self.updated_at.isoformat() if self.updated_at else None,
         }
 
 

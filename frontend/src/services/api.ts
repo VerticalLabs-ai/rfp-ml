@@ -119,7 +119,42 @@ export const api = {
 
   // Teaming endpoints
   getTeamingPartners: (rfpId: string) =>
-    apiClient.get(`/rfps/${rfpId}/partners`).then(res => res.data)
+    apiClient.get(`/rfps/${rfpId}/partners`).then(res => res.data),
+
+  // Scraper endpoints
+  scrapeRFP: (url: string, profileId?: number) =>
+    apiClient.post('/scraper/scrape', { url, company_profile_id: profileId }).then(res => res.data),
+
+  refreshRFP: (rfpId: string) =>
+    apiClient.post(`/scraper/${rfpId}/refresh`).then(res => res.data),
+
+  getRFPDocuments: (rfpId: string) =>
+    apiClient.get(`/scraper/${rfpId}/documents`).then(res => res.data),
+
+  downloadRFPDocument: (rfpId: string, docId: number) =>
+    apiClient.get(`/scraper/${rfpId}/documents/${docId}/download`, { responseType: 'blob' }).then(res => res.data),
+
+  getRFPQandA: (rfpId: string, newOnly: boolean = false) =>
+    apiClient.get(`/scraper/${rfpId}/qa`, { params: { new_only: newOnly } }).then(res => res.data),
+
+  analyzeRFPQandA: (rfpId: string) =>
+    apiClient.post(`/scraper/${rfpId}/qa/analyze`).then(res => res.data),
+
+  // Company Profile endpoints
+  getCompanyProfiles: () =>
+    apiClient.get('/profiles').then(res => res.data),
+
+  createCompanyProfile: (data: any) =>
+    apiClient.post('/profiles', data).then(res => res.data),
+
+  updateCompanyProfile: (profileId: number, data: any) =>
+    apiClient.put(`/profiles/${profileId}`, data).then(res => res.data),
+
+  deleteCompanyProfile: (profileId: number) =>
+    apiClient.delete(`/profiles/${profileId}`).then(res => res.data),
+
+  setDefaultProfile: (profileId: number) =>
+    apiClient.post(`/profiles/${profileId}/default`).then(res => res.data)
 }
 
 

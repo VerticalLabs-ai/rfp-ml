@@ -1,17 +1,18 @@
-# This script defines Go/No-Go scoring and export for discovered RFPs using the agent.
-import os
-import sys
+"""
+Go/No-Go scoring and export for discovered RFPs using the agent.
+"""
 import json
-import pandas as pd
+import os
+from dataclasses import asdict
 from datetime import datetime
 
-# Add src to path for imports
-sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..'))
-from config.paths import PathConfig
+import pandas as pd
+
+from src.config.paths import PathConfig
+from src.decision.go_nogo_engine import GoNoGoEngine
 
 def evaluate_go_nogo(agent, triaged_df: pd.DataFrame) -> pd.DataFrame:
-    from src.decision.go_nogo_engine import GoNoGoEngine
-    from dataclasses import asdict
+    """Evaluate Go/No-Go decisions for triaged RFPs."""
     nogo_engine = GoNoGoEngine()
     results = []
     for _, row in triaged_df.iterrows():

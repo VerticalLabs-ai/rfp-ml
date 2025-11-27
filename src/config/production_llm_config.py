@@ -2,14 +2,12 @@
 Production-ready LLM configuration optimized for bid generation
 Includes environment detection and performance optimization
 """
-import os
 import logging
-from typing import Optional, Dict, Any
-from dataclasses import dataclass, field
-import sys
 import os
-sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..'))
-from src.config.llm_config import LLMManager, LLMConfig
+from dataclasses import dataclass, field
+from typing import Any, Dict, Optional
+
+from src.config.llm_config import LLMConfig, LLMManager
 @dataclass
 class BidGenerationLLMConfig(LLMConfig):
     """Specialized configuration for bid generation tasks"""

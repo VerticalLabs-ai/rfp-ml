@@ -14,7 +14,13 @@ import numpy as np
 from dataclasses import dataclass, asdict
 
 # Import path configuration
-from config.paths import PathConfig
+from src.config.paths import PathConfig
+from src.utils.config_loader import load_or_create_config
+from src.utils.constants import (
+    ContractValueDefaults,
+    DecisionDefaults,
+    DurationDefaults,
+)
 @dataclass
 class DecisionCriteria:
     """Decision criteria configuration."""
@@ -78,7 +84,6 @@ class GoNoGoEngine:
         # Create directories
         os.makedirs(self.config_dir, exist_ok=True)
         # Initialize logging
-        logging.basicConfig(level=logging.INFO)
         self.logger = logging.getLogger(__name__)
         # Load configuration and historical data
         self.decision_criteria = self._load_decision_criteria()
@@ -88,29 +93,18 @@ class GoNoGoEngine:
         """Load or create decision criteria configuration."""
         config_path = os.path.join(self.config_dir, "decision_parameters.json")
         default_config = {
-            "margin_weight": 0.30,
-            "complexity_weight": 0.25,
-            "duration_weight": 0.20,
-            "historical_weight": 0.15,
-            "resource_weight": 0.10,
-            "margin_threshold_go": 70.0,
-            "margin_threshold_review": 50.0,
-            "complexity_threshold_review": 70.0,
-            "confidence_threshold_go": 70.0
+            "margin_weight": DecisionDefaults.MARGIN_WEIGHT,
+            "complexity_weight": DecisionDefaults.COMPLEXITY_WEIGHT,
+            "duration_weight": DecisionDefaults.DURATION_WEIGHT,
+            "historical_weight": DecisionDefaults.HISTORICAL_WEIGHT,
+            "resource_weight": DecisionDefaults.RESOURCE_WEIGHT,
+            "margin_threshold_go": DecisionDefaults.GO_THRESHOLD,
+            "margin_threshold_review": DecisionDefaults.REVIEW_THRESHOLD,
+            "complexity_threshold_review": DecisionDefaults.GO_THRESHOLD,
+            "confidence_threshold_go": DecisionDefaults.CONFIDENCE_THRESHOLD
         }
-        if os.path.exists(config_path):
-            try:
-                with open(config_path, 'r') as f:
-                    config_data = json.load(f)
-                self.logger.info(f"Loaded decision criteria from {config_path}")
-                return DecisionCriteria(**config_data)
-            except Exception as e:
-                self.logger.warning(f"Failed to load decision criteria: {e}")
-        # Save default configuration
-        with open(config_path, 'w') as f:
-            json.dump(default_config, f, indent=2)
-        self.logger.info(f"Created default decision criteria at {config_path}")
-        return DecisionCriteria(**default_config)
+        config_data = load_or_create_config(config_path, default_config)
+        return DecisionCriteria(**config_data)
     def _load_historical_data(self) -> pd.DataFrame:
         """Load historical RFP data for win rate analysis."""
         try:
@@ -120,7 +114,13 @@ class GoNoGoEngine:
             df = df[df['award_amount'].notna() & (df['award_amount'] > 0)]
             self.logger.info(f"Loaded {len(df)} historical records for decision analysis")
             return df
-        except Exception as e:
+        except FileNotFoundError:
+            self.logger.warning(f"Historical data file not found in {self.historical_data_dir}")
+            return pd.DataFrame()
+        except (pd.errors.EmptyDataError, pd.errors.ParserError) as e:
+            self.logger.warning(f"Failed to parse historical data: {e}")
+            return pd.DataFrame()
+        except OSError as e:
             self.logger.warning(f"Failed to load historical data: {e}")
             return pd.DataFrame()
     def _analyze_historical_win_rates(self) -> Dict[str, float]:
@@ -135,9 +135,9 @@ class GoNoGoEngine:
                 # Calculate win rates (assuming all records in dataset are wins)
                 # In production, this would compare wins vs total opportunities
                 for naics_code, count in naics_groups.items():
-                    if count >= 10:  # Minimum sample size
+                    if count >= DecisionDefaults.MIN_SAMPLE_SIZE:
                         # Simulated win rate based on contract characteristics
-                        win_rate = min(0.9, 0.3 + (count / 1000))  # Higher for categories with more contracts
+                        win_rate = min(0.9, 0.3 + (count / 1000))
                         win_rates[f"naics_{naics_code}"] = win_rate
             # Analyze by contract value ranges
             if 'award_amount' in self.historical_data.columns:
@@ -146,13 +146,13 @@ class GoNoGoEngine:
                 small_contracts = awards[awards <= awards.quantile(0.33)]
                 medium_contracts = awards[(awards > awards.quantile(0.33)) & (awards <= awards.quantile(0.67))]
                 large_contracts = awards[awards > awards.quantile(0.67)]
-                # Calculate win rates by contract size
-                win_rates['small_contracts'] = 0.75  # Higher win rate for smaller contracts
-                win_rates['medium_contracts'] = 0.60  # Moderate win rate
-                win_rates['large_contracts'] = 0.45   # Lower win rate for large contracts
+                # Calculate win rates by contract size using constants
+                win_rates['small_contracts'] = ContractValueDefaults.SMALL_WIN_RATE
+                win_rates['medium_contracts'] = ContractValueDefaults.MEDIUM_WIN_RATE
+                win_rates['large_contracts'] = ContractValueDefaults.LARGE_WIN_RATE
             self.logger.info(f"Analyzed win rate patterns for {len(win_rates)} categories")
-        except Exception as e:
-            self.logger.warning(f"Win rate analysis failed: {e}")
+        except (KeyError, ValueError, TypeError) as e:
+            self.logger.warning(f"Win rate analysis failed due to data issue: {e}")
         return win_rates
     def _calculate_margin_score(self, pricing_results: Dict[str, Any]) -> Tuple[float, List[str], List[str]]:
         """Calculate margin-based score and identify factors."""
@@ -241,32 +241,37 @@ class GoNoGoEngine:
             estimated_duration = 6
         elif any(term in description for term in ['emergency', 'urgent', 'immediate']):
             estimated_duration = 1
-        # Score based on optimal duration range (6-24 months)
-        if 6 <= estimated_duration <= 24:
+        # Score based on optimal duration range
+        opt_min = DurationDefaults.OPTIMAL_MIN_DURATION
+        opt_max = DurationDefaults.OPTIMAL_MAX_DURATION
+        acceptable_max = DurationDefaults.ACCEPTABLE_MAX_DURATION
+        long_duration = DurationDefaults.LONG_DURATION
+
+        if opt_min <= estimated_duration <= opt_max:
             duration_score = 100.0
-        elif 3 <= estimated_duration <= 36:
+        elif 3 <= estimated_duration <= acceptable_max:
             duration_score = 80.0
-        elif estimated_duration <= 60:
+        elif estimated_duration <= long_duration:
             duration_score = 60.0
         else:
             duration_score = 40.0
-        # Adjust for lead time
-        if lead_time < 15:
-            duration_score *= 0.8  # Penalty for short lead times
-        elif lead_time > 60:
-            duration_score *= 1.1  # Bonus for longer lead times
+        # Adjust for lead time using constants
+        if lead_time < DurationDefaults.SHORT_LEAD_TIME:
+            duration_score *= DurationDefaults.SHORT_LEAD_PENALTY
+        elif lead_time > DurationDefaults.LONG_LEAD_TIME:
+            duration_score *= DurationDefaults.LONG_LEAD_BONUS
         # Identify duration factors
         risks = []
         opportunities = []
-        if lead_time < 15:
-            risks.append("Short lead time below 15 days")
-        if estimated_duration > 36:
-            risks.append("Long-term contract exceeding 36 months")
+        if lead_time < DurationDefaults.SHORT_LEAD_TIME:
+            risks.append(f"Short lead time below {DurationDefaults.SHORT_LEAD_TIME} days")
+        if estimated_duration > acceptable_max:
+            risks.append(f"Long-term contract exceeding {acceptable_max} months")
         if any(term in description for term in ['emergency', 'urgent']):
             risks.append("Emergency/urgent timeline requirements")
-        if 15 <= lead_time <= 45:
+        if DurationDefaults.SHORT_LEAD_TIME <= lead_time <= 45:
             opportunities.append("Adequate lead time for proposal preparation")
-        if 6 <= estimated_duration <= 24:
+        if opt_min <= estimated_duration <= opt_max:
             opportunities.append("Optimal contract duration range")
         return min(100.0, duration_score), risks, opportunities
     def _calculate_historical_score(self, rfp_data: Dict[str, Any]) -> Tuple[float, List[str], List[str]]:
