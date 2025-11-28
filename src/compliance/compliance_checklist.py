@@ -79,7 +79,7 @@ class ComplianceChecklistGenerator:
         for i, req in enumerate(requirements_and_responses):
             checklist_items.append(ChecklistItem(
                 id=f"REQ-{rfp_id}-{i+1}",
-                description=f"Ensure ongoing compliance with: {req.get("requirement_text", "")}",
+                description=f"Ensure ongoing compliance with: {req.get('requirement_text', '')}",
                 status="pending",
                 assigned_to="Project Manager", # Default assignment
                 meta={
@@ -140,7 +140,7 @@ class ComplianceChecklistGenerator:
         """
         Export the compliance checklist to a file.
         """
-        filename_base = f"post_award_checklist_{checklist.rfp_id}_{checklist.generated_at.strftime("%Y%m%d%H%M%S")}"
+        filename_base = f"post_award_checklist_{checklist.rfp_id}_{checklist.generated_at.strftime('%Y%m%d%H%M%S')}"
         
         if output_format.lower() == "json":
             filepath = os.path.join(self.output_dir, f"{filename_base}.json")
@@ -157,5 +157,24 @@ class ComplianceChecklistGenerator:
         self.logger.info(f"Exported compliance checklist to: {filepath}")
         return filepath
 
-# Global instance
-compliance_checklist_generator = ComplianceChecklistGenerator()
+# Lazy factory for compliance checklist generator
+_compliance_checklist_generator_instance: ComplianceChecklistGenerator | None = None
+
+
+def get_compliance_checklist_generator() -> ComplianceChecklistGenerator:
+    """Get or create the compliance checklist generator instance."""
+    global _compliance_checklist_generator_instance
+    if _compliance_checklist_generator_instance is None:
+        _compliance_checklist_generator_instance = ComplianceChecklistGenerator()
+    return _compliance_checklist_generator_instance
+
+
+class _LazyGenerator:
+    """Lazy wrapper for backward compatibility."""
+
+    def __getattr__(self, name):
+        return getattr(get_compliance_checklist_generator(), name)
+
+
+# Backward-compatible alias (use get_compliance_checklist_generator() for new code)
+compliance_checklist_generator = _LazyGenerator()

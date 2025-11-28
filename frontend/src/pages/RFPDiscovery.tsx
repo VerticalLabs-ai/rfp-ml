@@ -62,7 +62,7 @@ export default function RFPDiscovery() {
                 Import from URL
               </Button>
             }
-            onSuccess={(rfpId) => {
+            onSuccess={() => {
               queryClient.invalidateQueries({ queryKey: ['discovered-rfps'] })
             }}
           />

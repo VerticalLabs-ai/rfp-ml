@@ -1,15 +1,18 @@
 """
 WebSocket endpoints for real-time updates.
 """
-from fastapi import APIRouter, WebSocket, WebSocketDisconnect, Depends
-from typing import List, Optional, Dict
-import json
 import asyncio
-from sqlalchemy.orm import Session
-from app.core.database import get_db
-from app.services.rfp_service import RFPService
-from app.services.rfp_processor import processor # To get current bid content
+import json
+import logging
+from typing import Dict, List, Optional
 
+from fastapi import APIRouter, Depends, WebSocket, WebSocketDisconnect
+from sqlalchemy.orm import Session
+
+from app.core.database import get_db
+from app.services.rfp_processor import processor
+
+logger = logging.getLogger(__name__)
 router = APIRouter()
 
 
@@ -29,23 +32,24 @@ class ConnectionManager:
             if doc_id not in self.document_connections:
                 self.document_connections[doc_id] = []
             self.document_connections[doc_id].append(websocket)
-            print(f"WebSocket connected for document {doc_id}. Total connections: {len(self.document_connections[doc_id])}")
+            logger.info("WebSocket connected for document %s. Total connections: %d", doc_id, len(self.document_connections[doc_id]))
         else:
             self.active_connections.append(websocket)
-            print(f"General WebSocket connected. Total connections: {len(self.active_connections)}")
+            logger.info("General WebSocket connected. Total connections: %d", len(self.active_connections))
 
     def disconnect(self, websocket: WebSocket, doc_id: Optional[str] = None):
         """Remove WebSocket connection.
         If doc_id is provided, remove from document connections, otherwise from general.
         """
         if doc_id and doc_id in self.document_connections:
-            self.document_connections[doc_id].remove(websocket)
-            if not self.document_connections[doc_id]: # Remove doc_id if no more connections
+            if websocket in self.document_connections[doc_id]:
+                self.document_connections[doc_id].remove(websocket)
+            if not self.document_connections[doc_id]:
                 del self.document_connections[doc_id]
-            print(f"WebSocket disconnected for document {doc_id}.")
+            logger.info("WebSocket disconnected for document %s.", doc_id)
         elif websocket in self.active_connections:
             self.active_connections.remove(websocket)
-            print(f"General WebSocket disconnected.")
+            logger.info("General WebSocket disconnected.")
 
     async def send_personal_message(self, message: str, websocket: WebSocket):
         """Send message to specific client."""
@@ -54,12 +58,16 @@ class ConnectionManager:
     async def broadcast(self, message: dict):
         """Broadcast message to all general connected clients."""
         message_str = json.dumps(message)
+        dead_connections = []
         for connection in self.active_connections:
             try:
                 await connection.send_text(message_str)
-            except:
-                print(f"Error broadcasting to a general connection. Removing.")
-                self.active_connections.remove(connection) # Remove dead connection
+            except Exception as e:
+                logger.warning("Error broadcasting to a general connection: %s. Removing.", e)
+                dead_connections.append(connection)
+        for conn in dead_connections:
+            if conn in self.active_connections:
+                self.active_connections.remove(conn)
 
     async def broadcast_document_update(self, doc_id: str, message: dict, exclude_websocket: Optional[WebSocket] = None):
         """Broadcast message to all clients connected to a specific document, excluding sender if specified."""
@@ -67,13 +75,17 @@ class ConnectionManager:
             return
         
         message_str = json.dumps(message)
+        dead_connections = []
         for connection in self.document_connections[doc_id]:
-            if connection != exclude_websocket: # Don't send back to the client who sent it
+            if connection != exclude_websocket:
                 try:
                     await connection.send_text(message_str)
-                except:
-                    print(f"Error broadcasting to a document connection ({doc_id}). Removing.")
-                    self.document_connections[doc_id].remove(connection) # Remove dead connection
+                except Exception as e:
+                    logger.warning("Error broadcasting to document connection (%s): %s. Removing.", doc_id, e)
+                    dead_connections.append(connection)
+        for conn in dead_connections:
+            if conn in self.document_connections.get(doc_id, []):
+                self.document_connections[doc_id].remove(conn)
 
 
 manager = ConnectionManager()

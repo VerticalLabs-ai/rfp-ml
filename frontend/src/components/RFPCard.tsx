@@ -59,7 +59,7 @@ export default function RFPCard({ rfp, onTriageDecision }: RFPCardProps) {
             <Button
               onClick={() => onTriageDecision(rfp.rfp_id, 'approve')}
               size="sm"
-              className="bg-green-600 hover:bg-green-700"
+              variant="default"
             >
               <Check className="w-4 h-4 mr-1" />
               Approve

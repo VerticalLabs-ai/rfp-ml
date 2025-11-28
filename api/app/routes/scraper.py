@@ -1,24 +1,20 @@
 """
 RFP Scraper API endpoints for importing RFPs from external portals.
 """
-import os
+
 import logging
+import os
+import re
 from datetime import datetime
-from typing import Optional, List, Dict, Any
+from urllib.parse import urlparse
 from uuid import uuid4
-from fastapi import APIRouter, Depends, HTTPException, BackgroundTasks
-from fastapi.responses import FileResponse
-from sqlalchemy.orm import Session
-from pydantic import BaseModel, HttpUrl
 
 from app.core.database import get_db
-from app.models.database import (
-    RFPOpportunity,
-    RFPDocument,
-    RFPQandA,
-    CompanyProfile,
-    PipelineStage,
-)
+from app.models.database import PipelineStage, RFPDocument, RFPOpportunity, RFPQandA
+from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException
+from fastapi.responses import FileResponse
+from pydantic import BaseModel, field_validator
+from sqlalchemy.orm import Session
 
 logger = logging.getLogger(__name__)
 router = APIRouter()
@@ -27,7 +23,20 @@ router = APIRouter()
 # Pydantic schemas
 class ScrapeRequest(BaseModel):
     url: str
-    company_profile_id: Optional[int] = None
+    company_profile_id: int | None = None
+
+    @field_validator("url")
+    @classmethod
+    def validate_url(cls, v: str) -> str:
+        """Validate that URL is well-formed and uses HTTPS."""
+        parsed = urlparse(v)
+        if parsed.scheme not in ("http", "https"):
+            raise ValueError("URL must use http or https scheme")
+        if not parsed.netloc:
+            raise ValueError("Invalid URL: missing domain")
+        # Basic sanitization - remove any control characters
+        v = re.sub(r"[\x00-\x1f\x7f-\x9f]", "", v)
+        return v
 
 
 class ScrapeResponse(BaseModel):
@@ -36,7 +45,7 @@ class ScrapeResponse(BaseModel):
     title: str
     documents_count: int
     qa_count: int
-    message: Optional[str] = None
+    message: str | None = None
 
 
 class RefreshResponse(BaseModel):
@@ -51,10 +60,10 @@ class RefreshResponse(BaseModel):
 class RFPDocumentResponse(BaseModel):
     id: int
     filename: str
-    file_type: Optional[str]
-    file_size: Optional[int]
-    document_type: Optional[str]
-    downloaded_at: Optional[datetime]
+    file_type: str | None
+    file_size: int | None
+    document_type: str | None
+    downloaded_at: datetime | None
 
     class Config:
         from_attributes = True
@@ -62,13 +71,13 @@ class RFPDocumentResponse(BaseModel):
 
 class RFPQandAResponse(BaseModel):
     id: int
-    question_number: Optional[str]
+    question_number: str | None
     question_text: str
-    answer_text: Optional[str]
-    asked_date: Optional[datetime]
-    answered_date: Optional[datetime]
-    category: Optional[str]
-    key_insights: List[str]
+    answer_text: str | None
+    asked_date: datetime | None
+    answered_date: datetime | None
+    category: str | None
+    key_insights: list[str]
     is_new: bool
 
     class Config:
@@ -92,7 +101,7 @@ def get_scraper(url: str):
 async def scrape_rfp(
     request: ScrapeRequest,
     background_tasks: BackgroundTasks,
-    db: Session = Depends(get_db)
+    db: Session = Depends(get_db),
 ):
     """
     Scrape an RFP from an external portal URL.
@@ -109,7 +118,7 @@ async def scrape_rfp(
     if not scraper:
         raise HTTPException(
             status_code=400,
-            detail=f"Unsupported URL. Currently supported portals: BeaconBid"
+            detail="Unsupported URL. Currently supported portals: BeaconBid",
         )
 
     try:
@@ -118,14 +127,18 @@ async def scrape_rfp(
         scraped_rfp = await scraper.scrape(url)
 
         # Generate unique RFP ID
-        rfp_id = f"RFP-{datetime.now().strftime('%Y%m%d%H%M%S')}-{uuid4().hex[:6].upper()}"
+        rfp_id = (
+            f"RFP-{datetime.now().strftime('%Y%m%d%H%M%S')}-{uuid4().hex[:6].upper()}"
+        )
 
         # Check for existing RFP with same URL
-        existing = db.query(RFPOpportunity).filter(RFPOpportunity.source_url == url).first()
+        existing = (
+            db.query(RFPOpportunity).filter(RFPOpportunity.source_url == url).first()
+        )
         if existing:
             raise HTTPException(
                 status_code=400,
-                detail=f"RFP already exists with ID: {existing.rfp_id}. Use refresh endpoint to update."
+                detail=f"RFP already exists with ID: {existing.rfp_id}. Use refresh endpoint to update.",
             )
 
         # Create RFP in database
@@ -156,12 +169,7 @@ async def scrape_rfp(
 
         # Download documents in background
         background_tasks.add_task(
-            _download_and_save_documents,
-            scraper,
-            scraped_rfp,
-            rfp.id,
-            rfp_id,
-            db
+            _download_and_save_documents, scraper, scraped_rfp, rfp.id, rfp_id, db
         )
 
         # Save Q&A items
@@ -185,7 +193,7 @@ async def scrape_rfp(
             title=scraped_rfp.title,
             documents_count=len(scraped_rfp.documents),
             qa_count=len(scraped_rfp.qa_items),
-            message="RFP scraped successfully. Documents are downloading in background."
+            message="RFP scraped successfully. Documents are downloading in background.",
         )
 
     except HTTPException:
@@ -195,13 +203,16 @@ async def scrape_rfp(
         raise HTTPException(status_code=500, detail=f"Scraping failed: {str(e)}")
 
 
-async def _download_and_save_documents(scraper, scraped_rfp, rfp_db_id: int, rfp_id: str, db: Session):
+async def _download_and_save_documents(
+    scraper, scraped_rfp, rfp_db_id: int, rfp_id: str, db: Session
+):
     """Background task to download documents and save to database."""
     try:
         downloaded_docs = await scraper.download_documents(scraped_rfp, rfp_id)
 
         # Get a fresh session since we're in a background task
         from app.core.database import SessionLocal
+
         with SessionLocal() as session:
             for doc in downloaded_docs:
                 doc_record = RFPDocument(
@@ -226,9 +237,7 @@ async def _download_and_save_documents(scraper, scraped_rfp, rfp_db_id: int, rfp
 
 @router.post("/{rfp_id}/refresh", response_model=RefreshResponse)
 async def refresh_rfp(
-    rfp_id: str,
-    background_tasks: BackgroundTasks,
-    db: Session = Depends(get_db)
+    rfp_id: str, background_tasks: BackgroundTasks, db: Session = Depends(get_db)
 ):
     """
     Refresh/re-scrape an existing RFP to check for updates.
@@ -262,20 +271,24 @@ async def refresh_rfp(
                 new_qa_count=0,
                 new_document_count=0,
                 metadata_changed=False,
-                message="No changes detected"
+                message="No changes detected",
             )
 
         updated_rfp = result["updated_rfp"]
 
         # Count existing Q&A and docs
         existing_qa_count = db.query(RFPQandA).filter(RFPQandA.rfp_id == rfp.id).count()
-        existing_doc_count = db.query(RFPDocument).filter(RFPDocument.rfp_id == rfp.id).count()
+        existing_doc_count = (
+            db.query(RFPDocument).filter(RFPDocument.rfp_id == rfp.id).count()
+        )
 
         # Check for new Q&A
         new_qa_count = len(updated_rfp.qa_items) - existing_qa_count
         if new_qa_count > 0:
             # Mark existing Q&A as not new
-            db.query(RFPQandA).filter(RFPQandA.rfp_id == rfp.id).update({RFPQandA.is_new: False})
+            db.query(RFPQandA).filter(RFPQandA.rfp_id == rfp.id).update(
+                {RFPQandA.is_new: False}
+            )
 
             # Add new Q&A
             for qa in updated_rfp.qa_items[existing_qa_count:]:
@@ -295,19 +308,14 @@ async def refresh_rfp(
         if new_doc_count > 0:
             # Download new documents in background
             background_tasks.add_task(
-                _download_and_save_documents,
-                scraper,
-                updated_rfp,
-                rfp.id,
-                rfp_id,
-                db
+                _download_and_save_documents, scraper, updated_rfp, rfp.id, rfp_id, db
             )
 
         # Check for metadata changes
         metadata_changed = (
-            rfp.title != updated_rfp.title or
-            rfp.description != updated_rfp.description or
-            rfp.response_deadline != updated_rfp.response_deadline
+            rfp.title != updated_rfp.title
+            or rfp.description != updated_rfp.description
+            or rfp.response_deadline != updated_rfp.response_deadline
         )
 
         # Update RFP metadata
@@ -325,7 +333,7 @@ async def refresh_rfp(
             new_qa_count=max(0, new_qa_count),
             new_document_count=max(0, new_doc_count),
             metadata_changed=metadata_changed,
-            message=f"Found {max(0, new_qa_count)} new Q&A and {max(0, new_doc_count)} new documents"
+            message=f"Found {max(0, new_qa_count)} new Q&A and {max(0, new_doc_count)} new documents",
         )
 
     except Exception as e:
@@ -333,7 +341,7 @@ async def refresh_rfp(
         raise HTTPException(status_code=500, detail=f"Refresh failed: {str(e)}")
 
 
-@router.get("/{rfp_id}/documents", response_model=List[RFPDocumentResponse])
+@router.get("/{rfp_id}/documents", response_model=list[RFPDocumentResponse])
 async def get_rfp_documents(rfp_id: str, db: Session = Depends(get_db)):
     """Get all documents for an RFP."""
     rfp = db.query(RFPOpportunity).filter(RFPOpportunity.rfp_id == rfp_id).first()
@@ -351,10 +359,11 @@ async def download_document(rfp_id: str, doc_id: int, db: Session = Depends(get_
     if not rfp:
         raise HTTPException(status_code=404, detail="RFP not found")
 
-    document = db.query(RFPDocument).filter(
-        RFPDocument.id == doc_id,
-        RFPDocument.rfp_id == rfp.id
-    ).first()
+    document = (
+        db.query(RFPDocument)
+        .filter(RFPDocument.id == doc_id, RFPDocument.rfp_id == rfp.id)
+        .first()
+    )
 
     if not document:
         raise HTTPException(status_code=404, detail="Document not found")
@@ -365,15 +374,13 @@ async def download_document(rfp_id: str, doc_id: int, db: Session = Depends(get_
     return FileResponse(
         path=document.file_path,
         filename=document.filename,
-        media_type="application/octet-stream"
+        media_type="application/octet-stream",
     )
 
 
-@router.get("/{rfp_id}/qa", response_model=List[RFPQandAResponse])
+@router.get("/{rfp_id}/qa", response_model=list[RFPQandAResponse])
 async def get_rfp_qa(
-    rfp_id: str,
-    new_only: bool = False,
-    db: Session = Depends(get_db)
+    rfp_id: str, new_only: bool = False, db: Session = Depends(get_db)
 ):
     """Get Q&A items for an RFP."""
     rfp = db.query(RFPOpportunity).filter(RFPOpportunity.rfp_id == rfp_id).first()
@@ -383,7 +390,7 @@ async def get_rfp_qa(
     query = db.query(RFPQandA).filter(RFPQandA.rfp_id == rfp.id)
 
     if new_only:
-        query = query.filter(RFPQandA.is_new == True)
+        query = query.filter(RFPQandA.is_new)
 
     qa_items = query.order_by(RFPQandA.question_number).all()
     return qa_items
@@ -423,5 +430,5 @@ async def analyze_qa(rfp_id: str, db: Session = Depends(get_db)):
 
     return {
         "message": f"Analyzed {analyzed_count} Q&A items",
-        "analyzed_count": analyzed_count
+        "analyzed_count": analyzed_count,
     }

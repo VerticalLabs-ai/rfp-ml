@@ -2,14 +2,16 @@
 Build FAISS index from all processed RFP datasets
 Comprehensive indexing script for the RAG system
 """
+
 import json
-import os
 import time
-from typing import Any, Dict
+from typing import Any
 
 from src.config.paths import PathConfig
 from src.rag.rag_engine import RAGConfig, RAGEngine
-def build_comprehensive_index(force_rebuild: bool = False) -> Dict[str, Any]:
+
+
+def build_comprehensive_index(force_rebuild: bool = False) -> dict[str, Any]:
     """
     Build comprehensive FAISS index from all RFP datasets
     Args:
@@ -26,7 +28,7 @@ def build_comprehensive_index(force_rebuild: bool = False) -> Dict[str, Any]:
         chunk_overlap=50,
         top_k=10,
         batch_size=32,
-        similarity_threshold=0.3
+        similarity_threshold=0.3,
     )
     # Create RAG engine
     print("\n1️⃣ Initializing RAG Engine...")
@@ -54,22 +56,28 @@ def build_comprehensive_index(force_rebuild: bool = False) -> Dict[str, Any]:
         start_time = time.time()
         build_stats = rag_engine.build_index(force_rebuild=True)
         total_time = time.time() - start_time
-        print(f"\n   ✅ Index build completed!")
-        print(f"   📊 Build Statistics:")
+        print("\n   ✅ Index build completed!")
+        print("   📊 Build Statistics:")
         print(f"      • Total documents: {build_stats['total_documents']:,}")
         print(f"      • Total chunks: {build_stats['total_chunks']:,}")
         print(f"      • Embedding dimension: {build_stats['embedding_dimension']}")
         print(f"      • Index type: {build_stats['index_type']}")
         print(f"      • Build time: {build_stats['build_time_seconds']:.2f}s")
-        print(f"      • Processing rate: {build_stats['chunks_per_second']:.1f} chunks/second")
+        print(
+            f"      • Processing rate: {build_stats['chunks_per_second']:.1f} chunks/second"
+        )
         # Validate index
         print("\n3️⃣ Validating Index...")
         validation_results = rag_engine.validate_index()
-        print(f"   Index integrity: {'✅' if validation_results['index_integrity'] else '❌'}")
-        print(f"   Embedding consistency: {'✅' if validation_results['embedding_consistency'] else '❌'}")
-        if 'search_performance' in validation_results:
-            perf = validation_results['search_performance']
-            print(f"   Search performance:")
+        print(
+            f"   Index integrity: {'✅' if validation_results['index_integrity'] else '❌'}"
+        )
+        print(
+            f"   Embedding consistency: {'✅' if validation_results['embedding_consistency'] else '❌'}"
+        )
+        if "search_performance" in validation_results:
+            perf = validation_results["search_performance"]
+            print("   Search performance:")
             print(f"      • Average search time: {perf['avg_search_time']:.3f}s")
             print(f"      • Max search time: {perf['max_search_time']:.3f}s")
             print(f"      • Test queries: {perf['total_test_queries']}")
@@ -77,22 +85,22 @@ def build_comprehensive_index(force_rebuild: bool = False) -> Dict[str, Any]:
         # Get detailed index statistics
         print("\n4️⃣ Index Statistics...")
         index_stats = rag_engine.get_index_stats()
-        print(f"   📊 Index Overview:")
+        print("   📊 Index Overview:")
         print(f"      • Total chunks: {index_stats['total_chunks']:,}")
         print(f"      • Index size: {index_stats['index_size']:,} vectors")
         print(f"      • Embedding dimension: {index_stats['embedding_dimension']}")
-        if 'source_distribution' in index_stats:
-            print(f"   📁 Source Distribution:")
-            for source, count in index_stats['source_distribution'].items():
+        if "source_distribution" in index_stats:
+            print("   📁 Source Distribution:")
+            for source, count in index_stats["source_distribution"].items():
                 print(f"      • {source}: {count:,} chunks")
         # Test sample searches
         print("\n5️⃣ Testing Sample Searches...")
         test_queries = [
             "bottled water delivery service requirements",
-            "construction project bid specifications", 
+            "construction project bid specifications",
             "logistics and transportation services",
             "government contract compliance standards",
-            "emergency response capabilities"
+            "emergency response capabilities",
         ]
         search_results = {}
         for query in test_queries:
@@ -101,9 +109,17 @@ def build_comprehensive_index(force_rebuild: bool = False) -> Dict[str, Any]:
                 search_results[query] = {
                     "num_results": len(results),
                     "top_score": results[0]["score"] if results else 0.0,
-                    "avg_score": sum(r["score"] for r in results) / len(results) if results else 0.0
+                    "avg_score": (
+                        sum(r["score"] for r in results) / len(results)
+                        if results
+                        else 0.0
+                    ),
                 }
-                print(f"   ✓ '{query[:30]}...': {len(results)} results (top score: {results[0]['score']:.3f})" if results else f"   ⚠️ '{query[:30]}...': No results")
+                print(
+                    f"   ✓ '{query[:30]}...': {len(results)} results (top score: {results[0]['score']:.3f})"
+                    if results
+                    else f"   ⚠️ '{query[:30]}...': No results"
+                )
             except Exception as e:
                 print(f"   ❌ '{query[:30]}...': Search failed - {e}")
                 search_results[query] = {"error": str(e)}
@@ -114,13 +130,13 @@ def build_comprehensive_index(force_rebuild: bool = False) -> Dict[str, Any]:
             "validation_results": validation_results,
             "index_stats": index_stats,
             "search_test_results": search_results,
-            "total_build_time": total_time
+            "total_build_time": total_time,
         }
         # Save results to file
         logs_dir = PathConfig.PROJECT_ROOT / "logs"
         logs_dir.mkdir(exist_ok=True)
         results_path = logs_dir / "rag_build_results.json"
-        with open(results_path, 'w') as f:
+        with open(results_path, "w") as f:
             json.dump(final_results, f, indent=2)
         print(f"\n📄 Results saved to: {results_path}")
         print("\n" + "=" * 60)
@@ -134,16 +150,22 @@ def build_comprehensive_index(force_rebuild: bool = False) -> Dict[str, Any]:
         error_results = {
             "status": "error",
             "error": str(e),
-            "build_time": time.time() - start_time if 'start_time' in locals() else 0
+            "build_time": time.time() - start_time if "start_time" in locals() else 0,
         }
         print(f"\n❌ Index build failed: {e}")
         return error_results
+
+
 def main():
     """Main function for building the index"""
     import argparse
+
     parser = argparse.ArgumentParser(description="Build FAISS index for RAG system")
-    parser.add_argument("--force-rebuild", action="store_true", 
-                       help="Force rebuild even if index exists")
+    parser.add_argument(
+        "--force-rebuild",
+        action="store_true",
+        help="Force rebuild even if index exists",
+    )
     args = parser.parse_args()
     # Build index
     results = build_comprehensive_index(force_rebuild=args.force_rebuild)
@@ -152,5 +174,7 @@ def main():
         exit(0)
     else:
         exit(1)
+
+
 if __name__ == "__main__":
     main()

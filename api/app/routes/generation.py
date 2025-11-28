@@ -1,19 +1,53 @@
-from fastapi import APIRouter, UploadFile, File, HTTPException, Depends
-from typing import List, Dict, Any
-import shutil
+import logging
 import os
-from pathlib import Path
+import shutil
 import sys
+from pathlib import Path
+from typing import Any, Dict, List
+
+from fastapi import APIRouter, File, HTTPException, UploadFile
+from pydantic import BaseModel, field_validator
 
 # Add project root
-sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '../../../')))
+sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "../../../")))
 
+from app.core.config import settings
 from src.bid_generation.style_manager import style_manager
 from src.config.enhanced_bid_llm import EnhancedBidLLMManager
-from app.core.config import settings
 
+logger = logging.getLogger(__name__)
 router = APIRouter()
-llm_manager = EnhancedBidLLMManager()
+
+# Lazy initialization to avoid startup failures
+_llm_manager = None
+
+
+def get_llm_manager():
+    """Get or create LLM manager instance."""
+    global _llm_manager
+    if _llm_manager is None:
+        _llm_manager = EnhancedBidLLMManager()
+    return _llm_manager
+
+
+class RefineRequest(BaseModel):
+    text: str
+    instruction: str
+    context: str = ""
+
+    @field_validator("text", "instruction")
+    @classmethod
+    def validate_not_empty(cls, v: str) -> str:
+        if not v or not v.strip():
+            raise ValueError("Field cannot be empty")
+        return v.strip()
+
+    @field_validator("text")
+    @classmethod
+    def validate_text_length(cls, v: str) -> str:
+        if len(v) > 50000:
+            raise ValueError("Text exceeds maximum length of 50000 characters")
+        return v
 
 @router.post("/style/upload")
 async def upload_style_reference(file: UploadFile = File(...)):
@@ -52,23 +86,17 @@ async def upload_style_reference(file: UploadFile = File(...)):
         raise HTTPException(status_code=500, detail=f"Processing failed: {str(e)}")
 
 @router.post("/refine")
-async def refine_text(data: Dict[str, str]):
+async def refine_text(data: RefineRequest):
     """
     Refine a specific text segment using the LLM.
     Input: { "text": "...", "instruction": "Make it more persuasive", "context": "..." }
     """
-    text = data.get("text")
-    instruction = data.get("instruction")
-    context = data.get("context", "")
-    
-    if not text or not instruction:
-         raise HTTPException(status_code=400, detail="Missing text or instruction")
-         
     try:
-        refined = llm_manager.refine_content(text, instruction, context)
+        llm_manager = get_llm_manager()
+        refined = llm_manager.refine_content(data.text, data.instruction, data.context)
         return {"refined_text": refined}
     except Exception as e:
         # Fallback mock if LLM fails or is offline
-        print(f"LLM Refinement failed: {e}")
-        refined = f"[REFINED]: {text}\n(Applied: {instruction})"
+        logger.warning("LLM Refinement failed: %s", e)
+        refined = f"[REFINED]: {data.text}\n(Applied: {data.instruction})"
         return {"refined_text": refined}

@@ -16,7 +16,7 @@ from src.pricing.win_probability import WinProbabilityModel
 from src.utils.category import determine_category
 
 # Import path configuration
-from config.paths import PathConfig
+from src.config.paths import PathConfig
 @dataclass
 class PricingStrategy:
     """Pricing strategy configuration."""

@@ -21,8 +21,7 @@ yarn-error.log
 
 # Data (Mounted via volumes)
 data/
-api/data/
-rfp_dashboard.db
+*.db
 
 # Logs
 logs/

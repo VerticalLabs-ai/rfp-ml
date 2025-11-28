@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
-import { MessageSquare, Sparkles, Loader2, Tag, Lightbulb, BookOpen, AlertCircle } from 'lucide-react'
+import { MessageSquare, Sparkles, Loader2, Tag, Lightbulb, AlertCircle } from 'lucide-react'
 import { toast } from 'sonner'
 
 import { Button } from '@/components/ui/button'
@@ -48,7 +48,9 @@ export function RFPQandAList({ rfpId }: RFPQandAListProps) {
   })
 
   const analyzeMutation = useMutation({
-    mutationFn: () => api.post(`/scraper/${rfpId}/qa/analyze`, {}),
+    mutationFn: async (): Promise<{ analyzed_count: number }> => {
+      return api.post(`/scraper/${rfpId}/qa/analyze`, {})
+    },
     onSuccess: (data: { analyzed_count: number }) => {
       toast.success(`Analyzed ${data.analyzed_count} Q&A items`)
       queryClient.invalidateQueries({ queryKey: ['rfp-qa', rfpId] })

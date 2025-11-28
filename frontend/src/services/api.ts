@@ -134,6 +134,9 @@ export const api = {
   getDiscoveryStatus: (jobId: string) =>
     apiClient.get(`/rfps/discover/status/${jobId}`).then(res => res.data),
 
+  cancelDiscovery: (jobId: string) =>
+    apiClient.post(`/rfps/discover/cancel/${jobId}`).then(res => res.data),
+
   processManualRFP: (data: {
     title: string
     agency?: string

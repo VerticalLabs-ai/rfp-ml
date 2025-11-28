@@ -10,7 +10,7 @@ interface RFP {
 }
 
 interface PipelineKanbanProps {
-  rfps: RFP[];
+  rfps?: RFP[];
 }
 
 const stages = [

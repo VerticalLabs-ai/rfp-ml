@@ -14,7 +14,7 @@ export function useIsMobile() {
       setIsMobile(mql.matches)
     }
     mql.addEventListener("change", onChange)
-    setIsMobile(mql.matches)
+    // Removed redundant setIsMobile(mql.matches) - initial value is already computed
     return () => mql.removeEventListener("change", onChange)
   }, [])
 

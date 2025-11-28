@@ -8,7 +8,7 @@ from dataclasses import dataclass
 from pathlib import Path
 
 # Import path configuration
-from config.paths import PathConfig
+from src.config.paths import PathConfig
 
 try:
     import faiss

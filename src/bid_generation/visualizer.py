@@ -3,10 +3,10 @@ import matplotlib.dates as mdates
 import pandas as pd
 import os
 import logging
-from typing import List, Dict, Any
+from typing import List, Dict, Any, Optional
 from datetime import datetime, timedelta
 import networkx as nx
-from config.paths import PathConfig
+from src.config.paths import PathConfig
 
 class Visualizer:
     """
@@ -18,7 +18,7 @@ class Visualizer:
         self.output_dir = output_dir or str(PathConfig.BID_DOCUMENTS_DIR / "assets")
         os.makedirs(self.output_dir, exist_ok=True)
 
-    def generate_gantt_chart(self, tasks: List[Dict[str, Any]], filename: str = "gantt_chart.png") -> str:
+    def generate_gantt_chart(self, tasks: List[Dict[str, Any]], filename: str = "gantt_chart.png") -> Optional[str]:
         """
         Generate a Gantt chart from a list of tasks.
         Task format: {"task": "Name", "start": "YYYY-MM-DD", "end": "YYYY-MM-DD"}
@@ -53,7 +53,7 @@ class Visualizer:
         self.logger.info(f"Generated Gantt chart: {filepath}")
         return filepath
 
-    def generate_org_chart(self, staff: List[Dict[str, Any]], filename: str = "org_chart.png") -> str:
+    def generate_org_chart(self, staff: List[Dict[str, Any]], filename: str = "org_chart.png") -> Optional[str]:
         """
         Generate a simple hierarchical Org chart.
         Staff format: {"name": "Name", "role": "Role", "reports_to": "ManagerRole"}

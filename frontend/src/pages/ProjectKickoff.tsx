@@ -3,7 +3,7 @@ import { useParams } from 'react-router-dom'
 import { useQuery } from '@tanstack/react-query'
 import { api } from '@/services/api'
 import { toast } from 'sonner'
-import { format } from 'date-fns'
+import { format, isValid } from 'date-fns'
 import { ListChecks, CheckSquare, Loader2, ArrowDownToLine, Tag } from 'lucide-react'
 
 interface ChecklistItem {
@@ -38,9 +38,9 @@ export default function ProjectKickoffPage() {
 
   const { data: checklist, isLoading: isLoadingChecklist } = useQuery<PostAwardChecklist>({
     queryKey: ['postAwardChecklist', rfp?.id],
-    queryFn: () => api.getPostAwardChecklist(rfp!.id as number), // Ensure rfp.id is treated as number
+    queryFn: ({ queryKey }) => api.getPostAwardChecklist(queryKey[1] as number),
     enabled: !!rfp?.id,
-    meta: { errorMessage: "Failed to load checklist." }, // Generic error message for toast
+    meta: { errorMessage: "Failed to load checklist." },
   })
 
   const handleExport = (format: 'json' | 'csv') => {
@@ -128,9 +128,12 @@ export default function ProjectKickoffPage() {
                       {item.assigned_to}
                     </span>
                   )}
-                  {item.due_date && (
-                    <span>Due: {format(new Date(item.due_date), 'PPP')}</span>
-                  )}
+                  {item.due_date && (() => {
+                    const parsedDate = new Date(item.due_date)
+                    return isValid(parsedDate) ? (
+                      <span>Due: {format(parsedDate, 'PPP')}</span>
+                    ) : null
+                  })()}
                   {item.status && (
                      <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium 
                       ${item.status === 'completed' ? 'bg-green-100 text-green-800 dark:bg-green-900/20 dark:text-green-300' : 

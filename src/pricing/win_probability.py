@@ -1,6 +1,3 @@
-import numpy as np
-from typing import Dict, Any
-
 class WinProbabilityModel:
     """
     Predicts win probability based on bid price relative to market benchmarks.
@@ -25,8 +22,11 @@ class WinProbabilityModel:
         Calculate the maximum price that achieves the target win probability.
         """
         if market_median <= 0: return 0.0
-        
+
+        # Clamp target_prob to valid bounds (same as predict returns)
+        target_prob = max(0.05, min(0.95, target_prob))
+
         # derived from: prob = 0.5 - (price/median - 1) * sensitivity
         optimal_price = market_median * (1 + (0.5 - target_prob) / sensitivity)
-        
+
         return round(optimal_price, 2)

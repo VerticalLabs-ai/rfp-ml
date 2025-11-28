@@ -2,7 +2,6 @@
 Constants and configuration values for the RFP ML system.
 Centralizes magic numbers and configuration defaults.
 """
-from enum import Enum
 
 
 # =============================================================================
@@ -10,6 +9,7 @@ from enum import Enum
 # =============================================================================
 class PricingDefaults:
     """Default pricing configuration values."""
+
     TARGET_MARGIN: float = 0.40  # 40% target margin
     MINIMUM_MARGIN: float = 0.15  # 15% minimum margin
     HIGH_MARGIN_THRESHOLD: float = 0.35  # Above 35% considered high
@@ -32,6 +32,7 @@ class PricingDefaults:
 # =============================================================================
 class DecisionDefaults:
     """Default decision criteria weights and thresholds."""
+
     # Scoring weights (must sum to 1.0)
     MARGIN_WEIGHT: float = 0.30
     COMPLEXITY_WEIGHT: float = 0.25
@@ -57,6 +58,7 @@ class DecisionDefaults:
 # =============================================================================
 class ComplianceDefaults:
     """Default compliance configuration values."""
+
     # Requirement text minimum length to consider valid
     MIN_REQUIREMENT_LENGTH: int = 20
 
@@ -74,6 +76,7 @@ class ComplianceDefaults:
 # =============================================================================
 class RAGDefaults:
     """Default RAG configuration values."""
+
     # Chunking parameters
     CHUNK_SIZE: int = 512
     CHUNK_OVERLAP: int = 50
@@ -91,6 +94,7 @@ class RAGDefaults:
 # =============================================================================
 class DurationDefaults:
     """Default duration-related values."""
+
     # Lead time thresholds (days)
     SHORT_LEAD_TIME: int = 15
     LONG_LEAD_TIME: int = 60
@@ -111,6 +115,7 @@ class DurationDefaults:
 # =============================================================================
 class ContractValueDefaults:
     """Default contract value thresholds."""
+
     SMALL_CONTRACT_MAX: int = 100_000
     MEDIUM_CONTRACT_MAX: int = 1_000_000
 
@@ -125,6 +130,7 @@ class ContractValueDefaults:
 # =============================================================================
 class TriageDefaults:
     """Default triage configuration values."""
+
     # Award amount range
     MIN_AWARD_AMOUNT: int = 50_000
     MAX_AWARD_AMOUNT: int = 5_000_000

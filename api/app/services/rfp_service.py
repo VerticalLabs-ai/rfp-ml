@@ -1,13 +1,17 @@
 """
 RFP business logic service.
 """
-from sqlalchemy.orm import Session
-from typing import List, Optional, Dict, Any
+import logging
 from datetime import datetime
+from typing import Any, Dict, List, Optional
 
-from app.models.database import RFPOpportunity, PipelineStage, PipelineEvent, PostAwardChecklist
-from src.compliance.compliance_checklist import compliance_checklist_generator
+from sqlalchemy.orm import Session
+
+from app.models.database import PipelineEvent, PipelineStage, PostAwardChecklist, RFPOpportunity
 from app.services.rfp_processor import processor
+from src.compliance.compliance_checklist import compliance_checklist_generator
+
+logger = logging.getLogger(__name__)
 
 
 class RFPService:
@@ -149,32 +153,32 @@ class RFPService:
 
         # If RFP is awarded, generate post-award compliance checklist
         if next_stage == PipelineStage.AWARDED:
-            print(f"RFP {rfp_id} moved to AWARDED stage. Generating post-award checklist.")
+            logger.info("RFP %s moved to AWARDED stage. Generating post-award checklist.", rfp_id)
             # Retrieve bid document content
             bid_document_id = rfp.bid_document.document_id if rfp.bid_document else None
             if bid_document_id:
                 bid_content = processor.get_bid_document(bid_document_id)
                 if bid_content:
                     checklist_obj = compliance_checklist_generator.generate_from_bid_document(rfp.to_dict(), bid_content)
-                    
+
                     # Save to database
                     post_award_checklist_db = PostAwardChecklist(
                         rfp_id=rfp.id,
                         bid_document_id=bid_document_id,
                         generated_at=checklist_obj.generated_at,
                         status=checklist_obj.status,
-                        items=[item.to_dict() for item in checklist_obj.items], # Assuming ChecklistItem has a to_dict method
+                        items=[item.to_dict() for item in checklist_obj.items],
                         summary=checklist_obj.summary
                     )
                     self.db.add(post_award_checklist_db)
                     self.db.commit()
                     self.db.refresh(post_award_checklist_db)
 
-                    print(f"Post-award checklist generated and saved to DB for RFP {rfp_id}.")
+                    logger.info("Post-award checklist generated and saved to DB for RFP %s.", rfp_id)
                 else:
-                    print(f"Warning: Bid document content not found for RFP {rfp_id}. Cannot generate checklist.")
+                    logger.warning("Bid document content not found for RFP %s. Cannot generate checklist.", rfp_id)
             else:
-                print(f"Warning: No bid document associated with RFP {rfp_id}. Cannot generate checklist.")
+                logger.warning("No bid document associated with RFP %s. Cannot generate checklist.", rfp_id)
 
         self._create_pipeline_event(
             rfp.id,

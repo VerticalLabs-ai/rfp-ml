@@ -1,10 +1,10 @@
 """
 AI-powered Q&A analyzer for extracting insights and categorizing RFP questions.
 """
-import os
-import logging
-from typing import Dict, List, Optional, Any
 import json
+import logging
+import re
+from typing import Any, Dict, List, Optional
 
 logger = logging.getLogger(__name__)
 
@@ -118,12 +118,11 @@ Respond in JSON format:
 
         # Parse JSON response
         try:
-            # Extract JSON from response if wrapped in markdown
+            # Extract JSON from response if wrapped in markdown using regex
             json_str = response
-            if "```json" in response:
-                json_str = response.split("```json")[1].split("```")[0]
-            elif "```" in response:
-                json_str = response.split("```")[1].split("```")[0]
+            match = re.search(r'```(?:json)?\s*([\s\S]*?)```', response)
+            if match:
+                json_str = match.group(1).strip()
 
             result = json.loads(json_str)
             return {

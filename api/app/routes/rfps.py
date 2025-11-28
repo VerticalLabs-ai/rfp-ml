@@ -1,31 +1,59 @@
 """
 RFP management API endpoints.
 """
-from fastapi import APIRouter, Depends, HTTPException, Query, BackgroundTasks
-from sqlalchemy.orm import Session
-from typing import List, Optional, Dict, Any
-from datetime import datetime
+import logging
 import os
+from datetime import datetime
+from typing import Any, Dict, List, Optional
 from uuid import uuid4
 
+from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Query
+from pydantic import BaseModel, field_validator
+from sqlalchemy.orm import Session
+
 from app.core.database import get_db
+
+logger = logging.getLogger(__name__)
 from app.models.database import RFPOpportunity, PipelineStage, PostAwardChecklist
 from app.services.rfp_service import RFPService
 from app.services.rfp_processor import processor, processing_jobs
 from src.agents.competitor_analytics import CompetitorAnalyticsService
 from src.agents.teaming_service import TeamingPartnerService
 from src.pricing.pricing_engine import ScenarioParams
-from pydantic import BaseModel
 
 router = APIRouter()
 
-# Global instance
-competitor_service = CompetitorAnalyticsService()
+# Lazy-loaded service
+_competitor_service = None
+
+
+def get_competitor_service():
+    """Get or create competitor service instance."""
+    global _competitor_service
+    if _competitor_service is None:
+        _competitor_service = CompetitorAnalyticsService()
+    return _competitor_service
+
 
 # Pydantic schemas
 class DiscoveryParams(BaseModel):
     limit: int = 50
     days_back: int = 30
+
+    @field_validator("limit")
+    @classmethod
+    def validate_limit(cls, v: int) -> int:
+        if v < 1 or v > 500:
+            raise ValueError("limit must be between 1 and 500")
+        return v
+
+    @field_validator("days_back")
+    @classmethod
+    def validate_days_back(cls, v: int) -> int:
+        if v < 1 or v > 365:
+            raise ValueError("days_back must be between 1 and 365")
+        return v
+
 
 class ScenarioInput(BaseModel):
     """Input for pricing scenario simulation."""
@@ -110,10 +138,10 @@ class PostAwardChecklistResponse(BaseModel):
 
 @router.get("/discovered", response_model=List[RFPResponse])
 async def get_discovered_rfps(
-    skip: int = 0,
-    limit: int = 100,
+    skip: int = Query(default=0, ge=0),
+    limit: int = Query(default=100, ge=1, le=500),
     category: Optional[str] = None,
-    min_score: Optional[float] = None,
+    min_score: Optional[float] = Query(default=None, ge=0.0, le=100.0),
     db: Session = Depends(get_db)
 ):
     """Get list of discovered RFPs."""
@@ -162,17 +190,18 @@ async def get_competitors(rfp_id: str, db: Session = Depends(get_db)):
     rfp = service.get_rfp_by_id(rfp_id)
     if not rfp:
         raise HTTPException(status_code=404, detail="RFP not found")
-        
+
     # Perform analysis
+    competitor_service = get_competitor_service()
     incumbents = competitor_service.identify_potential_incumbents(
         description=rfp.description or "",
         agency=rfp.agency or "Unknown"
     )
-    
+
     agency_stats = competitor_service.get_agency_spend_history(
         agency=rfp.agency or "Unknown"
     )
-    
+
     return {
         "potential_incumbents": incumbents,
         "agency_intelligence": agency_stats
@@ -250,7 +279,7 @@ async def get_subcontractor_opportunities(
 @router.get("/{rfp_id}/pricing/ptw")
 async def get_price_to_win(
     rfp_id: str,
-    target_prob: float = 0.7,
+    target_prob: float = Query(default=0.7, ge=0.05, le=0.95),
     db: Session = Depends(get_db)
 ):
     """Calculate Price-to-Win (PTW) analysis."""
@@ -501,9 +530,6 @@ async def get_post_award_checklist(rfp_id: str, db: Session = Depends(get_db)):
         raise HTTPException(status_code=404, detail="Post-award checklist not found for this RFP")
     
     return checklist
-
-    partners = service.find_partners(rfp_id, limit=limit)
-    return partners
 
 
 class FeedbackInput(BaseModel):

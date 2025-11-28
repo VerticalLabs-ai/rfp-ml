@@ -1,11 +1,13 @@
 """
 Company Profile management API endpoints.
 """
-from fastapi import APIRouter, Depends, HTTPException
-from sqlalchemy.orm import Session
-from typing import List, Optional
-from pydantic import BaseModel
+import re
 from datetime import datetime
+from typing import List, Optional
+
+from fastapi import APIRouter, Depends, HTTPException
+from pydantic import BaseModel, EmailStr, field_validator
+from sqlalchemy.orm import Session
 
 from app.core.database import get_db
 from app.models.database import CompanyProfile
@@ -38,6 +40,37 @@ class CompanyProfileBase(BaseModel):
     naics_codes: List[str] = []
     core_competencies: List[str] = []
     past_performance: List[dict] = []
+
+    @field_validator("name")
+    @classmethod
+    def validate_name(cls, v: str) -> str:
+        if not v or not v.strip():
+            raise ValueError("Name cannot be empty")
+        if len(v) > 255:
+            raise ValueError("Name exceeds maximum length of 255 characters")
+        return v.strip()
+
+    @field_validator("uei")
+    @classmethod
+    def validate_uei(cls, v: Optional[str]) -> Optional[str]:
+        if v and not re.match(r"^[A-Z0-9]{12}$", v.upper()):
+            raise ValueError("UEI must be 12 alphanumeric characters")
+        return v.upper() if v else v
+
+    @field_validator("cage_code")
+    @classmethod
+    def validate_cage_code(cls, v: Optional[str]) -> Optional[str]:
+        if v and not re.match(r"^[A-Z0-9]{5}$", v.upper()):
+            raise ValueError("CAGE code must be 5 alphanumeric characters")
+        return v.upper() if v else v
+
+    @field_validator("naics_codes")
+    @classmethod
+    def validate_naics_codes(cls, v: List[str]) -> List[str]:
+        for code in v:
+            if not re.match(r"^\d{6}$", code):
+                raise ValueError(f"Invalid NAICS code format: {code}. Must be 6 digits.")
+        return v
 
 
 class CompanyProfileCreate(CompanyProfileBase):

@@ -139,7 +139,10 @@ export default function DiscoveryButton() {
                                     <Input
                                         type="number"
                                         value={limit}
-                                        onChange={(e) => setLimit(Number(e.target.value))}
+                                        onChange={(e) => {
+                                            const val = parseInt(e.target.value, 10)
+                                            if (!isNaN(val)) setLimit(Math.max(10, Math.min(500, val)))
+                                        }}
                                         min={10}
                                         max={500}
                                     />
@@ -149,7 +152,10 @@ export default function DiscoveryButton() {
                                     <Input
                                         type="number"
                                         value={daysBack}
-                                        onChange={(e) => setDaysBack(Number(e.target.value))}
+                                        onChange={(e) => {
+                                            const val = parseInt(e.target.value, 10)
+                                            if (!isNaN(val)) setDaysBack(Math.max(1, Math.min(90, val)))
+                                        }}
                                         min={1}
                                         max={90}
                                     />

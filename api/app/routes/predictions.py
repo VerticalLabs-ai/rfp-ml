@@ -1,8 +1,9 @@
-from fastapi import APIRouter, HTTPException
-from typing import List, Dict, Any
+import logging
 import sys
-import os
 from pathlib import Path
+from typing import Any, Dict, List
+
+from fastapi import APIRouter, HTTPException, Query
 
 # Add project root to path to import src
 PROJECT_ROOT = Path(__file__).resolve().parents[3]
@@ -11,11 +12,13 @@ sys.path.append(str(PROJECT_ROOT))
 from src.agents.forecasting_service import ForecastingService
 from src.config.paths import PathConfig
 
+logger = logging.getLogger(__name__)
 router = APIRouter()
 
 # Global service instance (lazy loaded)
 _forecasting_service = None
 _cached_predictions = None
+
 
 def get_forecasting_service():
     global _forecasting_service
@@ -23,8 +26,11 @@ def get_forecasting_service():
         _forecasting_service = ForecastingService()
     return _forecasting_service
 
+
 @router.get("/upcoming", response_model=List[Dict[str, Any]])
-async def get_upcoming_predictions(confidence: float = 0.7):
+async def get_upcoming_predictions(
+    confidence: float = Query(default=0.7, ge=0.0, le=1.0)
+):
     """
     Get predicted upcoming RFP opportunities based on historical analysis.
     """
@@ -49,20 +55,22 @@ async def get_upcoming_predictions(confidence: float = 0.7):
         raise HTTPException(status_code=404, detail="Historical data not found for forecasting")
         
     try:
-        print(f"Training forecasting model on {data_file}...")
+        logger.info("Training forecasting model on %s...", data_file)
         df = service.train_on_file(str(data_file))
-        
+
         if df.empty:
-             raise HTTPException(status_code=500, detail="Failed to load historical data")
-             
-        predictions = service.predict_upcoming_opportunities(df, confidence_threshold=0.0) # Get all, filter later
-        
+            raise HTTPException(status_code=500, detail="Failed to load historical data")
+
+        predictions = service.predict_upcoming_opportunities(df, confidence_threshold=0.0)
+
         # Cache results
         _cached_predictions = predictions
-        
+
         # Return filtered
         return [p for p in predictions if p['confidence'] >= confidence]
-        
+
+    except HTTPException:
+        raise
     except Exception as e:
-        print(f"Forecasting error: {e}")
+        logger.error("Forecasting error: %s", e)
         raise HTTPException(status_code=500, detail=str(e))

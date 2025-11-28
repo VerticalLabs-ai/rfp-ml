@@ -7,10 +7,12 @@ web scraping, even when page layouts change.
 import os
 import asyncio
 import logging
-import aiohttp
 from datetime import datetime
 from typing import List, Optional, Dict, Any
 from pathlib import Path
+
+import aiohttp
+from aiohttp import ClientTimeout
 
 from .base_scraper import (
     BaseScraper,
@@ -36,6 +38,11 @@ class BeaconBidScraper(BaseScraper):
 
     PLATFORM_NAME = "beaconbid"
     SUPPORTED_DOMAINS = ["beaconbid.com", "www.beaconbid.com"]
+
+    # Configuration constants
+    DOWNLOAD_TIMEOUT_SECONDS = 60
+    DOWNLOAD_MAX_RETRIES = 3
+    DOWNLOAD_RETRY_DELAY_SECONDS = 2
 
     def __init__(
         self,
@@ -329,7 +336,7 @@ class BeaconBidScraper(BaseScraper):
 
     async def download_documents(self, rfp: ScrapedRFP, rfp_id: str) -> List[ScrapedDocument]:
         """
-        Download all documents for an RFP.
+        Download all documents for an RFP with retry logic.
 
         Args:
             rfp: ScrapedRFP containing document URLs
@@ -340,41 +347,73 @@ class BeaconBidScraper(BaseScraper):
         """
         storage_path = self.get_document_storage_path(rfp_id)
         downloaded_docs = []
+        timeout = ClientTimeout(total=self.DOWNLOAD_TIMEOUT_SECONDS)
 
-        async with aiohttp.ClientSession() as session:
+        async with aiohttp.ClientSession(timeout=timeout) as session:
             for doc in rfp.documents:
                 if not doc.source_url:
-                    logger.warning(f"No source URL for document: {doc.filename}")
+                    logger.warning("No source URL for document: %s", doc.filename)
                     continue
 
-                try:
-                    logger.info(f"Downloading: {doc.filename}")
-                    async with session.get(doc.source_url) as response:
-                        if response.status == 200:
-                            # Generate safe filename
-                            safe_filename = self._sanitize_filename(doc.filename)
-                            file_path = storage_path / safe_filename
-
-                            # Write file
-                            content = await response.read()
-                            with open(file_path, "wb") as f:
-                                f.write(content)
-
-                            # Update document info
-                            doc.file_path = str(file_path)
-                            doc.file_size = len(content)
-                            doc.checksum = self.compute_file_checksum(str(file_path))
-                            doc.downloaded_at = datetime.utcnow()
-
-                            downloaded_docs.append(doc)
-                            logger.info(f"Downloaded: {safe_filename} ({doc.file_size} bytes)")
-                        else:
-                            logger.error(f"Failed to download {doc.filename}: HTTP {response.status}")
-
-                except Exception as e:
-                    logger.error(f"Error downloading {doc.filename}: {e}")
+                downloaded = await self._download_single_document(
+                    session, doc, storage_path
+                )
+                if downloaded:
+                    downloaded_docs.append(downloaded)
 
         return downloaded_docs
+
+    async def _download_single_document(
+        self,
+        session: aiohttp.ClientSession,
+        doc: ScrapedDocument,
+        storage_path: Path
+    ) -> Optional[ScrapedDocument]:
+        """Download a single document with retry logic."""
+        last_error: Optional[Exception] = None
+
+        for attempt in range(1, self.DOWNLOAD_MAX_RETRIES + 1):
+            try:
+                logger.info("Downloading (attempt %d/%d): %s", attempt, self.DOWNLOAD_MAX_RETRIES, doc.filename)
+                async with session.get(doc.source_url) as response:
+                    if response.status == 200:
+                        # Generate safe filename
+                        safe_filename = self._sanitize_filename(doc.filename)
+                        file_path = storage_path / safe_filename
+
+                        # Write file
+                        content = await response.read()
+                        with open(file_path, "wb") as f:
+                            f.write(content)
+
+                        # Update document info
+                        doc.file_path = str(file_path)
+                        doc.file_size = len(content)
+                        doc.checksum = self.compute_file_checksum(str(file_path))
+                        doc.downloaded_at = datetime.utcnow()
+
+                        logger.info("Downloaded: %s (%d bytes)", safe_filename, doc.file_size)
+                        return doc
+
+                    logger.warning("Failed to download %s: HTTP %d", doc.filename, response.status)
+                    last_error = ScraperDownloadError(f"HTTP {response.status}")
+
+            except asyncio.TimeoutError:
+                logger.warning("Timeout downloading %s (attempt %d)", doc.filename, attempt)
+                last_error = ScraperDownloadError(f"Timeout after {self.DOWNLOAD_TIMEOUT_SECONDS}s")
+            except aiohttp.ClientError as e:
+                logger.warning("Client error downloading %s (attempt %d): %s", doc.filename, attempt, e)
+                last_error = e
+            except Exception as e:
+                logger.error("Unexpected error downloading %s: %s", doc.filename, e)
+                last_error = e
+                break  # Don't retry unexpected errors
+
+            if attempt < self.DOWNLOAD_MAX_RETRIES:
+                await asyncio.sleep(self.DOWNLOAD_RETRY_DELAY_SECONDS)
+
+        logger.error("Failed to download %s after %d attempts: %s", doc.filename, self.DOWNLOAD_MAX_RETRIES, last_error)
+        return None
 
     async def refresh(self, url: str, existing_checksum: Optional[str] = None) -> Dict[str, Any]:
         """

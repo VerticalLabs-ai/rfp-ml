@@ -16,7 +16,7 @@ from .visualizer import Visualizer
 from src.utils.category import determine_category
 
 # Import path configuration
-from config.paths import PathConfig
+from src.config.paths import PathConfig
 class BidDocumentGenerator:
     """
     Generate complete, structured bid documents integrating all pipeline components.

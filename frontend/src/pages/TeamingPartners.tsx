@@ -69,6 +69,11 @@ export default function TeamingPartnersPage() {
 }
 
 function PartnerCard({ partner }: { partner: TeamingPartner }) {
+  const handleContactPartner = () => {
+    if (partner.poc_email) {
+      window.location.href = `mailto:${partner.poc_email}?subject=Partnership Inquiry - ${encodeURIComponent(partner.name)}`
+    }
+  }
   // Parse business types safely
   let certs: string[] = []
   try {
@@ -141,7 +146,12 @@ function PartnerCard({ partner }: { partner: TeamingPartner }) {
             </div>
           )}
 
-          <button className="w-full mt-2 px-4 py-2 bg-slate-900 dark:bg-slate-700 text-white text-sm font-medium rounded-lg hover:bg-slate-800 dark:hover:bg-slate-600 transition-colors">
+          <button
+            type="button"
+            onClick={handleContactPartner}
+            disabled={!partner.poc_email}
+            className="w-full mt-2 px-4 py-2 bg-slate-900 dark:bg-slate-700 text-white text-sm font-medium rounded-lg hover:bg-slate-800 dark:hover:bg-slate-600 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+          >
             Contact Partner
           </button>
         </div>

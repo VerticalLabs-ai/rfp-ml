@@ -1,16 +1,19 @@
 """
 RFP Discovery Agent for end-to-end triage, Go/No-Go scoring, and output generation.
 """
+
 import json
+import logging
 import os
 from dataclasses import asdict
 from datetime import datetime
-from typing import Any, Dict, List, Optional
+from typing import Any
 
-import numpy as np
 import pandas as pd
 
 from src.config.paths import PathConfig
+
+logger = logging.getLogger(__name__)
 
 # Try import of GoNoGoEngine; it's optional and handled gracefully in methods
 try:
@@ -22,11 +25,13 @@ except ImportError:
 class RFPDiscoveryAgent:
     """Autonomous agent for RFP discovery, filtering, triage, Go/No-Go scoring, and output generation."""
 
-    def __init__(self, config_path: Optional[str] = None, config_override: Optional[Dict] = None):
+    def __init__(
+        self, config_path: str | None = None, config_override: dict | None = None
+    ):
         """Initialize agent with config file or dict override."""
-        self.config: Dict[str, Any] = {}
+        self.config: dict[str, Any] = {}
         if config_path and os.path.exists(config_path):
-            with open(config_path, "r") as f:
+            with open(config_path) as f:
                 try:
                     self.config = json.load(f)
                 except Exception:
@@ -37,55 +42,81 @@ class RFPDiscoveryAgent:
         self.triage_thresholds = self.config.get(
             "triage_thresholds",
             {
-                "weights": {"cat": 0.25, "value": 0.25, "deadline": 0.25, "complexity": 0.25},
+                "weights": {
+                    "cat": 0.25,
+                    "value": 0.25,
+                    "deadline": 0.25,
+                    "complexity": 0.25,
+                },
                 "score_min": 60,
             },
         )
         self.output_directory = self.config.get(
             "output_directory", str(PathConfig.DATA_DIR / "discovered_rfps")
         )
-        self.target_categories = self.config.get("target_categories", ["bottled_water", "construction", "delivery"])
+        self.target_categories = self.config.get(
+            "target_categories", ["bottled_water", "construction", "delivery"]
+        )
         self.agent_version = self.config.get("agent_version", "v1.0.0")
         os.makedirs(self.output_directory, exist_ok=True)
 
-    def discover_opportunities(self, days_window: int = 30, limit: int = 50, log_samples: int = 5, api_key: Optional[str] = None) -> pd.DataFrame:
+    def discover_opportunities(
+        self,
+        days_window: int = 30,
+        limit: int = 50,
+        log_samples: int = 5,
+        api_key: str | None = None,
+    ) -> pd.DataFrame:
         """
         Discover opportunities using registered plugins (SAM.gov, Local CSV).
-        
+
         Args:
             days_window: How many days back to search
             limit: Maximum number of results to return
             log_samples: Number of samples to log (unused in API mode)
             api_key: Optional SAM.gov API key override
         """
-        from src.agents.plugins import SAMGovPlugin, LocalCSVPlugin
-        
+        from src.agents.plugins import LocalCSVPlugin, SAMGovPlugin
+
         all_results = []
-        
+
         # 1. Try SAM.gov API
         sam_plugin = SAMGovPlugin(api_key=api_key)
         try:
-            print(f"Attempting discovery via {sam_plugin.name} (last {days_window} days, limit {limit})...")
+            logger.info(
+                "Attempting discovery via %s (last %d days, limit %d)...",
+                sam_plugin.name,
+                days_window,
+                limit,
+            )
             results = sam_plugin.search(days_back=days_window, limit=limit)
             if results:
                 all_results.extend(results)
-                print(f"Successfully fetched {len(results)} opportunities from {sam_plugin.name}.")
+                logger.info(
+                    "Successfully fetched %d opportunities from %s.",
+                    len(results),
+                    sam_plugin.name,
+                )
             else:
-                print(f"No opportunities found via {sam_plugin.name}.")
+                logger.info("No opportunities found via %s.", sam_plugin.name)
         except Exception as e:
-            print(f"Error during {sam_plugin.name} discovery: {e}")
+            logger.warning("Error during %s discovery: %s", sam_plugin.name, e)
 
         # 2. Fallback to CSV if API returned nothing
         if not all_results:
-            print("Falling back to Local CSV Archive...")
+            logger.info("Falling back to Local CSV Archive...")
             csv_plugin = LocalCSVPlugin()
             try:
                 results = csv_plugin.search(days_back=days_window, limit=limit)
                 if results:
                     all_results.extend(results)
-                    print(f"Successfully fetched {len(results)} opportunities from {csv_plugin.name}.")
+                    logger.info(
+                        "Successfully fetched %d opportunities from %s.",
+                        len(results),
+                        csv_plugin.name,
+                    )
             except Exception as e:
-                print(f"Error during {csv_plugin.name} discovery: {e}")
+                logger.warning("Error during %s discovery: %s", csv_plugin.name, e)
 
         df_api = pd.DataFrame(all_results)
 
@@ -94,40 +125,60 @@ class RFPDiscoveryAgent:
             return df_api
 
         # Ensure required columns
-        required_cols = ["title", "solicitation_number", "agency", "description", "response_deadline", "award_amount", "posted_date"]
+        required_cols = [
+            "title",
+            "solicitation_number",
+            "agency",
+            "description",
+            "response_deadline",
+            "award_amount",
+            "posted_date",
+        ]
         for col in required_cols:
             if col not in df_api.columns:
                 df_api[col] = None
 
         # Clean award_amount
         def clean_amount(val):
-            if pd.isna(val): return 0.0
-            if isinstance(val, (int, float)): return float(val)
+            if pd.isna(val):
+                return 0.0
+            if isinstance(val, (int, float)):
+                return float(val)
             try:
-                return float(str(val).replace('$', '').replace(',', ''))
+                return float(str(val).replace("$", "").replace(",", ""))
             except:
                 return 0.0
-        
+
         df_api["award_amount_clean"] = df_api["award_amount"].apply(clean_amount)
-        
+
         # Calculate description length
-        df_api["description_length"] = df_api["description"].fillna("").astype(str).apply(len)
-        
+        df_api["description_length"] = (
+            df_api["description"].fillna("").astype(str).apply(len)
+        )
+
         # Infer category
         def infer_category(row):
-            text = (str(row.get("title", "")) + " " + str(row.get("description", ""))).lower()
-            if "water" in text: return "bottled_water"
-            if "construction" in text or "paving" in text: return "construction"
-            if "delivery" in text: return "delivery"
-            if "software" in text or "it" in text or "cloud" in text: return "IT"
+            text = (
+                str(row.get("title", "")) + " " + str(row.get("description", ""))
+            ).lower()
+            if "water" in text:
+                return "bottled_water"
+            if "construction" in text or "paving" in text:
+                return "construction"
+            if "delivery" in text:
+                return "delivery"
+            if "software" in text or "it" in text or "cloud" in text:
+                return "IT"
             return "General"
-        
+
         df_api["category"] = df_api.apply(infer_category, axis=1)
-        
+
         # Convert dates
-        df_api["response_deadline"] = pd.to_datetime(df_api["response_deadline"], errors='coerce')
-        df_api["posted_date"] = pd.to_datetime(df_api["posted_date"], errors='coerce')
-        
+        df_api["response_deadline"] = pd.to_datetime(
+            df_api["response_deadline"], errors="coerce"
+        )
+        df_api["posted_date"] = pd.to_datetime(df_api["posted_date"], errors="coerce")
+
         return df_api
 
     def triage_rfps(self, df) -> pd.DataFrame:
@@ -137,45 +188,66 @@ class RFPDiscoveryAgent:
         """
         if df.empty:
             return df
-            
-        today = pd.Timestamp.now(tz='UTC')
-        
+
+        today = pd.Timestamp.now(tz="UTC")
+
         # Ensure timezone awareness for deadline if needed, or make both naive
-        if 'response_deadline' in df.columns:
+        if "response_deadline" in df.columns:
             # Convert to UTC if not already
-            if df['response_deadline'].dt.tz is None:
-                df['response_deadline'] = df['response_deadline'].dt.tz_localize('UTC')
+            if df["response_deadline"].dt.tz is None:
+                df["response_deadline"] = df["response_deadline"].dt.tz_localize("UTC")
             else:
-                df['response_deadline'] = df['response_deadline'].dt.tz_convert('UTC')
-        
-        cat_match = df['category'].apply(lambda x: 1.0 if x in self.target_categories else 0.6)
-        value_score = df['award_amount_clean'].fillna(0).apply(lambda x: min(max((x - 5000)/200000, 0), 1.0))
-        
+                df["response_deadline"] = df["response_deadline"].dt.tz_convert("UTC")
+
+        cat_match = df["category"].apply(
+            lambda x: 1.0 if x in self.target_categories else 0.6
+        )
+        value_score = (
+            df["award_amount_clean"]
+            .fillna(0)
+            .apply(lambda x: min(max((x - 5000) / 200000, 0), 1.0))
+        )
+
         # Calculate days to deadline
-        days_to_deadline = (df['response_deadline'] - today).dt.days.fillna(0).clip(lower=0)
-        
-        deadline_score = days_to_deadline.apply(lambda x: 1.0 if x < 10 else 0.6 if x < 30 else 0.2)
-        complexity_score = df['description_length'].fillna(0).apply(lambda x: min(x/5000, 1.0))
-        
-        weights = self.triage_thresholds.get("weights", {"cat":0.25, "value":0.25, "deadline":0.25, "complexity":0.25})
-        
-        composite = (weights["cat"]*cat_match + weights["value"]*value_score +
-                     weights["deadline"]*deadline_score + weights["complexity"]*complexity_score)
-        
-        df['triage_score'] = (composite * 100).clip(0, 100).round(2)
-        
+        days_to_deadline = (
+            (df["response_deadline"] - today).dt.days.fillna(0).clip(lower=0)
+        )
+
+        deadline_score = days_to_deadline.apply(
+            lambda x: 1.0 if x < 10 else 0.6 if x < 30 else 0.2
+        )
+        complexity_score = (
+            df["description_length"].fillna(0).apply(lambda x: min(x / 5000, 1.0))
+        )
+
+        weights = self.triage_thresholds.get(
+            "weights",
+            {"cat": 0.25, "value": 0.25, "deadline": 0.25, "complexity": 0.25},
+        )
+
+        composite = (
+            weights["cat"] * cat_match
+            + weights["value"] * value_score
+            + weights["deadline"] * deadline_score
+            + weights["complexity"] * complexity_score
+        )
+
+        df["triage_score"] = (composite * 100).clip(0, 100).round(2)
+
         # Filter by score
-        df = df[df['triage_score'] >= self.triage_thresholds.get("score_min", 60)]
-        
+        df = df[df["triage_score"] >= self.triage_thresholds.get("score_min", 60)]
+
         return df
 
     def evaluate_go_nogo(self, triaged_df: pd.DataFrame) -> pd.DataFrame:
         """Apply Go/No-Go engine for opportunity scoring and augment DataFrame with decision results.
-        
+
         If the GoNoGoEngine is not available, raise ImportError so callers can fallback.
         """
         if GoNoGoEngine is None:
-            raise ImportError("GoNoGoEngine unavailable, cannot score RFPs for Go/No-Go.")
+            raise ImportError(
+                "GoNoGoEngine unavailable, cannot score RFPs for Go/No-Go."
+            )
 
         nogo_engine = GoNoGoEngine()
         results = []
@@ -193,18 +265,29 @@ class RFPDiscoveryAgent:
                         decision_dict = decision
                     else:
                         # Fallback generic mapping
-                        decision_dict = {k: getattr(decision, k, None) for k in dir(decision) if not k.startswith("__")}
+                        decision_dict = {
+                            k: getattr(decision, k, None)
+                            for k in dir(decision)
+                            if not k.startswith("__")
+                        }
             except Exception:
-                decision_dict = {"recommendation": "error", "overall_score": -1, "confidence_level": 0, "justification": "engine_error"}
-            
+                decision_dict = {
+                    "recommendation": "error",
+                    "overall_score": -1,
+                    "confidence_level": 0,
+                    "justification": "engine_error",
+                }
+
             full_row = rfp_data.copy()
             # Make sure decision keys don't override important source fields unexpectedly
             full_row.update(decision_dict)
             results.append(full_row)
-            
+
         return pd.DataFrame(results)
 
-    def export_outputs(self, df: pd.DataFrame, file_tag: str = "discovered_rfps") -> (str, str):
+    def export_outputs(
+        self, df: pd.DataFrame, file_tag: str = "discovered_rfps"
+    ) -> (str, str):
         """Save triaged and scored RFPs in both JSON and CSV formats, compatible with downstream bid engine."""
         now = datetime.now().strftime("%Y%m%d_%H%M%S")
         out_dir = self.output_directory
@@ -234,7 +317,7 @@ class RFPDiscoveryAgent:
 # Basic triage function (kept outside of the class for simplicity)
 def triage_basic(df: pd.DataFrame) -> pd.DataFrame:
     """Apply a simple triage scoring heuristic to a DataFrame of RFPs.
-    
+
     Expects fields such as 'award_amount', 'response_deadline', 'posted_date', and 'description'.
     """
     score = []
@@ -242,7 +325,11 @@ def triage_basic(df: pd.DataFrame) -> pd.DataFrame:
     expl_list = []
 
     for _, row in df.iterrows():
-        amt = row.get("award_amount", 0) if isinstance(row, dict) else row.award_amount if "award_amount" in row.index else 0
+        amt = (
+            row.get("award_amount", 0)
+            if isinstance(row, dict)
+            else row.award_amount if "award_amount" in row.index else 0
+        )
 
         # Compute lead_days safely
         lead_days = 0
@@ -250,8 +337,16 @@ def triage_basic(df: pd.DataFrame) -> pd.DataFrame:
             if ("response_deadline" in row and "posted_date" in row) or (
                 hasattr(row, "response_deadline") and hasattr(row, "posted_date")
             ):
-                rd = row.get("response_deadline", None) if isinstance(row, dict) else row.response_deadline
-                pd_date = row.get("posted_date", None) if isinstance(row, dict) else row.posted_date
+                rd = (
+                    row.get("response_deadline", None)
+                    if isinstance(row, dict)
+                    else row.response_deadline
+                )
+                pd_date = (
+                    row.get("posted_date", None)
+                    if isinstance(row, dict)
+                    else row.posted_date
+                )
                 if pd_date and rd:
                     lead_days = (pd.to_datetime(rd) - pd.to_datetime(pd_date)).days
         except Exception:
@@ -274,7 +369,11 @@ def triage_basic(df: pd.DataFrame) -> pd.DataFrame:
 
         complexity = 0
         try:
-            desc = row.get("description", "") if isinstance(row, dict) else row.description if "description" in row.index else ""
+            desc = (
+                row.get("description", "")
+                if isinstance(row, dict)
+                else row.description if "description" in row.index else ""
+            )
             complexity = len(str(desc))
         except Exception:
             complexity = 0
@@ -284,7 +383,9 @@ def triage_basic(df: pd.DataFrame) -> pd.DataFrame:
 
         tri_score = min(max(int(tri_score), 0), 100)
         score.append(tri_score)
-        priority.append("HIGH" if tri_score > 80 else "MEDIUM" if tri_score >= 50 else "LOW")
+        priority.append(
+            "HIGH" if tri_score > 80 else "MEDIUM" if tri_score >= 50 else "LOW"
+        )
         expl_list.append(" | ".join(expl))
 
     df_out = df.copy()

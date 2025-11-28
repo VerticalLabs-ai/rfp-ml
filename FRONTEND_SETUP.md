@@ -23,19 +23,19 @@ docker-compose up -d --build
 cd frontend
 ```
 
-### 2. Install Dependencies
+### 3. Install Dependencies
 
 ```bash
 npm install
 ```
 
-### 3. Start Development Server
+### 4. Start Development Server
 
 ```bash
 npm run dev
 ```
 
-The frontend will be available at: **[http://localhost:3000](http://localhost:3000)**
+The frontend will be available at: **[http://localhost:3300](http://localhost:3300)**
 
 ## What Was Built
 
@@ -144,7 +144,7 @@ cd frontend
 npm run dev
 ```
 
-Frontend will be available at: [http://localhost:3000](http://localhost:3000)
+Frontend will be available at: [http://localhost:3300](http://localhost:3300)
 
 ## API Integration
 
@@ -158,7 +158,7 @@ The frontend is configured to proxy requests to the backend:
 ```typescript
 // vite.config.ts
 server: {
-  port: 3000,
+  port: 3300,
   proxy: {
     '/api': {
       target: 'http://localhost:8000',
@@ -325,6 +325,6 @@ For backend API documentation, visit [http://localhost:8000/docs](http://localho
 
 **Last Updated**: November 17, 2025
 
-**Frontend Server**: [http://localhost:3000](http://localhost:3000)
+**Frontend Server**: [http://localhost:3300](http://localhost:3300)
 
 **Backend Server**: [http://localhost:8000](http://localhost:8000)

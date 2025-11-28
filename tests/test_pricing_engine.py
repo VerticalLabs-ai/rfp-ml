@@ -1,8 +1,12 @@
-import pytest
+import logging
 import time
 from typing import Dict, Any
 
+import pytest
+
 from src.pricing.pricing_engine import PricingEngine
+
+logger = logging.getLogger(__name__)
 
 class TestPricingEngine:
     """Comprehensive testing of AI pricing engine across all bid sectors"""
@@ -47,7 +51,7 @@ class TestPricingEngine:
     ])
     def test_generate_competitive_bid(self, scenario):
         """Test bid generation for various scenarios."""
-        print(f"\nTesting scenario: {scenario['name']}")
+        logger.info("Testing scenario: %s", scenario['name'])
         
         start_time = time.time()
         pricing_result = self.pricing_engine.generate_pricing(
@@ -77,4 +81,4 @@ class TestPricingEngine:
         position = pricing_result.competitive_score
         assert position > 0, "Competitive position should be assessed"
         
-        print(f"Generation time: {generation_time:.3f}s")
+        logger.info("Generation time: %.3fs", generation_time)

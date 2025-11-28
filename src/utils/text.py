@@ -1,9 +1,9 @@
 """
 Text processing utilities for RFP data.
 """
+import math
 import re
 from typing import Union
-import pandas as pd
 
 
 def preprocess_text(text: str, max_length: int = 2000) -> str:
@@ -50,7 +50,10 @@ def clean_amount(value: Union[str, int, float, None]) -> float:
         >>> clean_amount(None)
         0.0
     """
-    if pd.isna(value) or value is None:
+    if value is None:
+        return 0.0
+
+    if isinstance(value, float) and math.isnan(value):
         return 0.0
 
     if isinstance(value, (int, float)):
@@ -107,5 +110,11 @@ def truncate_text(text: str, max_length: int, suffix: str = "...") -> str:
     """
     if not text or len(text) <= max_length:
         return text or ""
+
+    # Handle edge case where max_length is too small
+    if max_length <= 0:
+        return ""
+    if max_length <= len(suffix):
+        return suffix[:max_length]
 
     return text[: max_length - len(suffix)] + suffix

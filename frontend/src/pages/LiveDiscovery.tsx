@@ -3,7 +3,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
 import { api } from '@/services/api'
 import { Activity, Play, StopCircle, Terminal } from 'lucide-react'
-import { useEffect, useRef, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 
 interface LogEntry {
     timestamp: string
@@ -23,13 +23,13 @@ export default function LiveDiscovery() {
 
     const scrollRef = useRef<HTMLDivElement>(null)
 
-    const addLog = (message: string, type: LogEntry['type'] = 'info') => {
+    const addLog = useCallback((message: string, type: LogEntry['type'] = 'info') => {
         setLogs(prev => [...prev, {
             timestamp: new Date().toLocaleTimeString(),
             message,
             type
         }])
-    }
+    }, [])
 
     const startDiscovery = async () => {
         setIsRunning(true)
@@ -47,12 +47,23 @@ export default function LiveDiscovery() {
         }
     }
 
-    const stopDiscovery = () => {
-        // In a real scenario, we'd call an API to cancel the job
+    const stopDiscovery = async () => {
+        if (jobId) {
+            try {
+                // Attempt to cancel the server-side job
+                await api.cancelDiscovery(jobId)
+                addLog('Server job cancelled', 'warning')
+            } catch {
+                addLog('Could not cancel server job (may continue in background)', 'warning')
+            }
+        }
         setIsRunning(false)
         setJobId(null)
         addLog('Discovery stopped by user', 'warning')
     }
+
+    // Track previous status to avoid duplicate logs
+    const prevStatusRef = useRef<string | null>(null)
 
     // Poll for updates
     useEffect(() => {
@@ -61,6 +72,7 @@ export default function LiveDiscovery() {
         const interval = setInterval(async () => {
             try {
                 const status = await api.getDiscoveryStatus(jobId)
+                const prevStatus = prevStatusRef.current
 
                 // Update stats
                 setStats({
@@ -69,23 +81,25 @@ export default function LiveDiscovery() {
                     qualified: 0 // Placeholder until we have this metric
                 })
 
-                // Simulate log stream based on status changes (in real app, use WebSocket)
-                if (status.status === 'searching' && logs.length < 2) {
+                // Log only on status transitions
+                if (status.status === 'searching' && prevStatus !== 'searching') {
                     addLog('Searching SAM.gov API...', 'info')
                 }
-                if (status.status === 'processing' && logs.length < 3) {
+                if (status.status === 'processing' && prevStatus !== 'processing') {
                     addLog('Processing discovered RFPs through ML pipeline...', 'info')
                 }
-                if (status.status === 'completed') {
+                if (status.status === 'completed' && prevStatus !== 'completed') {
                     addLog(`Discovery complete! Found ${status.discovered_count} RFPs.`, 'success')
                     setIsRunning(false)
                     setJobId(null)
                 }
-                if (status.status === 'failed') {
+                if (status.status === 'failed' && prevStatus !== 'failed') {
                     addLog('Discovery failed.', 'error')
                     setIsRunning(false)
                     setJobId(null)
                 }
+
+                prevStatusRef.current = status.status
 
             } catch (error) {
                 console.error(error)
@@ -93,7 +107,7 @@ export default function LiveDiscovery() {
         }, 2000)
 
         return () => clearInterval(interval)
-    }, [jobId, isRunning, logs.length])
+    }, [jobId, isRunning, addLog])
 
     // Auto-scroll logs
     useEffect(() => {
@@ -116,7 +130,12 @@ export default function LiveDiscovery() {
                             type="number"
                             className="w-20 h-8"
                             value={limit}
-                            onChange={e => setLimit(Number(e.target.value))}
+                            min={1}
+                            max={500}
+                            onChange={e => {
+                                const val = parseInt(e.target.value, 10)
+                                if (!isNaN(val)) setLimit(Math.max(1, Math.min(500, val)))
+                            }}
                         />
                     </div>
                     <div className="flex items-center gap-2 px-2 border-l">
@@ -125,7 +144,12 @@ export default function LiveDiscovery() {
                             type="number"
                             className="w-20 h-8"
                             value={daysBack}
-                            onChange={e => setDaysBack(Number(e.target.value))}
+                            min={1}
+                            max={365}
+                            onChange={e => {
+                                const val = parseInt(e.target.value, 10)
+                                if (!isNaN(val)) setDaysBack(Math.max(1, Math.min(365, val)))
+                            }}
                         />
                     </div>
                     <Button
