@@ -81,7 +81,7 @@ class RFPOpportunity(Base):
     priority = Column(Integer, default=0)
 
     # Metadata (using rfp_metadata to avoid SQLAlchemy reserved name)
-    rfp_metadata = Column(JSON, default=dict)
+    rfp_metadata = Column(JSON, default=lambda: {})
 
     # Source tracking (for scraped RFPs)
     source_url = Column(String, nullable=True)  # BeaconBid URL, etc.
@@ -299,7 +299,7 @@ class PipelineEvent(Base):
     automated = Column(Boolean, default=True)
 
     notes = Column(Text, nullable=True)
-    event_metadata = Column(JSON, default=dict)
+    event_metadata = Column(JSON, default=lambda: {})
 
     rfp = relationship("RFPOpportunity", back_populates="pipeline_events")
 
@@ -314,8 +314,8 @@ class PostAwardChecklist(Base):
 
     generated_at = Column(DateTime, default=datetime.utcnow)
     status = Column(String, default="draft") # draft, active, completed
-    items = Column(JSON, default=list) # List of checklist items
-    summary = Column(JSON, default=dict) # Summary statistics about the checklist
+    items = Column(JSON, default=lambda: []) # List of checklist items
+    summary = Column(JSON, default=lambda: {}) # Summary statistics about the checklist
 
     created_at = Column(DateTime, default=datetime.utcnow)
     updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
@@ -360,10 +360,10 @@ class CompanyProfile(Base):
     # Business Information
     established_year = Column(Integer, nullable=True)
     employee_count = Column(String, nullable=True)  # "50-100", "150+"
-    certifications = Column(JSON, default=list)  # ["8(a)", "HUBZone", "ISO 9001"]
-    naics_codes = Column(JSON, default=list)  # ["541512", "541519"]
-    core_competencies = Column(JSON, default=list)  # List of capabilities
-    past_performance = Column(JSON, default=list)  # List of past contracts
+    certifications = Column(JSON, default=lambda: [])  # ["8(a)", "HUBZone", "ISO 9001"]
+    naics_codes = Column(JSON, default=lambda: [])  # ["541512", "541519"]
+    core_competencies = Column(JSON, default=lambda: [])  # List of capabilities
+    past_performance = Column(JSON, default=lambda: [])  # List of past contracts
 
     # Timestamps
     created_at = Column(DateTime, default=datetime.utcnow)
@@ -452,8 +452,8 @@ class RFPQandA(Base):
 
     # AI Analysis
     category = Column(String, nullable=True)  # "technical", "pricing", "scope", "timeline", "compliance"
-    key_insights = Column(JSON, default=list)  # AI-extracted insights
-    related_sections = Column(JSON, default=list)  # Proposal sections affected
+    key_insights = Column(JSON, default=lambda: [])  # AI-extracted insights
+    related_sections = Column(JSON, default=lambda: [])  # Proposal sections affected
 
     # Tracking
     is_new = Column(Boolean, default=True)  # Flag for newly detected Q&A
@@ -499,10 +499,10 @@ class DashboardMetrics(Base):
     pending_reviews = Column(Integer, default=0)
 
     # Category breakdown
-    category_stats = Column(JSON, default=dict)
+    category_stats = Column(JSON, default=lambda: {})
 
     # Performance metrics
-    performance_stats = Column(JSON, default=dict)
+    performance_stats = Column(JSON, default=lambda: {})
 
     created_at = Column(DateTime, default=datetime.utcnow)
 
@@ -530,11 +530,11 @@ class SamEntity(Base):
     organization_structure = Column(String, nullable=True)
 
     # Codes and Classifications
-    naics_codes = Column(JSON, default=list) # List of NAICS codes
-    psc_codes = Column(JSON, default=list)   # List of Product Service Codes
+    naics_codes = Column(JSON, default=lambda: []) # List of NAICS codes
+    psc_codes = Column(JSON, default=lambda: [])   # List of Product Service Codes
 
     # Certifications and Business Types (Socioeconomic)
-    business_types = Column(JSON, default=list) # List of certifications (e.g., SDB, WOSB, SDVOSB, HUBZone)
+    business_types = Column(JSON, default=lambda: []) # List of certifications (e.g., SDB, WOSB, SDVOSB, HUBZone)
 
     # Capabilities and Keywords
     purpose_of_registration = Column(Text, nullable=True)

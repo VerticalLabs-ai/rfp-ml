@@ -45,7 +45,7 @@ Copy `.env.example` to `.env` and configure:
 ```bash
 OPENAI_API_KEY=your_key_here
 LLM_PROVIDER=openai  # Options: openai, huggingface, local
-LLM_MODEL_NAME=gpt-4-turbo-preview
+LLM_MODEL_NAME=gpt-5.1
 ```
 
 ## Common Development Commands

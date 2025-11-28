@@ -3,7 +3,7 @@
 The LLM Configuration Module (`src/config/llm_config.py`) provides a unified interface for managing Language Model backends in the Government RFP Bid Generation System. It supports multiple LLM providers with automatic fallback mechanisms.
 ## Features
 ### Supported Backends
-- **OpenAI GPT-4/GPT-3.5** (Primary)
+- **OpenAI GPT-5.1** (Primary)
 - **Local HuggingFace Models** (Fallback)
 - **Automatic backend selection and fallback**
 ### Configuration Management

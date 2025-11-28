@@ -1,10 +1,10 @@
+import { api } from '@/services/api'
+import { useQuery } from '@tanstack/react-query'
+import { format, isValid } from 'date-fns'
+import { ArrowDownToLine, CheckSquare, ListChecks, Loader2, Tag } from 'lucide-react'
 import React from 'react'
 import { useParams } from 'react-router-dom'
-import { useQuery } from '@tanstack/react-query'
-import { api } from '@/services/api'
 import { toast } from 'sonner'
-import { format, isValid } from 'date-fns'
-import { ListChecks, CheckSquare, Loader2, ArrowDownToLine, Tag } from 'lucide-react'
 
 interface ChecklistItem {
   id: string
@@ -93,7 +93,7 @@ export default function ProjectKickoffPage() {
           </p>
         </div>
         <div className="flex gap-2">
-          <button 
+          <button
             onClick={() => handleExport('json')}
             className="inline-flex items-center px-4 py-2 border border-slate-300 dark:border-slate-600 text-sm font-medium rounded-md text-slate-700 dark:text-slate-200 bg-white dark:bg-slate-700 hover:bg-slate-50 dark:hover:bg-slate-600 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
           >
@@ -116,7 +116,7 @@ export default function ProjectKickoffPage() {
         <ul className="divide-y divide-slate-200 dark:divide-slate-700">
           {checklist.items?.map((item) => (
             <li key={item.id} className="p-4 flex items-start space-x-3">
-              <CheckSquare 
+              <CheckSquare
                 className={`h-6 w-6 flex-shrink-0 ${item.status === 'completed' ? 'text-green-500' : 'text-slate-300 dark:text-slate-600'}`}
               />
               <div className="flex-1">
@@ -135,13 +135,13 @@ export default function ProjectKickoffPage() {
                     ) : null
                   })()}
                   {item.status && (
-                     <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium 
-                      ${item.status === 'completed' ? 'bg-green-100 text-green-800 dark:bg-green-900/20 dark:text-green-300' : 
-                         item.status === 'in_progress' ? 'bg-blue-100 text-blue-800 dark:bg-blue-900/20 dark:text-blue-300' : 
-                         'bg-yellow-100 text-yellow-800 dark:bg-yellow-900/20 dark:text-yellow-300'}
+                    <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium 
+                      ${item.status === 'completed' ? 'bg-green-100 text-green-800 dark:bg-green-900/20 dark:text-green-300' :
+                        item.status === 'in_progress' ? 'bg-blue-100 text-blue-800 dark:bg-blue-900/20 dark:text-blue-300' :
+                          'bg-yellow-100 text-yellow-800 dark:bg-yellow-900/20 dark:text-yellow-300'}
                      `}>
-                       {item.status.replace(/_/g, ' ').toUpperCase()}
-                     </span>
+                      {item.status.replace(/_/g, ' ').toUpperCase()}
+                    </span>
                   )}
                 </div>
                 {item.notes && <p className="text-sm text-slate-600 dark:text-slate-300 mt-2">Notes: {item.notes}</p>}

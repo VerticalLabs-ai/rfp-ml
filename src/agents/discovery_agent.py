@@ -146,7 +146,7 @@ class RFPDiscoveryAgent:
                 return float(val)
             try:
                 return float(str(val).replace("$", "").replace(",", ""))
-            except:
+            except (ValueError, TypeError):
                 return 0.0
 
         df_api["award_amount_clean"] = df_api["award_amount"].apply(clean_amount)

@@ -1,6 +1,6 @@
 """
 LLM Infrastructure Configuration Module
-Supports OpenAI GPT-4 and local models with environment-based configuration
+Supports OpenAI GPT-5.1 and local models with environment-based configuration
 """
 import os
 import logging
@@ -35,7 +35,7 @@ class LLMConfigManager:
     """Manages LLM configuration and provides unified interface"""
     DEFAULT_CONFIGS = {
         LLMProvider.OPENAI: {
-            "model_name": "gpt-4-turbo-preview",
+            "model_name": "gpt-5.1",
             "temperature": 0.7,
             "max_tokens": 2000,
             "timeout": 30.0

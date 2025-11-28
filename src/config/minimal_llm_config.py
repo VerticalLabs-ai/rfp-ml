@@ -34,7 +34,7 @@ class MinimalLLMConfig:
     fallback_backend: LLMBackend = LLMBackend.MOCK_LOCAL
     # OpenAI Configuration
     openai_api_key: Optional[str] = None
-    openai_model_gpt4: str = "gpt-4-turbo-preview"
+    openai_model_gpt4: str = "gpt-5.1"
     openai_model_gpt35: str = "gpt-3.5-turbo"
     # Generation parameters
     bid_generation_params: LLMParameters = None

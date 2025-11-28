@@ -1,16 +1,15 @@
 """
 Company Profile management API endpoints.
 """
+
 import re
 from datetime import datetime
-from typing import List, Optional
-
-from fastapi import APIRouter, Depends, HTTPException
-from pydantic import BaseModel, EmailStr, field_validator
-from sqlalchemy.orm import Session
 
 from app.core.database import get_db
 from app.models.database import CompanyProfile
+from fastapi import APIRouter, Depends, HTTPException
+from pydantic import BaseModel, field_validator
+from sqlalchemy.orm import Session
 
 router = APIRouter()
 
@@ -18,28 +17,28 @@ router = APIRouter()
 # Pydantic schemas
 class CompanyProfileBase(BaseModel):
     name: str
-    legal_name: Optional[str] = None
+    legal_name: str | None = None
     is_default: bool = False
 
     # Identifiers
-    uei: Optional[str] = None
-    cage_code: Optional[str] = None
-    duns_number: Optional[str] = None
+    uei: str | None = None
+    cage_code: str | None = None
+    duns_number: str | None = None
 
     # Contact Information
-    headquarters: Optional[str] = None
-    website: Optional[str] = None
-    primary_contact_name: Optional[str] = None
-    primary_contact_email: Optional[str] = None
-    primary_contact_phone: Optional[str] = None
+    headquarters: str | None = None
+    website: str | None = None
+    primary_contact_name: str | None = None
+    primary_contact_email: str | None = None
+    primary_contact_phone: str | None = None
 
     # Business Information
-    established_year: Optional[int] = None
-    employee_count: Optional[str] = None
-    certifications: List[str] = []
-    naics_codes: List[str] = []
-    core_competencies: List[str] = []
-    past_performance: List[dict] = []
+    established_year: int | None = None
+    employee_count: str | None = None
+    certifications: list[str] = []
+    naics_codes: list[str] = []
+    core_competencies: list[str] = []
+    past_performance: list[dict] = []
 
     @field_validator("name")
     @classmethod
@@ -52,24 +51,26 @@ class CompanyProfileBase(BaseModel):
 
     @field_validator("uei")
     @classmethod
-    def validate_uei(cls, v: Optional[str]) -> Optional[str]:
+    def validate_uei(cls, v: str | None) -> str | None:
         if v and not re.match(r"^[A-Z0-9]{12}$", v.upper()):
             raise ValueError("UEI must be 12 alphanumeric characters")
         return v.upper() if v else v
 
     @field_validator("cage_code")
     @classmethod
-    def validate_cage_code(cls, v: Optional[str]) -> Optional[str]:
+    def validate_cage_code(cls, v: str | None) -> str | None:
         if v and not re.match(r"^[A-Z0-9]{5}$", v.upper()):
             raise ValueError("CAGE code must be 5 alphanumeric characters")
         return v.upper() if v else v
 
     @field_validator("naics_codes")
     @classmethod
-    def validate_naics_codes(cls, v: List[str]) -> List[str]:
+    def validate_naics_codes(cls, v: list[str]) -> list[str]:
         for code in v:
             if not re.match(r"^\d{6}$", code):
-                raise ValueError(f"Invalid NAICS code format: {code}. Must be 6 digits.")
+                raise ValueError(
+                    f"Invalid NAICS code format: {code}. Must be 6 digits."
+                )
         return v
 
 
@@ -78,23 +79,23 @@ class CompanyProfileCreate(CompanyProfileBase):
 
 
 class CompanyProfileUpdate(BaseModel):
-    name: Optional[str] = None
-    legal_name: Optional[str] = None
-    is_default: Optional[bool] = None
-    uei: Optional[str] = None
-    cage_code: Optional[str] = None
-    duns_number: Optional[str] = None
-    headquarters: Optional[str] = None
-    website: Optional[str] = None
-    primary_contact_name: Optional[str] = None
-    primary_contact_email: Optional[str] = None
-    primary_contact_phone: Optional[str] = None
-    established_year: Optional[int] = None
-    employee_count: Optional[str] = None
-    certifications: Optional[List[str]] = None
-    naics_codes: Optional[List[str]] = None
-    core_competencies: Optional[List[str]] = None
-    past_performance: Optional[List[dict]] = None
+    name: str | None = None
+    legal_name: str | None = None
+    is_default: bool | None = None
+    uei: str | None = None
+    cage_code: str | None = None
+    duns_number: str | None = None
+    headquarters: str | None = None
+    website: str | None = None
+    primary_contact_name: str | None = None
+    primary_contact_email: str | None = None
+    primary_contact_phone: str | None = None
+    established_year: int | None = None
+    employee_count: str | None = None
+    certifications: list[str] | None = None
+    naics_codes: list[str] | None = None
+    core_competencies: list[str] | None = None
+    past_performance: list[dict] | None = None
 
 
 class CompanyProfileResponse(CompanyProfileBase):
@@ -106,12 +107,8 @@ class CompanyProfileResponse(CompanyProfileBase):
         from_attributes = True
 
 
-@router.get("", response_model=List[CompanyProfileResponse])
-async def list_profiles(
-    skip: int = 0,
-    limit: int = 100,
-    db: Session = Depends(get_db)
-):
+@router.get("", response_model=list[CompanyProfileResponse])
+async def list_profiles(skip: int = 0, limit: int = 100, db: Session = Depends(get_db)):
     """Get all company profiles."""
     profiles = db.query(CompanyProfile).offset(skip).limit(limit).all()
     return profiles
@@ -119,14 +116,19 @@ async def list_profiles(
 
 @router.post("", response_model=CompanyProfileResponse)
 async def create_profile(
-    profile_data: CompanyProfileCreate,
-    db: Session = Depends(get_db)
+    profile_data: CompanyProfileCreate, db: Session = Depends(get_db)
 ):
     """Create a new company profile."""
     # Check for duplicate name
-    existing = db.query(CompanyProfile).filter(CompanyProfile.name == profile_data.name).first()
+    existing = (
+        db.query(CompanyProfile)
+        .filter(CompanyProfile.name == profile_data.name)
+        .first()
+    )
     if existing:
-        raise HTTPException(status_code=400, detail="Profile with this name already exists")
+        raise HTTPException(
+            status_code=400, detail="Profile with this name already exists"
+        )
 
     # If this is the default, unset other defaults
     if profile_data.is_default:
@@ -150,9 +152,7 @@ async def get_profile(profile_id: int, db: Session = Depends(get_db)):
 
 @router.put("/{profile_id}", response_model=CompanyProfileResponse)
 async def update_profile(
-    profile_id: int,
-    profile_data: CompanyProfileUpdate,
-    db: Session = Depends(get_db)
+    profile_id: int, profile_data: CompanyProfileUpdate, db: Session = Depends(get_db)
 ):
     """Update a company profile."""
     profile = db.query(CompanyProfile).filter(CompanyProfile.id == profile_id).first()
@@ -163,13 +163,21 @@ async def update_profile(
 
     # Check for duplicate name if name is being updated
     if "name" in update_data and update_data["name"] != profile.name:
-        existing = db.query(CompanyProfile).filter(CompanyProfile.name == update_data["name"]).first()
+        existing = (
+            db.query(CompanyProfile)
+            .filter(CompanyProfile.name == update_data["name"])
+            .first()
+        )
         if existing:
-            raise HTTPException(status_code=400, detail="Profile with this name already exists")
+            raise HTTPException(
+                status_code=400, detail="Profile with this name already exists"
+            )
 
     # If setting as default, unset other defaults
     if update_data.get("is_default"):
-        db.query(CompanyProfile).filter(CompanyProfile.id != profile_id).update({CompanyProfile.is_default: False})
+        db.query(CompanyProfile).filter(CompanyProfile.id != profile_id).update(
+            {CompanyProfile.is_default: False}
+        )
 
     for key, value in update_data.items():
         setattr(profile, key, value)

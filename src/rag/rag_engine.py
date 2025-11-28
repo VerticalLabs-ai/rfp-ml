@@ -159,11 +159,11 @@ class DocumentProcessor:
             "award_description",
             "award_amount",
         ]
-        for field in text_fields:
-            if field in row and pd.notna(row[field]):
-                value = str(row[field]).strip()
+        for field_name in text_fields:
+            if field_name in row and pd.notna(row[field_name]):
+                value = str(row[field_name]).strip()
                 if value and value.lower() not in ["nan", "none", ""]:
-                    text_parts.append(f"{field}: {value}")
+                    text_parts.append(f"{field_name}: {value}")
         combined_text = " | ".join(text_parts)
         return self.preprocess_text(combined_text)
 
@@ -257,7 +257,7 @@ class VectorIndex:
         self.logger.info(f"Built FAISS index with {len(embeddings)} vectors")
 
     def search(
-        self, query_embedding: np.ndarray, k: int = None
+        self, query_embedding: np.ndarray, k: int | None = None
     ) -> tuple[list[float], list[int]]:
         """Search for similar vectors"""
         if self.index is None:
@@ -339,7 +339,7 @@ class TFIDFRetriever:
         self.tfidf_matrix = self.vectorizer.fit_transform(documents)
         self.logger.info(f"Built TF-IDF index with {len(documents)} documents")
 
-    def search(self, query: str, k: int = None) -> tuple[list[float], list[int]]:
+    def search(self, query: str, k: int | None = None) -> tuple[list[float], list[int]]:
         """Search for similar documents using TF-IDF"""
         if self.vectorizer is None or self.tfidf_matrix is None:
             raise RuntimeError("TF-IDF index not built")
@@ -484,7 +484,7 @@ class RAGEngine:
         self.logger.info("RAG index building complete")
 
     def retrieve(
-        self, query: str, k: int = None, use_embeddings: bool = True
+        self, query: str, k: int | None = None, use_embeddings: bool = True
     ) -> list[RetrievalResult]:
         """Retrieve relevant documents for a query"""
         if not self.is_built:

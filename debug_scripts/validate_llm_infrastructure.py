@@ -22,9 +22,9 @@ def validate_requirements():
         "configuration_management": False
     }
     # Test 1: OpenAI Support
-    print("1. Testing OpenAI GPT-4 Support...")
+    print("1. Testing OpenAI GPT-5.1 Support...")
     try:
-        config = LLMConfig(provider="openai", model_name="gpt-4-turbo-preview")
+        config = LLMConfig(provider="openai", model_name="gpt-5.1")
         manager = create_llm_manager()
         if manager.config.provider == "openai":
             validation_results["openai_support"] = True

@@ -19,7 +19,7 @@ def test_fallback_scenarios():
     config_no_key = LLMConfig(
         provider="openai",
         api_key=None,
-        model_name="gpt-4-turbo-preview"
+        model_name="gpt-5.1"
     )
     try:
         manager = LLMManager(config_no_key)

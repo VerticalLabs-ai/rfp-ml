@@ -5,7 +5,7 @@ RFP Scraper API endpoints for importing RFPs from external portals.
 import logging
 import os
 import re
-from datetime import datetime
+from datetime import datetime, timezone
 from urllib.parse import urlparse
 from uuid import uuid4
 
@@ -127,9 +127,7 @@ async def scrape_rfp(
         scraped_rfp = await scraper.scrape(url)
 
         # Generate unique RFP ID
-        rfp_id = (
-            f"RFP-{datetime.now().strftime('%Y%m%d%H%M%S')}-{uuid4().hex[:6].upper()}"
-        )
+        rfp_id = f"RFP-{datetime.now(timezone.utc).strftime('%Y%m%d%H%M%S')}-{uuid4().hex[:6].upper()}"
 
         # Check for existing RFP with same URL
         existing = (
@@ -169,7 +167,7 @@ async def scrape_rfp(
 
         # Download documents in background
         background_tasks.add_task(
-            _download_and_save_documents, scraper, scraped_rfp, rfp.id, rfp_id, db
+            _download_and_save_documents, scraper, scraped_rfp, rfp.id, rfp_id
         )
 
         # Save Q&A items
@@ -204,8 +202,8 @@ async def scrape_rfp(
 
 
 async def _download_and_save_documents(
-    scraper, scraped_rfp, rfp_db_id: int, rfp_id: str, db: Session
-):
+    scraper, scraped_rfp, rfp_db_id: int, rfp_id: str
+) -> None:
     """Background task to download documents and save to database."""
     try:
         downloaded_docs = await scraper.download_documents(scraped_rfp, rfp_id)

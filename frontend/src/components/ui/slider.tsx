@@ -1,5 +1,5 @@
-import * as React from "react"
 import * as SliderPrimitive from "@radix-ui/react-slider"
+import * as React from "react"
 
 import { cn } from "@/lib/utils"
 
@@ -9,7 +9,7 @@ const Slider = React.forwardRef<
 >(({ className, value, defaultValue, ...props }, ref) => {
   // Determine how many thumbs to render based on value or defaultValue
   const values = value ?? defaultValue ?? [0]
-  const thumbCount = Array.isArray(values) ? values.length : 1
+  const thumbCount = Math.max(Array.isArray(values) ? values.length : 1, 1)
 
   return (
     <SliderPrimitive.Root

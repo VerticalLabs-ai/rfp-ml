@@ -2,6 +2,8 @@
 Validation script to verify LLM infrastructure meets all requirements
 """
 
+import os
+import sys
 import time
 
 from src.config.llm_config import LLMConfigManager, test_llm_connection
@@ -14,7 +16,7 @@ def validate_requirement_1():
     try:
         config_manager = LLMConfigManager()
         validation = config_manager.validate_configuration()
-        if validation["status"] == "success":
+        if validation.get("status") == "success":
             print(
                 f"  ✓ LLM configured: {validation['provider']} with model {validation['model']}"
             )
@@ -56,9 +58,8 @@ def validate_requirement_3():
     """Validate: Multiple LLM backend support"""
     print("✓ Checking multiple LLM backend support...")
     try:
-        config_manager = LLMConfigManager()
         # Check if all providers are supported
-        from config.llm_config import LLMProvider
+        from src.config.llm_config import LLMProvider
 
         providers = [LLMProvider.OPENAI, LLMProvider.HUGGINGFACE, LLMProvider.LOCAL]
         for provider in providers:
@@ -72,7 +73,7 @@ def validate_requirement_3():
 
 
 def validate_requirement_4():
-    """Validate: Default parameters (temperature=0.7, max_tokens=2000, model='gpt-4-turbo-preview')"""
+    """Validate: Default parameters (temperature=0.7, max_tokens=2000, model='gpt-5.1')"""
     print("✓ Checking default parameters...")
     try:
         config_manager = LLMConfigManager()
@@ -101,7 +102,7 @@ def validate_requirement_5():
         result = test_llm_connection()
         end_time = time.time()
         latency = end_time - start_time
-        if result["status"] == "success":
+        if result.get("status") == "success":
             print("  ✓ API call successful")
             print(
                 f"  ✓ Response generated: {result.get('test_response', 'N/A')[:50]}..."
@@ -200,7 +201,7 @@ def run_validation():
     print(f"\nResult: {passed}/{total} requirements met")
     if passed == total:
         print("\n🎉 All requirements validated! LLM infrastructure is ready.")
-        print("✓ OpenAI GPT-4 or local model support configured")
+        print("✓ OpenAI GPT-5.1 or local model support configured")
         print("✓ Environment variable loading with python-dotenv")
         print("✓ Default parameters set (temp=0.7, max_tokens=2000)")
         print("✓ Test API calls with <2s latency requirement")

@@ -4,25 +4,27 @@ BeaconBid RFP scraper using Stagehand/Browserbase for AI-powered extraction.
 Stagehand is an AI-native browser automation framework that uses LLMs for resilient
 web scraping, even when page layouts change.
 """
-import os
+
 import asyncio
 import logging
-from datetime import datetime
-from typing import List, Optional, Dict, Any
+import os
+from datetime import datetime, timezone
 from pathlib import Path
+from typing import Any
 
+import aiofiles
 import aiohttp
 from aiohttp import ClientTimeout
 
 from .base_scraper import (
     BaseScraper,
-    ScrapedRFP,
     ScrapedDocument,
     ScrapedQA,
-    ScraperError,
+    ScrapedRFP,
     ScraperConnectionError,
-    ScraperParseError,
     ScraperDownloadError,
+    ScraperError,
+    ScraperParseError,
 )
 
 logger = logging.getLogger(__name__)
@@ -47,8 +49,8 @@ class BeaconBidScraper(BaseScraper):
     def __init__(
         self,
         document_storage_path: str = "data/rfp_documents",
-        browserbase_project_id: Optional[str] = None,
-        browserbase_api_key: Optional[str] = None,
+        browserbase_project_id: str | None = None,
+        browserbase_api_key: str | None = None,
     ):
         """
         Initialize BeaconBid scraper.
@@ -167,7 +169,7 @@ class BeaconBidScraper(BaseScraper):
                 except Exception as e:
                     logger.warning(f"Error closing Stagehand session: {e}")
 
-    async def _extract_rfp_metadata(self, stagehand: Any) -> Dict[str, Any]:
+    async def _extract_rfp_metadata(self, stagehand: Any) -> dict[str, Any]:
         """
         Extract RFP metadata using Stagehand's AI extraction.
 
@@ -179,8 +181,9 @@ class BeaconBidScraper(BaseScraper):
         """
         try:
             # Use Stagehand's extract() for AI-powered data extraction
-            result = await stagehand.extract({
-                "instruction": """Extract the RFP (Request for Proposal) information from this page.
+            result = await stagehand.extract(
+                {
+                    "instruction": """Extract the RFP (Request for Proposal) information from this page.
                 Find and extract:
                 - title: The main title/name of the solicitation
                 - solicitation_number: The official solicitation or RFP number
@@ -193,22 +196,23 @@ class BeaconBidScraper(BaseScraper):
                 - naics_code: Any NAICS code mentioned
                 - category: The category or type of work (e.g., IT Services, Construction)
                 """,
-                "schema": {
-                    "type": "object",
-                    "properties": {
-                        "title": {"type": "string"},
-                        "solicitation_number": {"type": "string"},
-                        "agency": {"type": "string"},
-                        "office": {"type": "string"},
-                        "description": {"type": "string"},
-                        "posted_date": {"type": "string"},
-                        "response_deadline": {"type": "string"},
-                        "award_amount": {"type": "string"},
-                        "naics_code": {"type": "string"},
-                        "category": {"type": "string"},
+                    "schema": {
+                        "type": "object",
+                        "properties": {
+                            "title": {"type": "string"},
+                            "solicitation_number": {"type": "string"},
+                            "agency": {"type": "string"},
+                            "office": {"type": "string"},
+                            "description": {"type": "string"},
+                            "posted_date": {"type": "string"},
+                            "response_deadline": {"type": "string"},
+                            "award_amount": {"type": "string"},
+                            "naics_code": {"type": "string"},
+                            "category": {"type": "string"},
+                        },
                     },
-                },
-            })
+                }
+            )
 
             logger.info(f"Extracted metadata: {result}")
             return result if result else {}
@@ -217,7 +221,7 @@ class BeaconBidScraper(BaseScraper):
             logger.error(f"Error extracting metadata: {e}")
             return {}
 
-    async def _extract_documents(self, stagehand: Any) -> List[ScrapedDocument]:
+    async def _extract_documents(self, stagehand: Any) -> list[ScrapedDocument]:
         """
         Extract document links from the RFP page.
 
@@ -229,25 +233,27 @@ class BeaconBidScraper(BaseScraper):
         """
         try:
             # Use Stagehand to find document links
-            result = await stagehand.extract({
-                "instruction": """Find all downloadable documents/attachments on this page.
+            result = await stagehand.extract(
+                {
+                    "instruction": """Find all downloadable documents/attachments on this page.
                 For each document, extract:
                 - filename: The name of the file
                 - url: The download URL or link
                 - type: The type of document (solicitation, amendment, attachment, etc.)
                 """,
-                "schema": {
-                    "type": "array",
-                    "items": {
-                        "type": "object",
-                        "properties": {
-                            "filename": {"type": "string"},
-                            "url": {"type": "string"},
-                            "type": {"type": "string"},
+                    "schema": {
+                        "type": "array",
+                        "items": {
+                            "type": "object",
+                            "properties": {
+                                "filename": {"type": "string"},
+                                "url": {"type": "string"},
+                                "type": {"type": "string"},
+                            },
                         },
                     },
-                },
-            })
+                }
+            )
 
             documents = []
             if result:
@@ -255,12 +261,16 @@ class BeaconBidScraper(BaseScraper):
                     filename = doc.get("filename", "unknown")
                     file_ext = Path(filename).suffix.lower().lstrip(".")
 
-                    documents.append(ScrapedDocument(
-                        filename=filename,
-                        source_url=doc.get("url", ""),
-                        file_type=file_ext if file_ext else None,
-                        document_type=self._classify_document_type(doc.get("type", ""), filename),
-                    ))
+                    documents.append(
+                        ScrapedDocument(
+                            filename=filename,
+                            source_url=doc.get("url", ""),
+                            file_type=file_ext if file_ext else None,
+                            document_type=self._classify_document_type(
+                                doc.get("type", ""), filename
+                            ),
+                        )
+                    )
 
             logger.info(f"Found {len(documents)} documents")
             return documents
@@ -269,7 +279,7 @@ class BeaconBidScraper(BaseScraper):
             logger.error(f"Error extracting documents: {e}")
             return []
 
-    async def _extract_qa(self, stagehand: Any) -> List[ScrapedQA]:
+    async def _extract_qa(self, stagehand: Any) -> list[ScrapedQA]:
         """
         Extract Q&A entries from the RFP page.
 
@@ -282,17 +292,20 @@ class BeaconBidScraper(BaseScraper):
         try:
             # First, try to navigate to Q&A section if it exists
             try:
-                await stagehand.act({
-                    "action": "click",
-                    "instruction": "Click on the Q&A tab or Questions and Answers section if visible",
-                })
+                await stagehand.act(
+                    {
+                        "action": "click",
+                        "instruction": "Click on the Q&A tab or Questions and Answers section if visible",
+                    }
+                )
                 await asyncio.sleep(1)  # Wait for content to load
             except Exception:
                 logger.debug("No Q&A tab found, checking current page")
 
             # Extract Q&A content
-            result = await stagehand.extract({
-                "instruction": """Find all Questions and Answers (Q&A) on this page.
+            result = await stagehand.extract(
+                {
+                    "instruction": """Find all Questions and Answers (Q&A) on this page.
                 For each Q&A entry, extract:
                 - question_number: The question number (Q1, Q2, etc.) if shown
                 - question: The question text
@@ -300,32 +313,35 @@ class BeaconBidScraper(BaseScraper):
                 - asked_date: When the question was asked (if shown)
                 - answered_date: When it was answered (if shown)
                 """,
-                "schema": {
-                    "type": "array",
-                    "items": {
-                        "type": "object",
-                        "properties": {
-                            "question_number": {"type": "string"},
-                            "question": {"type": "string"},
-                            "answer": {"type": "string"},
-                            "asked_date": {"type": "string"},
-                            "answered_date": {"type": "string"},
+                    "schema": {
+                        "type": "array",
+                        "items": {
+                            "type": "object",
+                            "properties": {
+                                "question_number": {"type": "string"},
+                                "question": {"type": "string"},
+                                "answer": {"type": "string"},
+                                "asked_date": {"type": "string"},
+                                "answered_date": {"type": "string"},
+                            },
                         },
                     },
-                },
-            })
+                }
+            )
 
             qa_items = []
             if result:
                 for qa in result:
                     if qa.get("question"):  # Only add if there's a question
-                        qa_items.append(ScrapedQA(
-                            question_number=qa.get("question_number"),
-                            question_text=qa.get("question", ""),
-                            answer_text=qa.get("answer"),
-                            asked_date=self._parse_date(qa.get("asked_date")),
-                            answered_date=self._parse_date(qa.get("answered_date")),
-                        ))
+                        qa_items.append(
+                            ScrapedQA(
+                                question_number=qa.get("question_number"),
+                                question_text=qa.get("question", ""),
+                                answer_text=qa.get("answer"),
+                                asked_date=self._parse_date(qa.get("asked_date")),
+                                answered_date=self._parse_date(qa.get("answered_date")),
+                            )
+                        )
 
             logger.info(f"Found {len(qa_items)} Q&A items")
             return qa_items
@@ -334,7 +350,9 @@ class BeaconBidScraper(BaseScraper):
             logger.error(f"Error extracting Q&A: {e}")
             return []
 
-    async def download_documents(self, rfp: ScrapedRFP, rfp_id: str) -> List[ScrapedDocument]:
+    async def download_documents(
+        self, rfp: ScrapedRFP, rfp_id: str
+    ) -> list[ScrapedDocument]:
         """
         Download all documents for an RFP with retry logic.
 
@@ -364,17 +382,19 @@ class BeaconBidScraper(BaseScraper):
         return downloaded_docs
 
     async def _download_single_document(
-        self,
-        session: aiohttp.ClientSession,
-        doc: ScrapedDocument,
-        storage_path: Path
-    ) -> Optional[ScrapedDocument]:
+        self, session: aiohttp.ClientSession, doc: ScrapedDocument, storage_path: Path
+    ) -> ScrapedDocument | None:
         """Download a single document with retry logic."""
-        last_error: Optional[Exception] = None
+        last_error: Exception | None = None
 
         for attempt in range(1, self.DOWNLOAD_MAX_RETRIES + 1):
             try:
-                logger.info("Downloading (attempt %d/%d): %s", attempt, self.DOWNLOAD_MAX_RETRIES, doc.filename)
+                logger.info(
+                    "Downloading (attempt %d/%d): %s",
+                    attempt,
+                    self.DOWNLOAD_MAX_RETRIES,
+                    doc.filename,
+                )
                 async with session.get(doc.source_url) as response:
                     if response.status == 200:
                         # Generate safe filename
@@ -383,26 +403,39 @@ class BeaconBidScraper(BaseScraper):
 
                         # Write file
                         content = await response.read()
-                        with open(file_path, "wb") as f:
-                            f.write(content)
+                        async with aiofiles.open(file_path, "wb") as f:
+                            await f.write(content)
 
                         # Update document info
                         doc.file_path = str(file_path)
                         doc.file_size = len(content)
                         doc.checksum = self.compute_file_checksum(str(file_path))
-                        doc.downloaded_at = datetime.utcnow()
+                        doc.downloaded_at = datetime.now(timezone.utc)
 
-                        logger.info("Downloaded: %s (%d bytes)", safe_filename, doc.file_size)
+                        logger.info(
+                            "Downloaded: %s (%d bytes)", safe_filename, doc.file_size
+                        )
                         return doc
 
-                    logger.warning("Failed to download %s: HTTP %d", doc.filename, response.status)
+                    logger.warning(
+                        "Failed to download %s: HTTP %d", doc.filename, response.status
+                    )
                     last_error = ScraperDownloadError(f"HTTP {response.status}")
 
             except asyncio.TimeoutError:
-                logger.warning("Timeout downloading %s (attempt %d)", doc.filename, attempt)
-                last_error = ScraperDownloadError(f"Timeout after {self.DOWNLOAD_TIMEOUT_SECONDS}s")
+                logger.warning(
+                    "Timeout downloading %s (attempt %d)", doc.filename, attempt
+                )
+                last_error = ScraperDownloadError(
+                    f"Timeout after {self.DOWNLOAD_TIMEOUT_SECONDS}s"
+                )
             except aiohttp.ClientError as e:
-                logger.warning("Client error downloading %s (attempt %d): %s", doc.filename, attempt, e)
+                logger.warning(
+                    "Client error downloading %s (attempt %d): %s",
+                    doc.filename,
+                    attempt,
+                    e,
+                )
                 last_error = e
             except Exception as e:
                 logger.error("Unexpected error downloading %s: %s", doc.filename, e)
@@ -412,10 +445,17 @@ class BeaconBidScraper(BaseScraper):
             if attempt < self.DOWNLOAD_MAX_RETRIES:
                 await asyncio.sleep(self.DOWNLOAD_RETRY_DELAY_SECONDS)
 
-        logger.error("Failed to download %s after %d attempts: %s", doc.filename, self.DOWNLOAD_MAX_RETRIES, last_error)
+        logger.error(
+            "Failed to download %s after %d attempts: %s",
+            doc.filename,
+            self.DOWNLOAD_MAX_RETRIES,
+            last_error,
+        )
         return None
 
-    async def refresh(self, url: str, existing_checksum: Optional[str] = None) -> Dict[str, Any]:
+    async def refresh(
+        self, url: str, existing_checksum: str | None = None
+    ) -> dict[str, Any]:
         """
         Check for updates on an existing RFP.
 
@@ -431,8 +471,8 @@ class BeaconBidScraper(BaseScraper):
 
         # Compare checksums
         has_changes = (
-            existing_checksum is None or
-            updated_rfp.scrape_checksum != existing_checksum
+            existing_checksum is None
+            or updated_rfp.scrape_checksum != existing_checksum
         )
 
         result = {
@@ -450,7 +490,7 @@ class BeaconBidScraper(BaseScraper):
 
         return result
 
-    def _parse_date(self, date_str: Optional[str]) -> Optional[datetime]:
+    def _parse_date(self, date_str: str | None) -> datetime | None:
         """Parse various date formats to datetime."""
         if not date_str:
             return None
@@ -475,7 +515,7 @@ class BeaconBidScraper(BaseScraper):
         logger.warning(f"Could not parse date: {date_str}")
         return None
 
-    def _parse_amount(self, amount_str: Optional[str]) -> Optional[float]:
+    def _parse_amount(self, amount_str: str | None) -> float | None:
         """Parse amount strings to float."""
         if not amount_str:
             return None
@@ -500,9 +540,17 @@ class BeaconBidScraper(BaseScraper):
 
         if "amendment" in doc_type_lower or "amendment" in filename_lower:
             return "amendment"
-        elif "solicitation" in doc_type_lower or "rfp" in filename_lower or "rfq" in filename_lower:
+        elif (
+            "solicitation" in doc_type_lower
+            or "rfp" in filename_lower
+            or "rfq" in filename_lower
+        ):
             return "solicitation"
-        elif "q&a" in doc_type_lower or "qa" in filename_lower or "question" in filename_lower:
+        elif (
+            "q&a" in doc_type_lower
+            or "qa" in filename_lower
+            or "question" in filename_lower
+        ):
             return "qa_response"
         else:
             return "attachment"

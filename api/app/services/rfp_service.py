@@ -1,14 +1,20 @@
 """
 RFP business logic service.
 """
+
 import logging
 from datetime import datetime
-from typing import Any, Dict, List, Optional
+from typing import Any
 
+from app.models.database import (
+    PipelineEvent,
+    PipelineStage,
+    PostAwardChecklist,
+    RFPOpportunity,
+)
+from app.services.rfp_processor import processor
 from sqlalchemy.orm import Session
 
-from app.models.database import PipelineEvent, PipelineStage, PostAwardChecklist, RFPOpportunity
-from app.services.rfp_processor import processor
 from src.compliance.compliance_checklist import compliance_checklist_generator
 
 logger = logging.getLogger(__name__)
@@ -24,9 +30,9 @@ class RFPService:
         self,
         skip: int = 0,
         limit: int = 100,
-        category: Optional[str] = None,
-        min_score: Optional[float] = None
-    ) -> List[RFPOpportunity]:
+        category: str | None = None,
+        min_score: float | None = None,
+    ) -> list[RFPOpportunity]:
         """Get list of discovered RFPs with filtering."""
         query = self.db.query(RFPOpportunity)
 
@@ -40,13 +46,15 @@ class RFPService:
 
         return query.offset(skip).limit(limit).all()
 
-    def get_rfp_by_id(self, rfp_id: str) -> Optional[RFPOpportunity]:
+    def get_rfp_by_id(self, rfp_id: str) -> RFPOpportunity | None:
         """Get RFP by ID."""
-        return self.db.query(RFPOpportunity).filter(
-            RFPOpportunity.rfp_id == rfp_id
-        ).first()
+        return (
+            self.db.query(RFPOpportunity)
+            .filter(RFPOpportunity.rfp_id == rfp_id)
+            .first()
+        )
 
-    def create_rfp(self, rfp_data: Dict[str, Any]) -> RFPOpportunity:
+    def create_rfp(self, rfp_data: dict[str, Any]) -> RFPOpportunity:
         """Create a new RFP entry."""
         rfp = RFPOpportunity(**rfp_data)
         self.db.add(rfp)
@@ -55,19 +63,14 @@ class RFPService:
 
         # Create pipeline event
         self._create_pipeline_event(
-            rfp.id,
-            None,
-            PipelineStage.DISCOVERED,
-            automated=True
+            rfp.id, None, PipelineStage.DISCOVERED, automated=True
         )
 
         return rfp
 
     def update_rfp(
-        self,
-        rfp_id: str,
-        update_data: Dict[str, Any]
-    ) -> Optional[RFPOpportunity]:
+        self, rfp_id: str, update_data: dict[str, Any]
+    ) -> RFPOpportunity | None:
         """Update RFP details."""
         rfp = self.get_rfp_by_id(rfp_id)
         if not rfp:
@@ -83,11 +86,8 @@ class RFPService:
         return rfp
 
     def update_triage_decision(
-        self,
-        rfp_id: str,
-        decision: str,
-        notes: Optional[str] = None
-    ) -> Optional[RFPOpportunity]:
+        self, rfp_id: str, decision: str, notes: str | None = None
+    ) -> RFPOpportunity | None:
         """Update triage decision and advance stage."""
         rfp = self.get_rfp_by_id(rfp_id)
         if not rfp:
@@ -107,21 +107,15 @@ class RFPService:
 
         # Create pipeline event
         self._create_pipeline_event(
-            rfp.id,
-            old_stage,
-            rfp.current_stage,
-            automated=False,
-            notes=notes
+            rfp.id, old_stage, rfp.current_stage, automated=False, notes=notes
         )
 
         self.db.refresh(rfp)
         return rfp
 
     def advance_stage(
-        self,
-        rfp_id: str,
-        notes: Optional[str] = None
-    ) -> Optional[RFPOpportunity]:
+        self, rfp_id: str, notes: str | None = None
+    ) -> RFPOpportunity | None:
         """Advance RFP to next pipeline stage."""
         rfp = self.get_rfp_by_id(rfp_id)
         if not rfp:
@@ -140,7 +134,7 @@ class RFPService:
             PipelineStage.DOCUMENT_GENERATION: PipelineStage.REVIEW,
             PipelineStage.REVIEW: PipelineStage.SUBMISSION_READY,
             PipelineStage.SUBMISSION_READY: PipelineStage.SUBMITTED,
-            PipelineStage.SUBMITTED: PipelineStage.AWARDED, # Added for post-award
+            PipelineStage.SUBMITTED: PipelineStage.AWARDED,  # Added for post-award
         }
 
         next_stage = stage_progression.get(rfp.current_stage)
@@ -153,13 +147,20 @@ class RFPService:
 
         # If RFP is awarded, generate post-award compliance checklist
         if next_stage == PipelineStage.AWARDED:
-            logger.info("RFP %s moved to AWARDED stage. Generating post-award checklist.", rfp_id)
+            logger.info(
+                "RFP %s moved to AWARDED stage. Generating post-award checklist.",
+                rfp_id,
+            )
             # Retrieve bid document content
             bid_document_id = rfp.bid_document.document_id if rfp.bid_document else None
             if bid_document_id:
                 bid_content = processor.get_bid_document(bid_document_id)
                 if bid_content:
-                    checklist_obj = compliance_checklist_generator.generate_from_bid_document(rfp.to_dict(), bid_content)
+                    checklist_obj = (
+                        compliance_checklist_generator.generate_from_bid_document(
+                            rfp.to_dict(), bid_content
+                        )
+                    )
 
                     # Save to database
                     post_award_checklist_db = PostAwardChecklist(
@@ -168,57 +169,74 @@ class RFPService:
                         generated_at=checklist_obj.generated_at,
                         status=checklist_obj.status,
                         items=[item.to_dict() for item in checklist_obj.items],
-                        summary=checklist_obj.summary
+                        summary=checklist_obj.summary,
                     )
                     self.db.add(post_award_checklist_db)
                     self.db.commit()
                     self.db.refresh(post_award_checklist_db)
 
-                    logger.info("Post-award checklist generated and saved to DB for RFP %s.", rfp_id)
+                    logger.info(
+                        "Post-award checklist generated and saved to DB for RFP %s.",
+                        rfp_id,
+                    )
                 else:
-                    logger.warning("Bid document content not found for RFP %s. Cannot generate checklist.", rfp_id)
+                    logger.warning(
+                        "Bid document content not found for RFP %s. Cannot generate checklist.",
+                        rfp_id,
+                    )
             else:
-                logger.warning("No bid document associated with RFP %s. Cannot generate checklist.", rfp_id)
+                logger.warning(
+                    "No bid document associated with RFP %s. Cannot generate checklist.",
+                    rfp_id,
+                )
 
         self._create_pipeline_event(
-            rfp.id,
-            old_stage,
-            next_stage,
-            automated=True,
-            notes=notes
+            rfp.id, old_stage, next_stage, automated=True, notes=notes
         )
 
         self.db.refresh(rfp)
         return rfp
 
-    def get_statistics(self) -> Dict[str, Any]:
+    def get_statistics(self) -> dict[str, Any]:
         """Get RFP statistics."""
         total = self.db.query(RFPOpportunity).count()
-        in_pipeline = self.db.query(RFPOpportunity).filter(
-            RFPOpportunity.current_stage.notin_([
-                PipelineStage.REJECTED,
-                PipelineStage.SUBMITTED
-            ])
-        ).count()
+        in_pipeline = (
+            self.db.query(RFPOpportunity)
+            .filter(
+                RFPOpportunity.current_stage.notin_(
+                    [PipelineStage.REJECTED, PipelineStage.SUBMITTED]
+                )
+            )
+            .count()
+        )
 
-        approved = self.db.query(RFPOpportunity).filter(
-            RFPOpportunity.current_stage == PipelineStage.APPROVED
-        ).count()
+        approved = (
+            self.db.query(RFPOpportunity)
+            .filter(RFPOpportunity.current_stage == PipelineStage.APPROVED)
+            .count()
+        )
 
-        rejected = self.db.query(RFPOpportunity).filter(
-            RFPOpportunity.current_stage == PipelineStage.REJECTED
-        ).count()
+        rejected = (
+            self.db.query(RFPOpportunity)
+            .filter(RFPOpportunity.current_stage == PipelineStage.REJECTED)
+            .count()
+        )
 
-        submitted = self.db.query(RFPOpportunity).filter(
-            RFPOpportunity.current_stage == PipelineStage.SUBMITTED
-        ).count()
+        submitted = (
+            self.db.query(RFPOpportunity)
+            .filter(RFPOpportunity.current_stage == PipelineStage.SUBMITTED)
+            .count()
+        )
 
-        pending_review = self.db.query(RFPOpportunity).filter(
-            RFPOpportunity.current_stage.in_([
-                PipelineStage.REVIEW,
-                PipelineStage.DECISION_PENDING
-            ])
-        ).count()
+        pending_review = (
+            self.db.query(RFPOpportunity)
+            .filter(
+                RFPOpportunity.current_stage.in_(
+                    [PipelineStage.REVIEW, PipelineStage.DECISION_PENDING]
+                )
+            )
+            .count()
+        )
 
         return {
             "total_discovered": total,
@@ -232,11 +250,11 @@ class RFPService:
     def _create_pipeline_event(
         self,
         rfp_id: int,
-        from_stage: Optional[PipelineStage],
+        from_stage: PipelineStage | None,
         to_stage: PipelineStage,
         automated: bool = True,
-        user: Optional[str] = None,
-        notes: Optional[str] = None
+        user: str | None = None,
+        notes: str | None = None,
     ):
         """Create a pipeline event record."""
         event = PipelineEvent(
@@ -245,7 +263,7 @@ class RFPService:
             to_stage=to_stage,
             automated=automated,
             user=user,
-            notes=notes
+            notes=notes,
         )
         self.db.add(event)
         self.db.commit()
