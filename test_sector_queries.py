@@ -3,13 +3,15 @@
 Test RAG system with sector-specific queries.
 """
 import os
-import sys
 import pickle
+import sys
 import time
-import json
-from sentence_transformers import SentenceTransformer
+
 import faiss
 import numpy as np
+from sentence_transformers import SentenceTransformer
+
+
 def load_rag_system():
     """Load the RAG system components."""
     embeddings_dir = "/app/government_rfp_bid_1927/data/embeddings"
@@ -56,7 +58,7 @@ def test_sector_performance():
         ],
         'construction': [
             "building construction and renovation",
-            "infrastructure development projects", 
+            "infrastructure development projects",
             "facility construction management"
         ],
         'delivery': [
@@ -116,7 +118,7 @@ def test_sector_performance():
             'queries_tested': len(queries)
         }
         overall_results[sector] = sector_performance
-        print(f"\nSECTOR PERFORMANCE SUMMARY:")
+        print("\nSECTOR PERFORMANCE SUMMARY:")
         print(f"  Average retrieval time: {avg_retrieval_time:.3f}s")
         print(f"  Average relevance score: {avg_relevance:.3f}")
         print(f"  Category match rate: {category_match_rate:.1%}")
@@ -139,7 +141,7 @@ def test_sector_performance():
         'category_accuracy': avg_category_match > 0.5,  # >50% category matches
         'system_responsive': all(r['average_retrieval_time'] < 1.0 for r in overall_results.values())
     }
-    print(f"\nPERFORMANCE VALIDATION:")
+    print("\nPERFORMANCE VALIDATION:")
     passed_criteria = 0
     for criterion, passed in performance_criteria.items():
         status = "✓ PASS" if passed else "✗ FAIL"
@@ -152,7 +154,7 @@ def test_sector_performance():
         print("🎉 RAG SYSTEM VALIDATION: EXCELLENT PERFORMANCE")
         return True
     elif success_rate >= 0.5:
-        print("✅ RAG SYSTEM VALIDATION: ACCEPTABLE PERFORMANCE") 
+        print("✅ RAG SYSTEM VALIDATION: ACCEPTABLE PERFORMANCE")
         return True
     else:
         print("❌ RAG SYSTEM VALIDATION: NEEDS IMPROVEMENT")

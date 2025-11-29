@@ -2,10 +2,11 @@
 Comprehensive RAG System Validation
 Tests all components of the RAG engine and LLM integration
 """
-import sys
-import os
 import json
+import os
+import sys
 import time
+
 sys.path.append('/app/government_rfp_bid_1927')
 def comprehensive_rag_validation():
     """Run comprehensive validation of the RAG system"""
@@ -89,7 +90,7 @@ def comprehensive_rag_validation():
         )
         # Test pricing analysis
         pricing_result = integrator.analyze_pricing(
-            "Water delivery contract", 
+            "Water delivery contract",
             "500 cases per month"
         )
         validation_results["tests"]["integration"] = {
@@ -215,7 +216,7 @@ def comprehensive_rag_validation():
     os.makedirs('/app/government_rfp_bid_1927/logs', exist_ok=True)
     with open('/app/government_rfp_bid_1927/logs/comprehensive_rag_validation.json', 'w') as f:
         json.dump(validation_results, f, indent=2)
-    print(f"\n📄 Comprehensive report saved: logs/comprehensive_rag_validation.json")
+    print("\n📄 Comprehensive report saved: logs/comprehensive_rag_validation.json")
     return validation_results
 if __name__ == "__main__":
     results = comprehensive_rag_validation()

@@ -1,7 +1,8 @@
+
 import pytest
-import os
-from unittest.mock import patch, MagicMock
-from src.config.llm_config import LLMManager, LLMConfigManager, LLMProvider, LLMConfig
+
+from src.config.llm_config import LLMConfigManager, LLMManager, LLMProvider
+
 
 class TestLLMConfig:
     """Test script for LLM configuration validation"""
@@ -35,7 +36,7 @@ class TestLLMConfig:
         config = config_manager.get_config("bid_generation")
         assert config is not None
         assert config.temperature == 0.7
-        
+
         config_pricing = config_manager.get_config("pricing_calculation")
         assert config_pricing.temperature == 0.2
 

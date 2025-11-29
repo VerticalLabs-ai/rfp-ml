@@ -3,7 +3,6 @@ Text processing utilities for RFP data.
 """
 import math
 import re
-from typing import Union
 
 
 def preprocess_text(text: str, max_length: int = 2000) -> str:
@@ -32,7 +31,7 @@ def preprocess_text(text: str, max_length: int = 2000) -> str:
     return text
 
 
-def clean_amount(value: Union[str, int, float, None]) -> float:
+def clean_amount(value: str | int | float | None) -> float:
     """
     Clean and convert award amount values to float.
 

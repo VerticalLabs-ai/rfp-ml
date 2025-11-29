@@ -1,12 +1,14 @@
-import pytest
-import sys
 import os
+import sys
 from unittest.mock import MagicMock
+
+import pytest
 
 # Ensure src is in path
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 
 from src.pricing.pricing_engine import PricingEngine
+
 
 @pytest.fixture
 def mock_llm():

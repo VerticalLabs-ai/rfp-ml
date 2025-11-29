@@ -11,6 +11,7 @@ import pandas as pd
 from src.config.paths import PathConfig
 from src.decision.go_nogo_engine import GoNoGoEngine
 
+
 def evaluate_go_nogo(agent, triaged_df: pd.DataFrame) -> pd.DataFrame:
     """Evaluate Go/No-Go decisions for triaged RFPs."""
     nogo_engine = GoNoGoEngine()

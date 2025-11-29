@@ -1,7 +1,9 @@
 import sys
-import os
+
 sys.path.append('/app/government_rfp_bid_1927/src')
 from pricing.pricing_engine import PricingEngine, PricingStrategy
+
+
 def test_pricing_examples():
     """Test pricing engine with practical examples"""
     print("=== PRICING ENGINE PRACTICAL EXAMPLES ===\n")
@@ -24,7 +26,7 @@ def test_pricing_examples():
     print(f"  Margin Compliant: {water_result.margin_compliant}")
     print(f"  Justification: {water_result.justification[:150]}...")
     # Example 2: Construction Project
-    print(f"\nExample 2: Government Building Renovation")
+    print("\nExample 2: Government Building Renovation")
     print("Requirements: 8,000 sq ft, 8-month duration, standard complexity")
     construction_requirements = {
         'square_footage': 8000,
@@ -41,7 +43,7 @@ def test_pricing_examples():
     print(f"  Margin Compliant: {construction_result.margin_compliant}")
     print(f"  Justification: {construction_result.justification[:150]}...")
     # Example 3: Delivery Service
-    print(f"\nExample 3: Government Courier Service")
+    print("\nExample 3: Government Courier Service")
     print("Requirements: 120 deliveries/month, 24-month contract, 15-mile average")
     delivery_requirements = {
         'deliveries_per_month': 120,
@@ -58,20 +60,20 @@ def test_pricing_examples():
     print(f"  Margin Compliant: {delivery_result.margin_compliant}")
     print(f"  Justification: {delivery_result.justification[:150]}...")
     # Test margin compliance
-    print(f"\n=== MARGIN COMPLIANCE TEST ===")
+    print("\n=== MARGIN COMPLIANCE TEST ===")
     results = [water_result, construction_result, delivery_result]
     compliance = engine.validate_margin_compliance(results)
     print(f"Overall Compliance Rate: {compliance['compliance_rate']:.1%}")
     print(f"Average Margin: {compliance['margin_statistics']['avg_margin']:.1%}")
     print(f"Meets Target (>90%): {compliance['meets_target']}")
     # Test different strategies for same project
-    print(f"\n=== STRATEGY COMPARISON ===")
+    print("\n=== STRATEGY COMPARISON ===")
     print("Comparing all strategies for construction project:")
     for strategy in [PricingStrategy.COST_PLUS, PricingStrategy.MARKET_BASED, PricingStrategy.HYBRID]:
         result = engine.generate_pricing('construction', construction_requirements, strategy)
         print(f"  {strategy.value}: ${result.final_price:,.0f} "
               f"(margin: {result.margin_percentage:.0%}, conf: {result.confidence_score:.2f})")
-    print(f"\n=== TEST COMPLETE ===")
+    print("\n=== TEST COMPLETE ===")
     return True
 if __name__ == "__main__":
     test_pricing_examples()

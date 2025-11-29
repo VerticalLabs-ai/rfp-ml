@@ -1,10 +1,11 @@
 # Integration test for end-to-end RFP Discovery Agent pipeline.
-import os
-import pytest
 import json
-import pandas as pd
+import os
+
+import pytest
 
 from src.agents.discovery_agent import RFPDiscoveryAgent
+
 
 @pytest.fixture(scope="module")
 def agent():

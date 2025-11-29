@@ -2,20 +2,22 @@
 Go/No-Go Decision Engine for AI-powered RFP bid generation system.
 Provides intelligent bid/no-bid recommendations based on multiple business factors.
 """
-import os
-import sys
 import json
 import logging
+import os
+import sys
 import time
-from typing import Dict, List, Any, Optional, Tuple
+from dataclasses import asdict, dataclass
 from datetime import datetime
-import pandas as pd
+from typing import Any
+
 import numpy as np
-from dataclasses import dataclass, asdict
+import pandas as pd
 
 # Import path configuration
 from src.config.paths import PathConfig
 from src.config.settings import settings
+
 
 @dataclass
 class DecisionCriteria:
@@ -41,8 +43,8 @@ class DecisionResult:
     duration_score: float
     historical_score: float
     resource_score: float
-    risk_factors: List[str]
-    opportunities: List[str]
+    risk_factors: list[str]
+    opportunities: list[str]
     justification: str
     decision_timestamp: str
 
@@ -98,7 +100,7 @@ class GoNoGoEngine:
         # Override with JSON if exists (optional, for backward compatibility or runtime tuning)
         if os.path.exists(config_path):
             try:
-                with open(config_path, 'r') as f:
+                with open(config_path) as f:
                     json_data = json.load(f)
                     # Only update keys that exist in DecisionCriteria
                     valid_keys = DecisionCriteria.__annotations__.keys()
@@ -134,7 +136,7 @@ class GoNoGoEngine:
             self.logger.warning(f"Failed to load historical data: {e}")
             return pd.DataFrame()
 
-    def _analyze_historical_win_rates(self) -> Dict[str, float]:
+    def _analyze_historical_win_rates(self) -> dict[str, float]:
         """Analyze historical win rates by category and characteristics."""
         win_rates = {}
         if self.historical_data.empty:
@@ -165,14 +167,14 @@ class GoNoGoEngine:
             self.logger.warning(f"Win rate analysis failed due to data issue: {e}")
         return win_rates
 
-    def _calculate_margin_score(self, pricing_results: Dict[str, Any]) -> Tuple[float, List[str], List[str]]:
+    def _calculate_margin_score(self, pricing_results: dict[str, Any]) -> tuple[float, list[str], list[str]]:
         """Calculate margin-based score and identify factors."""
         if not pricing_results:
             return 50.0, ["No pricing analysis available"], []
         # Find recommended strategy
         recommended_strategy = None
         best_confidence = 0
-        for strategy_name, result in pricing_results.items():
+        for _strategy_name, result in pricing_results.items():
             confidence = getattr(result, 'confidence_score', 0)
             if confidence > best_confidence:
                 best_confidence = confidence
@@ -208,7 +210,7 @@ class GoNoGoEngine:
             opportunities.append("High pricing confidence based on market data")
         return score, risks, opportunities
 
-    def _calculate_complexity_score(self, compliance_matrix: Dict[str, Any]) -> Tuple[float, List[str], List[str]]:
+    def _calculate_complexity_score(self, compliance_matrix: dict[str, Any]) -> tuple[float, list[str], list[str]]:
         """Calculate complexity-based score."""
         if not compliance_matrix:
             return 50.0, ["No compliance analysis available"], []
@@ -241,7 +243,7 @@ class GoNoGoEngine:
             opportunities.append("High compliance rate above 80%")
         return complexity_score, risks, opportunities
 
-    def _calculate_duration_score(self, rfp_data: Dict[str, Any]) -> Tuple[float, List[str], List[str]]:
+    def _calculate_duration_score(self, rfp_data: dict[str, Any]) -> tuple[float, list[str], list[str]]:
         """Calculate duration-based score."""
         # Extract duration information
         lead_time = rfp_data.get('lead_time_days', 30)  # Default 30 days
@@ -283,7 +285,7 @@ class GoNoGoEngine:
             opportunities.append("Optimal contract duration range")
         return min(100.0, duration_score), risks, opportunities
 
-    def _calculate_historical_score(self, rfp_data: Dict[str, Any]) -> Tuple[float, List[str], List[str]]:
+    def _calculate_historical_score(self, rfp_data: dict[str, Any]) -> tuple[float, list[str], list[str]]:
         """Calculate score based on historical win patterns."""
         naics_code = str(rfp_data.get('naics_code', ''))
         award_amount = float(rfp_data.get('award_amount_clean', rfp_data.get('award_amount', 0)) or 0)
@@ -318,8 +320,8 @@ class GoNoGoEngine:
                 risks.append(f"Challenging contract size category ({size_win_rate:.1%} win rate)")
         return min(100.0, historical_score), risks, opportunities
 
-    def _calculate_resource_score(self, rfp_data: Dict[str, Any],
-                                compliance_matrix: Dict[str, Any]) -> Tuple[float, List[str], List[str]]:
+    def _calculate_resource_score(self, rfp_data: dict[str, Any],
+                                compliance_matrix: dict[str, Any]) -> tuple[float, list[str], list[str]]:
         """Calculate resource availability score."""
         # Base resource availability (would be configurable in production)
         base_resource_score = 75.0
@@ -368,7 +370,7 @@ class GoNoGoEngine:
     def generate_explanation(self, final_score: float, margin_score: float,
                            complexity_score: float, duration_score: float,
                            historical_score: float, resource_score: float,
-                           risks: List[str]) -> str:
+                           risks: list[str]) -> str:
         """Generate a detailed, human-readable explanation for the score."""
         parts = []
         parts.append(f"Overall Score: {final_score}/100.")
@@ -393,7 +395,7 @@ class GoNoGoEngine:
 
         return " ".join(parts)
 
-    def feedback_loop(self, rfp_id: str, actual_outcome: str, user_override: Optional[str] = None):
+    def feedback_loop(self, rfp_id: str, actual_outcome: str, user_override: str | None = None):
         """
         Update decision weights based on feedback.
         This is a placeholder for a more complex reinforcement learning loop.
@@ -404,8 +406,8 @@ class GoNoGoEngine:
             self.logger.info("Suggestion: Consider reducing complexity_weight and increasing historical_weight.")
 
     def _determine_recommendation(self, overall_score: float,
-                                individual_scores: Dict[str, float],
-                                all_risks: List[str]) -> str:
+                                individual_scores: dict[str, float],
+                                all_risks: list[str]) -> str:
         """Determine final recommendation based on scores and risk factors."""
         margin_score = individual_scores.get('margin_score', 0)
         complexity_score = individual_scores.get('complexity_score', 0)
@@ -421,7 +423,7 @@ class GoNoGoEngine:
             return 'no_go'
 
     def _generate_decision_justification(self, decision_result: DecisionResult,
-                                       rfp_data: Dict[str, Any]) -> str:
+                                       rfp_data: dict[str, Any]) -> str:
         """Generate detailed justification for the decision."""
         title = rfp_data.get('title', 'RFP')
         agency = rfp_data.get('agency', 'Agency')
@@ -466,7 +468,7 @@ class GoNoGoEngine:
             )
         return " ".join(justification_parts)
 
-    def analyze_rfp_opportunity(self, rfp_data: Dict[str, Any]) -> DecisionResult:
+    def analyze_rfp_opportunity(self, rfp_data: dict[str, Any]) -> DecisionResult:
         """
         Perform complete go/no-go analysis for an RFP opportunity.
         Args:
@@ -483,7 +485,7 @@ class GoNoGoEngine:
         if self.compliance_generator:
             try:
                 compliance_matrix = self.compliance_generator.generate_compliance_matrix(rfp_data)
-                self.logger.info(f"Compliance analysis completed")
+                self.logger.info("Compliance analysis completed")
             except Exception as e:
                 self.logger.warning(f"Compliance analysis failed: {e}")
         # Step 2: Pricing analysis
@@ -491,7 +493,7 @@ class GoNoGoEngine:
             try:
                 extracted_requirements = compliance_matrix.get('requirements_and_responses', [])
                 pricing_results = self.pricing_engine.compare_strategies(rfp_data, extracted_requirements)
-                self.logger.info(f"Pricing analysis completed")
+                self.logger.info("Pricing analysis completed")
             except Exception as e:
                 self.logger.warning(f"Pricing analysis failed: {e}")
         # Step 3: Calculate individual scores
@@ -553,7 +555,7 @@ class GoNoGoEngine:
         self.logger.info(f"Decision analysis completed in {analysis_time:.2f} seconds: {recommendation.upper()}")
         return decision_result
 
-    def export_decision_analysis(self, rfp_data: Dict[str, Any],
+    def export_decision_analysis(self, rfp_data: dict[str, Any],
                                decision_result: DecisionResult,
                                output_format: str = "json") -> str:
         """Export decision analysis to file."""
@@ -643,7 +645,7 @@ def main():
                 print(f"❌ Decision analysis failed: {e}")
                 continue
         # Summary results
-        print(f"\n" + "=" * 60)
+        print("\n" + "=" * 60)
         print("GO/NO-GO DECISION ENGINE SUMMARY")
         print("=" * 60)
         if results:
@@ -656,7 +658,7 @@ def main():
             print(f"Recommendations: {go_count} GO, {review_count} REVIEW, {nogo_count} NO-GO")
             print(f"Average overall score: {avg_score:.1f}%")
             print(f"Average confidence: {avg_confidence:.1f}%")
-            print(f"\nIndividual Results:")
+            print("\nIndividual Results:")
             for result in results:
                 print(f"  RFP {result['rfp_id']}: {result['recommendation'].upper()} "
                       f"({result['overall_score']:.0f}% score, {result['confidence']:.0f}% confidence)")
@@ -669,7 +671,7 @@ def main():
                 'risk_identification': all(r['risk_count'] >= 0 for r in results),
                 'exports_created': all(os.path.exists(r['export_path']) for r in results)
             }
-            print(f"\n🎯 Validation Results:")
+            print("\n🎯 Validation Results:")
             passed = 0
             for check, result in validation_checks.items():
                 status = "✅ PASS" if result else "❌ FAIL"

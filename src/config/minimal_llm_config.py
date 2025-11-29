@@ -1,11 +1,12 @@
 """
 Minimal LLM Configuration Module for testing and basic functionality
 """
-import os
 import logging
-from typing import Dict, Any, Optional
+import os
 from dataclasses import dataclass
 from enum import Enum
+from typing import Any
+
 try:
     import openai
     OPENAI_AVAILABLE = True
@@ -33,7 +34,7 @@ class MinimalLLMConfig:
     primary_backend: LLMBackend = LLMBackend.OPENAI_GPT4
     fallback_backend: LLMBackend = LLMBackend.MOCK_LOCAL
     # OpenAI Configuration
-    openai_api_key: Optional[str] = None
+    openai_api_key: str | None = None
     openai_model_gpt4: str = "gpt-5.1"
     openai_model_gpt35: str = "gpt-3.5-turbo"
     # Generation parameters
@@ -51,7 +52,7 @@ class MinimalLLMConfig:
             self.pricing_params = LLMParameters(temperature=0.5, max_tokens=800)
 class MinimalLLMManager:
     """Minimal LLM management class"""
-    def __init__(self, config: Optional[MinimalLLMConfig] = None):
+    def __init__(self, config: MinimalLLMConfig | None = None):
         self.config = config or MinimalLLMConfig()
         self.logger = logging.getLogger(__name__)
         self.openai_client = None
@@ -91,11 +92,11 @@ class MinimalLLMManager:
             self.logger.error(f"OpenAI initialization failed: {str(e)}")
             return False
     def generate_text(
-        self, 
-        prompt: str, 
+        self,
+        prompt: str,
         use_case: str = "bid_generation",
-        backend: Optional[LLMBackend] = None
-    ) -> Dict[str, Any]:
+        backend: LLMBackend | None = None
+    ) -> dict[str, Any]:
         """Generate text using available backend"""
         # Select parameters
         if use_case == "structured_extraction":
@@ -109,11 +110,11 @@ class MinimalLLMManager:
             return self._generate_openai(prompt, params, selected_backend)
         else:
             return self._generate_mock(prompt, params, use_case)
-    def _generate_openai(self, prompt: str, params: LLMParameters, backend: LLMBackend) -> Dict[str, Any]:
+    def _generate_openai(self, prompt: str, params: LLMParameters, backend: LLMBackend) -> dict[str, Any]:
         """Generate using OpenAI"""
         model_name = (
-            self.config.openai_model_gpt4 
-            if backend == LLMBackend.OPENAI_GPT4 
+            self.config.openai_model_gpt4
+            if backend == LLMBackend.OPENAI_GPT4
             else self.config.openai_model_gpt35
         )
         response = self.openai_client.chat.completions.create(
@@ -133,7 +134,7 @@ class MinimalLLMManager:
             },
             "finish_reason": response.choices[0].finish_reason
         }
-    def _generate_mock(self, prompt: str, params: LLMParameters, use_case: str) -> Dict[str, Any]:
+    def _generate_mock(self, prompt: str, params: LLMParameters, use_case: str) -> dict[str, Any]:
         """Generate mock response for testing"""
         mock_responses = {
             "bid_generation": f"Mock bid response for: {prompt[:50]}... [Generated with temp={params.temperature}]",
@@ -152,7 +153,7 @@ class MinimalLLMManager:
             },
             "finish_reason": "mock_complete"
         }
-    def test_connection(self) -> Dict[str, Any]:
+    def test_connection(self) -> dict[str, Any]:
         """Test connection"""
         try:
             result = self.generate_text(
@@ -172,7 +173,7 @@ class MinimalLLMManager:
                 "error": str(e),
                 "backend": self.current_backend.value if self.current_backend else "none"
             }
-    def get_status(self) -> Dict[str, Any]:
+    def get_status(self) -> dict[str, Any]:
         """Get current status"""
         return {
             "current_backend": self.current_backend.value if self.current_backend else "none",
@@ -183,7 +184,7 @@ class MinimalLLMManager:
             "openai_model_gpt35": self.config.openai_model_gpt35,
             "local_model": "mock_model"
         }
-def create_minimal_llm_manager(config_overrides: Optional[Dict[str, Any]] = None) -> MinimalLLMManager:
+def create_minimal_llm_manager(config_overrides: dict[str, Any] | None = None) -> MinimalLLMManager:
     """Create minimal LLM manager"""
     config = MinimalLLMConfig()
     if config_overrides:

@@ -1,11 +1,15 @@
 """
 Test script for LLM Configuration Module
 """
-import sys
 import os
+import sys
+
 sys.path.append('/app/government_rfp_bid_1927')
 import json
-from src.config.llm_config import create_llm_manager, LLMConfig, LLMBackend
+
+from src.config.llm_config import create_llm_manager
+
+
 def test_llm_configuration():
     """Test LLM configuration and connection"""
     print("=== Testing LLM Configuration Module ===\n")
@@ -28,7 +32,7 @@ def test_llm_configuration():
         # Test 4: Test connection
         print("\n4. Testing Connection:")
         test_result = llm_manager.test_connection()
-        print(f"   Connection test result:")
+        print("   Connection test result:")
         print(f"   {json.dumps(test_result, indent=4)}")
         if test_result["status"] == "success":
             print("   ✓ Connection test PASSED")
@@ -56,7 +60,7 @@ def test_llm_configuration():
                 try:
                     print(f"\n   Testing {use_case}:")
                     result = llm_manager.generate_text(
-                        test_data["prompt"], 
+                        test_data["prompt"],
                         use_case=use_case
                     )
                     print(f"   ✓ Backend: {result['backend']}")
@@ -88,7 +92,7 @@ def test_fallback_behavior():
         if status["local_available"]:
             print("Testing text generation with local fallback...")
             result = llm_manager.generate_text(
-                "Test prompt for local model", 
+                "Test prompt for local model",
                 use_case="bid_generation"
             )
             print(f"✓ Fallback successful with backend: {result['backend']}")

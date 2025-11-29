@@ -1,10 +1,11 @@
-import time
 import logging
-from typing import Dict, Any
+import time
+from typing import Any
+
 from celery import shared_task
-from src.rag.rag_engine import RAGEngine
+
 from src.pricing.pricing_engine import PricingEngine
-from src.decision.go_nogo_engine import GoNoGoEngine
+from src.rag.rag_engine import RAGEngine
 
 logger = logging.getLogger(__name__)
 
@@ -25,19 +26,19 @@ def ingest_documents_task(self, file_paths: list[str]):
         # For now, we'll simulate or call a method if it exists.
         # RAGEngine usually builds from a directory, let's assume we trigger a rebuild
         # or add specific files.
-        
+
         # Placeholder logic matching current RAGEngine capabilities
         # In a real scenario, we'd pass specific files to add.
         # Here we might just trigger a re-index of the data directory.
-        rag_engine.build_index() 
-        
+        rag_engine.build_index()
+
         return {"status": "completed", "files_processed": len(file_paths)}
     except Exception as e:
         logger.error(f"Ingestion failed: {e}")
-        raise self.retry(exc=e, countdown=60, max_retries=3)
+        raise self.retry(exc=e, countdown=60, max_retries=3) from e
 
 @shared_task(bind=True)
-def generate_bid_task(self, rfp_data: Dict[str, Any]):
+def generate_bid_task(self, rfp_data: dict[str, Any]):
     """
     Background task to generate a full bid.
     """
@@ -46,18 +47,18 @@ def generate_bid_task(self, rfp_data: Dict[str, Any]):
         # This would typically call the RFPProcessor or similar
         # For now, we'll simulate the heavy lifting
         time.sleep(5) # Simulate processing
-        
+
         return {
-            "status": "completed", 
+            "status": "completed",
             "bid_id": f"bid_{int(time.time())}",
             "rfp_id": rfp_data.get("rfp_id")
         }
     except Exception as e:
         logger.error(f"Bid generation failed: {e}")
-        raise self.retry(exc=e, countdown=60, max_retries=3)
+        raise self.retry(exc=e, countdown=60, max_retries=3) from e
 
 @shared_task(bind=True)
-def calculate_pricing_task(self, rfp_data: Dict[str, Any]):
+def calculate_pricing_task(self, rfp_data: dict[str, Any]):
     """
     Background task for complex pricing calculations.
     """
@@ -66,7 +67,7 @@ def calculate_pricing_task(self, rfp_data: Dict[str, Any]):
         pricing_engine = PricingEngine()
         # Simulate complex war gaming or extensive analysis
         results = pricing_engine.generate_pricing(rfp_data)
-        
+
         return {
             "status": "completed",
             "total_price": results.total_price,
@@ -74,4 +75,4 @@ def calculate_pricing_task(self, rfp_data: Dict[str, Any]):
         }
     except Exception as e:
         logger.error(f"Pricing calculation failed: {e}")
-        raise self.retry(exc=e, countdown=60, max_retries=3)
+        raise self.retry(exc=e, countdown=60, max_retries=3) from e

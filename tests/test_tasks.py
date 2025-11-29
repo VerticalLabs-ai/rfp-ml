@@ -1,9 +1,12 @@
-import pytest
 from unittest.mock import MagicMock, patch
-from src.tasks import ingest_documents_task, generate_bid_task, calculate_pricing_task
+
+import pytest
+
+from src.tasks import calculate_pricing_task, generate_bid_task, ingest_documents_task
+
 
 class TestCeleryTasks:
-    
+
     @pytest.fixture(autouse=True)
     def setup_celery(self):
         """Configure Celery to run tasks synchronously (eagerly) for testing."""
@@ -17,9 +20,9 @@ class TestCeleryTasks:
         """Test document ingestion task."""
         mock_rag = MagicMock()
         mock_rag_cls.return_value = mock_rag
-        
+
         result = ingest_documents_task.delay(["file1.pdf", "file2.pdf"])
-        
+
         assert result.successful()
         assert result.result["status"] == "completed"
         assert result.result["files_processed"] == 2
@@ -28,11 +31,11 @@ class TestCeleryTasks:
     def test_generate_bid_task(self):
         """Test bid generation task."""
         rfp_data = {"rfp_id": "123", "title": "Test RFP"}
-        
+
         # We mock time.sleep to speed up test
         with patch('time.sleep'):
             result = generate_bid_task.delay(rfp_data)
-            
+
         assert result.successful()
         assert result.result["status"] == "completed"
         assert result.result["rfp_id"] == "123"
@@ -46,10 +49,10 @@ class TestCeleryTasks:
             total_price=10000,
             margin_percentage=20.0
         )
-        
+
         rfp_data = {"rfp_id": "123", "title": "Test RFP"}
         result = calculate_pricing_task.delay(rfp_data)
-        
+
         assert result.successful()
         assert result.result["status"] == "completed"
         assert result.result["total_price"] == 10000

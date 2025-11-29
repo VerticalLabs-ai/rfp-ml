@@ -3,7 +3,7 @@ Category detection utilities for RFP classification.
 Centralizes the category determination logic used across multiple modules.
 """
 from enum import Enum
-from typing import Dict, Any
+from typing import Any
 
 
 class CategoryType(str, Enum):
@@ -18,7 +18,7 @@ class CategoryType(str, Enum):
 
 
 # Category detection keywords mapped to categories
-CATEGORY_KEYWORDS: Dict[CategoryType, list[str]] = {
+CATEGORY_KEYWORDS: dict[CategoryType, list[str]] = {
     CategoryType.BOTTLED_WATER: ["water", "beverage", "bottle"],
     CategoryType.CONSTRUCTION: ["construction", "building", "infrastructure", "renovation", "paving"],
     CategoryType.DELIVERY: ["delivery", "transport", "logistics", "shipping"],
@@ -27,7 +27,7 @@ CATEGORY_KEYWORDS: Dict[CategoryType, list[str]] = {
 }
 
 # NAICS code prefixes mapped to categories
-NAICS_CATEGORY_MAP: Dict[str, CategoryType] = {
+NAICS_CATEGORY_MAP: dict[str, CategoryType] = {
     "54": CategoryType.PROFESSIONAL_SERVICES,  # Professional, Scientific, Technical Services
     "23": CategoryType.CONSTRUCTION,            # Construction
     "48": CategoryType.DELIVERY,                # Transportation
@@ -37,7 +37,7 @@ NAICS_CATEGORY_MAP: Dict[str, CategoryType] = {
 }
 
 
-def determine_category(rfp_data: Dict[str, Any]) -> str:
+def determine_category(rfp_data: dict[str, Any]) -> str:
     """
     Determine the category of an RFP based on title, description, and NAICS code.
 

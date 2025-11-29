@@ -3,13 +3,15 @@ Demonstration of RAG-enhanced bid generation
 Shows integration of RAG retrieval with LLM for improved bid quality
 """
 import sys
-import os
 import time
-from typing import Dict, Any, List
+from typing import Any, Dict, List
+
 # Add project root to path
 sys.path.append('/app/government_rfp_bid_1927')
-from src.rag.rag_engine import RAGEngine
 from src.config.enhanced_bid_llm import EnhancedBidLLMManager
+from src.rag.rag_engine import RAGEngine
+
+
 class RAGEnhancedBidGenerator:
     """
     Demonstrates RAG-enhanced bid generation combining 
@@ -40,9 +42,9 @@ class RAGEnhancedBidGenerator:
             print(f"   ❌ Initialization failed: {e}")
             return False
     def generate_rag_enhanced_bid_section(
-        self, 
-        section_type: str, 
-        rfp_context: str, 
+        self,
+        section_type: str,
+        rfp_context: str,
         requirements: Dict[str, Any],
         max_words: int = 300
     ) -> Dict[str, Any]:
@@ -161,7 +163,7 @@ class RAGEnhancedBidGenerator:
                 """,
                 "requirements": {
                     "duration": "24 months",
-                    "delivery_frequency": "weekly", 
+                    "delivery_frequency": "weekly",
                     "quality_standards": "FDA compliance required",
                     "insurance": "General liability insurance required",
                     "experience": "Minimum 5 years experience"
@@ -194,11 +196,11 @@ class RAGEnhancedBidGenerator:
         for i, rfp in enumerate(sample_rfps, 1):
             print(f"\n🔍 DEMO {i}: {rfp['title']}")
             print("-" * 50)
-            print(f"📋 RFP Context:")
+            print("📋 RFP Context:")
             print(rfp['context'].strip())
             # Generate sections with RAG enhancement
             sections = ["executive_summary", "company_qualifications", "technical_approach"]
-            print(f"\n📝 Generating RAG-Enhanced Bid Sections...")
+            print("\n📝 Generating RAG-Enhanced Bid Sections...")
             for section in sections:
                 print(f"\n   🔧 Generating {section.replace('_', ' ').title()}...")
                 start_time = time.time()

@@ -4,21 +4,20 @@ RFP management API endpoints.
 import logging
 import os
 from datetime import datetime
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List
 from uuid import uuid4
 
+from app.core.database import get_db
 from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Query
 from pydantic import BaseModel, field_validator
 from sqlalchemy.orm import Session
 
-from app.core.database import get_db
-
 logger = logging.getLogger(__name__)
-from app.models.database import RFPOpportunity, PipelineStage, PostAwardChecklist
+from app.models.database import PipelineStage, PostAwardChecklist, RFPOpportunity
+from app.services.rfp_processor import processing_jobs, processor
 from app.services.rfp_service import RFPService
-from app.services.rfp_processor import processor, processing_jobs
+
 from src.agents.competitor_analytics import CompetitorAnalyticsService
-from src.agents.teaming_service import TeamingPartnerService
 from src.pricing.pricing_engine import ScenarioParams
 
 router = APIRouter()
@@ -63,14 +62,14 @@ class ScenarioInput(BaseModel):
     desired_margin: float = 0.0
 
 class RFPBase(BaseModel):
-    solicitation_number: Optional[str] = None
+    solicitation_number: str | None = None
     title: str
-    description: Optional[str] = None
-    agency: Optional[str] = None
-    office: Optional[str] = None
-    naics_code: Optional[str] = None
-    category: Optional[str] = None
-    response_deadline: Optional[datetime] = None
+    description: str | None = None
+    agency: str | None = None
+    office: str | None = None
+    naics_code: str | None = None
+    category: str | None = None
+    response_deadline: datetime | None = None
 
 
 class RFPCreate(RFPBase):
@@ -81,9 +80,9 @@ class RFPResponse(RFPBase):
     id: int
     rfp_id: str
     current_stage: PipelineStage
-    triage_score: Optional[float] = None
-    overall_score: Optional[float] = None
-    decision_recommendation: Optional[str] = None
+    triage_score: float | None = None
+    overall_score: float | None = None
+    decision_recommendation: str | None = None
     discovered_at: datetime
     updated_at: datetime
 
@@ -92,41 +91,41 @@ class RFPResponse(RFPBase):
 
 
 class RFPUpdate(BaseModel):
-    current_stage: Optional[PipelineStage] = None
-    assigned_to: Optional[str] = None
-    priority: Optional[int] = None
+    current_stage: PipelineStage | None = None
+    assigned_to: str | None = None
+    priority: int | None = None
 
 
 class TriageDecision(BaseModel):
     decision: str  # approve, reject, flag
-    notes: Optional[str] = None
+    notes: str | None = None
 
 
 class ManualRFPSubmit(BaseModel):
     """Schema for manually submitting an RFP for processing."""
     title: str
-    agency: Optional[str] = None
-    solicitation_number: Optional[str] = None
-    description: Optional[str] = None
-    url: Optional[str] = None
-    award_amount: Optional[float] = None
-    response_deadline: Optional[datetime] = None
-    category: Optional[str] = "general"
+    agency: str | None = None
+    solicitation_number: str | None = None
+    description: str | None = None
+    url: str | None = None
+    award_amount: float | None = None
+    response_deadline: datetime | None = None
+    category: str | None = "general"
 
 
 class ChecklistItemResponse(BaseModel):
     id: str
     description: str
     status: str
-    assigned_to: Optional[str]
-    due_date: Optional[datetime]
-    notes: Optional[str]
+    assigned_to: str | None
+    due_date: datetime | None
+    notes: str | None
     meta: Dict[str, Any]
 
 class PostAwardChecklistResponse(BaseModel):
     id: int
     rfp_id: int
-    bid_document_id: Optional[str]
+    bid_document_id: str | None
     generated_at: datetime
     status: str
     items: List[ChecklistItemResponse]
@@ -140,8 +139,8 @@ class PostAwardChecklistResponse(BaseModel):
 async def get_discovered_rfps(
     skip: int = Query(default=0, ge=0),
     limit: int = Query(default=100, ge=1, le=500),
-    category: Optional[str] = None,
-    min_score: Optional[float] = Query(default=None, ge=0.0, le=100.0),
+    category: str | None = None,
+    min_score: float | None = Query(default=None, ge=0.0, le=100.0),
     db: Session = Depends(get_db)
 ):
     """Get list of discovered RFPs."""
@@ -217,7 +216,7 @@ async def run_pricing_scenarios(
     """Run pricing 'War Gaming' scenarios."""
     service = RFPService(db)
     rfp = service.get_rfp_by_id(rfp_id)
-    
+
     if not rfp:
         raise HTTPException(status_code=404, detail="RFP not found")
 
@@ -230,19 +229,19 @@ async def run_pricing_scenarios(
         "naics_code": rfp.naics_code,
         "category": rfp.category
     }
-    
+
     if not processor.pricing_engine:
         raise HTTPException(status_code=503, detail="Pricing Engine not initialized")
-        
+
     custom_params = ScenarioParams(
         labor_cost_multiplier=params.labor_cost_multiplier,
         material_cost_multiplier=params.material_cost_multiplier,
         risk_contingency_percent=params.risk_contingency_percent,
         desired_margin=params.desired_margin
     )
-    
+
     results = processor.pricing_engine.run_war_gaming(rfp_data, custom_params)
-    
+
     return results
 
 
@@ -254,7 +253,7 @@ async def get_subcontractor_opportunities(
     """Identify potential subcontracting opportunities."""
     service = RFPService(db)
     rfp = service.get_rfp_by_id(rfp_id)
-    
+
     if not rfp:
         raise HTTPException(status_code=404, detail="RFP not found")
 
@@ -270,9 +269,9 @@ async def get_subcontractor_opportunities(
         "naics_code": rfp.naics_code,
         "category": rfp.category
     }
-    
+
     opportunities = processor.pricing_engine.identify_subcontractors(rfp_data)
-    
+
     return opportunities
 
 
@@ -285,13 +284,13 @@ async def get_price_to_win(
     """Calculate Price-to-Win (PTW) analysis."""
     service = RFPService(db)
     rfp = service.get_rfp_by_id(rfp_id)
-    
+
     if not rfp:
         raise HTTPException(status_code=404, detail="RFP not found")
-    
+
     if not processor.pricing_engine:
         raise HTTPException(status_code=503, detail="Pricing Engine not initialized")
-        
+
     rfp_data = {
         "rfp_id": rfp.rfp_id,
         "title": rfp.title,
@@ -300,9 +299,9 @@ async def get_price_to_win(
         "naics_code": rfp.naics_code,
         "category": rfp.category
     }
-    
+
     result = processor.pricing_engine.calculate_price_to_win(rfp_data, target_prob)
-    
+
     return result
 
 
@@ -345,7 +344,7 @@ async def update_triage_decision(
 @router.post("/{rfp_id}/advance-stage")
 async def advance_pipeline_stage(
     rfp_id: str,
-    notes: Optional[str] = None,
+    notes: str | None = None,
     db: Session = Depends(get_db)
 ):
     """Advance RFP to next pipeline stage."""
@@ -365,7 +364,7 @@ async def discover_rfps(
     Trigger automated RFP discovery.
     """
     job_id = str(uuid4())
-    
+
     # Initialize job status
     processing_jobs[job_id] = {
         "status": "running",
@@ -374,14 +373,14 @@ async def discover_rfps(
         "rfps": [],
         "started_at": datetime.now().isoformat()
     }
-    
+
     # Start background task
     background_tasks.add_task(
-        processor._run_discovery, 
-        job_id, 
+        processor._run_discovery,
+        job_id,
         {"limit": params.limit, "days_back": params.days_back}
     )
-    
+
     return {"job_id": job_id, "message": "Discovery started"}
 
 
@@ -405,11 +404,11 @@ async def process_manual_rfp(
     """
     # Process through ML pipeline
     processed = await processor.process_single_rfp(rfp_data.dict())
-    
+
     # Save to database
     service = RFPService(db)
     rfp_id = f"RFP-{datetime.now().strftime('%Y%m%d%H%M%S')}"
-    
+
     db_data = {
         "rfp_id": rfp_id,
         "title": rfp_data.title,
@@ -421,9 +420,9 @@ async def process_manual_rfp(
         "triage_score": processed.get("triage_score"),
         "decision_recommendation": processed.get("decision_recommendation")
     }
-    
+
     rfp = service.create_rfp(db_data)
-    
+
     return {
         **processed,
         "id": rfp.id,
@@ -443,10 +442,10 @@ async def generate_bid_document(
     """
     service = RFPService(db)
     rfp = service.get_rfp_by_id(rfp_id)
-    
+
     if not rfp:
         raise HTTPException(status_code=404, detail="RFP not found")
-    
+
     # Convert RFP to dict for processing
     rfp_data = {
         "rfp_id": rfp.rfp_id,
@@ -458,13 +457,13 @@ async def generate_bid_document(
         "naics_code": rfp.naics_code,
         "response_deadline": rfp.response_deadline.isoformat() if rfp.response_deadline else None
     }
-    
+
     # Generate bid document
     bid_document = await processor.generate_bid_document(rfp_data)
-    
+
     if "error" in bid_document:
         raise HTTPException(status_code=500, detail=f"Bid generation failed: {bid_document['error']}")
-    
+
     return {
         "bid_id": bid_document["bid_id"],
         "rfp_id": rfp_id,
@@ -481,10 +480,10 @@ async def generate_bid_document(
 async def get_bid_document(bid_id: str):
     """Get a generated bid document by ID."""
     bid_document = processor.get_bid_document(bid_id)
-    
+
     if not bid_document:
         raise HTTPException(status_code=404, detail="Bid document not found")
-    
+
     return bid_document
 
 
@@ -495,21 +494,21 @@ async def download_bid_document(bid_id: str, format: str):
     Supported formats: markdown, html, json
     """
     from fastapi.responses import FileResponse
-    
+
     if format not in ["markdown", "html", "json"]:
         raise HTTPException(status_code=400, detail="Invalid format. Use: markdown, html, or json")
-    
+
     filepath = processor.export_bid_document(bid_id, format)
-    
+
     if not filepath:
         raise HTTPException(status_code=404, detail="Bid document not found or export failed")
-    
+
     media_types = {
         "markdown": "text/markdown",
         "html": "text/html",
         "json": "application/json"
     }
-    
+
     return FileResponse(
         filepath,
         media_type=media_types[format],
@@ -524,18 +523,18 @@ async def get_post_award_checklist(rfp_id: str, db: Session = Depends(get_db)):
     rfp = service.get_rfp_by_id(rfp_id)
     if not rfp:
         raise HTTPException(status_code=404, detail="RFP not found")
-    
+
     checklist = db.query(PostAwardChecklist).filter(PostAwardChecklist.rfp_id == rfp.id).first()
     if not checklist:
         raise HTTPException(status_code=404, detail="Post-award checklist not found for this RFP")
-    
+
     return checklist
 
 
 class FeedbackInput(BaseModel):
     """Input for decision feedback loop."""
     actual_outcome: str  # WON, LOST, NO_BID
-    user_override: Optional[str] = None  # GO, NO_GO
+    user_override: str | None = None  # GO, NO_GO
 
 
 @router.post("/{rfp_id}/feedback")
@@ -554,16 +553,16 @@ async def submit_decision_feedback(
 
     # Log feedback via the engine (which logs to file/stdout)
     # In the future, this would update weights in the DB
-    
-    # We need access to the GoNoGoEngine instance. 
+
+    # We need access to the GoNoGoEngine instance.
     # Currently it's instantiated inside the processor or main script.
-    # Let's assume we can access it via the processor if we added it there, 
+    # Let's assume we can access it via the processor if we added it there,
     # or we instantiate a temporary one for logging if stateless.
-    
-    # For this implementation, we'll use the one in the processor if available, 
+
+    # For this implementation, we'll use the one in the processor if available,
     # or just log it here.
-    
-    
+
+
     return {"message": "Feedback received", "rfp_id": rfp_id}
 
 
@@ -588,14 +587,14 @@ async def trigger_async_bid_generation(
     rfp = service.get_rfp_by_id(rfp_id)
     if not rfp:
         raise HTTPException(status_code=404, detail="RFP not found")
-        
+
     rfp_data = {
         "rfp_id": rfp.rfp_id,
         "title": rfp.title,
         "agency": rfp.agency,
         "description": rfp.description
     }
-    
+
     from src.tasks import generate_bid_task
     task = generate_bid_task.delay(rfp_data)
     return {"task_id": task.id, "status": "processing"}
@@ -604,9 +603,10 @@ async def trigger_async_bid_generation(
 @router.get("/tasks/{task_id}")
 async def get_task_status(task_id: str):
     """Get status of a Celery task."""
-    from src.celery_app import celery_app
     from celery.result import AsyncResult
-    
+
+    from src.celery_app import celery_app
+
     result = AsyncResult(task_id, app=celery_app)
     return {
         "task_id": task_id,

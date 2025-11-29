@@ -2,14 +2,17 @@
 Comprehensive RAG system validation using the working RAG engine
 Tests across all RFP sectors: bottled water, construction, delivery
 """
-import sys
-import os
-import time
 import json
-from typing import Dict, Any, List
+import os
+import sys
+import time
+from typing import Any, Dict, List
+
 # Add project root to path
 sys.path.append('/app/government_rfp_bid_1927')
 from src.rag.working_rag_engine import WorkingRAGEngine
+
+
 class ComprehensiveRAGValidator:
     """Validator for RAG system across all target RFP sectors"""
     def __init__(self):
@@ -41,7 +44,7 @@ class ComprehensiveRAGValidator:
         print(f"   ✓ Embedding dimension: {index_stats['embedding_dimension']}")
         print(f"   ✓ System health: {validation_health['overall_health']}")
         if 'source_distribution' in index_stats:
-            print(f"   📊 Source distribution:")
+            print("   📊 Source distribution:")
             for source, count in index_stats['source_distribution'].items():
                 print(f"      • {source}: {count:,} chunks")
         # Define sector-specific test queries
@@ -173,7 +176,7 @@ class ComprehensiveRAGValidator:
         print(f"   🎯 Average relevance score: {overall_metrics['avg_relevance_score']:.3f}")
         print(f"   ✅ Overall success rate: {overall_success_rate:.1%}")
         # Sector comparison
-        print(f"\n   📈 Sector Performance Comparison:")
+        print("\n   📈 Sector Performance Comparison:")
         for sector, result in sector_results.items():
             success_rate = result["successful_queries"] / result["total_queries"] if result["total_queries"] > 0 else 0
             print(f"      • {sector.upper().replace('_', ' ')}: {success_rate:.1%} success, {result['avg_relevance']:.3f} relevance")
@@ -214,13 +217,13 @@ class ComprehensiveRAGValidator:
         if not recommendations:
             recommendations.append("System performance is excellent - ready for production use")
         final_results["recommendations"] = recommendations
-        print(f"\n💡 Recommendations:")
+        print("\n💡 Recommendations:")
         for rec in recommendations:
             print(f"   • {rec}")
         if status in ["EXCELLENT", "VERY_GOOD"]:
-            print(f"\n🚀 RAG SYSTEM IS READY FOR PRODUCTION BID GENERATION!")
+            print("\n🚀 RAG SYSTEM IS READY FOR PRODUCTION BID GENERATION!")
         else:
-            print(f"\n⚠️  RAG system needs improvements before production use")
+            print("\n⚠️  RAG system needs improvements before production use")
         # Save results
         results_path = "/app/government_rfp_bid_1927/logs/comprehensive_rag_validation.json"
         os.makedirs(os.path.dirname(results_path), exist_ok=True)

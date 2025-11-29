@@ -1,6 +1,5 @@
 import logging
 import time
-from typing import Dict, Any
 
 import pytest
 
@@ -52,33 +51,33 @@ class TestPricingEngine:
     def test_generate_competitive_bid(self, scenario):
         """Test bid generation for various scenarios."""
         logger.info("Testing scenario: %s", scenario['name'])
-        
+
         start_time = time.time()
         pricing_result = self.pricing_engine.generate_pricing(
             scenario,
             strategy_name="competitive"
         )
         generation_time = time.time() - start_time
-        
+
         assert pricing_result is not None, "Pricing result should not be None"
-        
+
         # Check margin compliance
         # PricingResult has margin_percentage
         margin_percent = pricing_result.margin_percentage
         assert margin_percent >= 15.0, f"Margin should be compliant (>=15%) for {scenario['name']}"
-        
+
         # Check expected range
         bid_amount = pricing_result.total_price
         expected_min, expected_max = scenario["expected_range"]
         # Allow 50% buffer as per original test
         assert expected_min <= bid_amount <= expected_max * 1.5, f"Bid ${bid_amount} out of range {expected_min}-{expected_max*1.5}"
-        
+
         # Check justification
         justification = pricing_result.justification
         assert len(justification) > 50, "Justification should be detailed"
-        
+
         # Check competitive position
         position = pricing_result.competitive_score
         assert position > 0, "Competitive position should be assessed"
-        
+
         logger.info("Generation time: %.3fs", generation_time)

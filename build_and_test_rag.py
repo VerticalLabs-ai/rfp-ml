@@ -2,18 +2,20 @@
 """
 Build and test RAG system for RFP datasets.
 """
-import os
-import sys
-import pickle
-import logging
-from typing import List, Dict, Any, Optional, Tuple
-import pandas as pd
-import numpy as np
-from sentence_transformers import SentenceTransformer
-import faiss
 import json
-from datetime import datetime
+import logging
+import os
+import pickle
+import sys
 import time
+from datetime import datetime
+from typing import Any, Dict, List, Tuple
+
+import faiss
+import numpy as np
+import pandas as pd
+from sentence_transformers import SentenceTransformer
+
 # Setup logging
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
 logger = logging.getLogger(__name__)
@@ -57,7 +59,7 @@ class RAGEngine:
         datasets = []
         files_to_load = [
             "rfp_master_dataset.parquet",
-            "bottled_water_rfps.parquet", 
+            "bottled_water_rfps.parquet",
             "construction_rfps.parquet",
             "delivery_rfps.parquet"
         ]
@@ -280,7 +282,7 @@ def test_rag_system():
     print(f"Index built in {build_time:.2f} seconds")
     # Get stats
     stats = rag.get_stats()
-    print(f"\nRAG System Stats:")
+    print("\nRAG System Stats:")
     print(json.dumps(stats, indent=2))
     # Test queries for each category
     test_queries = [
@@ -289,7 +291,7 @@ def test_rag_system():
             "query": "bottled water delivery services for government facilities",
         },
         {
-            "category": "Construction", 
+            "category": "Construction",
             "query": "construction project management and infrastructure development",
         },
         {
@@ -301,7 +303,7 @@ def test_rag_system():
             "query": "facility maintenance and professional services",
         }
     ]
-    print(f"\n" + "="*80)
+    print("\n" + "="*80)
     print("TESTING RETRIEVAL PERFORMANCE")
     print("="*80)
     total_retrieval_time = 0
@@ -325,7 +327,7 @@ def test_rag_system():
             print(f"  Agency: {result['metadata']['agency']}")
             print(f"  Text Preview: {result['text'][:150]}...")
     avg_retrieval_time = total_retrieval_time / len(test_queries)
-    print(f"\n" + "="*80)
+    print("\n" + "="*80)
     print("PERFORMANCE SUMMARY")
     print("="*80)
     print(f"Total Documents: {stats['total_documents']:,}")
@@ -334,7 +336,7 @@ def test_rag_system():
     print(f"Model: {stats['model_name']}")
     print(f"Embedding Dimension: {stats['embedding_dimension']}")
     # Category distribution
-    print(f"\nCategory Distribution:")
+    print("\nCategory Distribution:")
     for category, count in stats['category_distribution'].items():
         percentage = (count / stats['total_documents']) * 100
         print(f"  {category}: {count:,} documents ({percentage:.1f}%)")
@@ -346,7 +348,7 @@ def test_rag_system():
         'fast_retrieval': avg_retrieval_time < 1.0,  # 1 second
         'balanced_categories': len(stats['category_distribution']) >= 3
     }
-    print(f"\nVALIDATION RESULTS:")
+    print("\nVALIDATION RESULTS:")
     passed = 0
     for criterion, result in validation_results.items():
         status = "✓ PASS" if result else "✗ FAIL"

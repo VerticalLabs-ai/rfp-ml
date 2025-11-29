@@ -2,9 +2,10 @@
 """
 Quick test script to demonstrate RAG functionality with sample queries.
 """
-import json
 
 from src.rag.rag_engine import RAGEngine
+
+
 def test_rag_queries():
     """Test RAG with specific queries for each sector."""
     print("Initializing RAG Engine...")
@@ -21,7 +22,7 @@ def test_rag_queries():
             "expected_keywords": ["water", "bottle", "supply", "delivery"]
         },
         {
-            "sector": "Construction", 
+            "sector": "Construction",
             "query": "building renovation and construction management services",
             "expected_keywords": ["construction", "building", "renovation", "management"]
         },
@@ -52,14 +53,14 @@ def test_rag_queries():
             print(f"Text Preview: {result['text'][:200]}...")
     # Overall system statistics
     stats = rag.get_stats()
-    print(f"\n" + "="*80)
+    print("\n" + "="*80)
     print("SYSTEM STATISTICS")
     print("="*80)
     print(f"Total Documents: {stats['total_documents']:,}")
     print(f"Index Size: {stats['index_size']:,}")
     print(f"Model: {stats['model_name']}")
     print(f"Embedding Dimension: {stats['embedding_dimension']}")
-    print(f"\nCategory Distribution:")
+    print("\nCategory Distribution:")
     for category, count in stats['category_distribution'].items():
         percentage = (count / stats['total_documents']) * 100
         print(f"  {category}: {count:,} documents ({percentage:.1f}%)")

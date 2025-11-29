@@ -1,11 +1,8 @@
-import os
-import json
 import logging
-import numpy as np
+import os
 import pickle
-from typing import List, Dict, Any, Optional
 from dataclasses import dataclass
-from pathlib import Path
+from typing import Any
 
 # Import path configuration
 from src.config.paths import PathConfig
@@ -26,7 +23,7 @@ except ImportError:
 class StyleExample:
     text: str
     section_type: str  # e.g., "executive_summary", "technical_approach"
-    metadata: Dict[str, Any] = None
+    metadata: dict[str, Any] = None
 
 class StyleGuideManager:
     """
@@ -38,15 +35,15 @@ class StyleGuideManager:
         self.logger = logging.getLogger(__name__)
         self.data_dir = data_dir or str(PathConfig.DATA_DIR / "style_guide")
         os.makedirs(self.data_dir, exist_ok=True)
-        
+
         self.index_path = os.path.join(self.data_dir, "style_index.faiss")
         self.metadata_path = os.path.join(self.data_dir, "style_metadata.pkl")
-        
+
         self.model_name = "all-MiniLM-L6-v2"
         self.model = None
         self.index = None
-        self.examples: List[StyleExample] = []
-        
+        self.examples: list[StyleExample] = []
+
         self._initialize()
 
     def _initialize(self):
@@ -88,7 +85,7 @@ class StyleGuideManager:
                 pickle.dump(self.examples, f)
             self.logger.info("Saved style index to disk.")
 
-    def add_example(self, text: str, section_type: str, metadata: Dict[str, Any] = None):
+    def add_example(self, text: str, section_type: str, metadata: dict[str, Any] = None):
         """Add a style example to the index."""
         if not self.model or not self.index:
             self.logger.warning("StyleManager not initialized (missing dependencies).")
@@ -97,43 +94,43 @@ class StyleGuideManager:
         # Create embedding
         embedding = self.model.encode([text])
         faiss.normalize_L2(embedding)
-        
+
         # Add to index
         self.index.add(embedding)
-        
+
         # Store metadata
         example = StyleExample(text=text, section_type=section_type, metadata=metadata or {})
         self.examples.append(example)
-        
+
         self._save_index()
         self.logger.info(f"Added style example for {section_type}.")
 
-    def retrieve_examples(self, query: str, section_type: str = None, k: int = 3) -> List[StyleExample]:
+    def retrieve_examples(self, query: str, section_type: str = None, k: int = 3) -> list[StyleExample]:
         """Retrieve relevant style examples."""
         if not self.model or not self.index or len(self.examples) == 0:
             return []
 
         # Filter by section_type if needed (naive filter after retrieval, or better: retrieval then filter)
         # For small datasets, we can retrieve more and filter.
-        
+
         query_embedding = self.model.encode([query])
         faiss.normalize_L2(query_embedding)
-        
+
         D, I = self.index.search(query_embedding, k * 2) # Retrieve extra for filtering
-        
+
         results = []
         for idx in I[0]:
             if idx < 0 or idx >= len(self.examples):
                 continue
-                
+
             example = self.examples[idx]
             if section_type and example.section_type != section_type:
                 continue
-                
+
             results.append(example)
             if len(results) >= k:
                 break
-                
+
         return results
 
     def ingest_file(self, text: str, filename: str):
@@ -143,17 +140,17 @@ class StyleGuideManager:
         """
         # Naive split by common headers
         headers = ["Executive Summary", "Technical Approach", "Past Performance", "Pricing", "Management Plan"]
-        
+
         # TODO: Implement robust parsing. For now, treat whole file as "General" or try to detect one section.
-        
+
         detected_section = "General"
         lower_text = text.lower()
-        
+
         for h in headers:
             if h.lower() in lower_text[:200]: # Check start of file
                 detected_section = h.lower().replace(" ", "_")
                 break
-                
+
         self.add_example(text, detected_section, {"source_file": filename})
 
 # Global instance

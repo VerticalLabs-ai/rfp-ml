@@ -2,14 +2,17 @@
 Final validation report for RAG system implementation
 Comprehensive assessment of all requirements and capabilities
 """
-import sys
-import os
 import json
+import os
+import sys
 import time
-from typing import Dict, Any
+from typing import Any, Dict
+
 # Add project root to path
 sys.path.append('/app/government_rfp_bid_1927')
 from src.rag.rag_engine import RAGEngine
+
+
 def generate_final_validation_report() -> Dict[str, Any]:
     """Generate comprehensive final validation report"""
     print("📊 FINAL RAG SYSTEM VALIDATION REPORT")
@@ -48,7 +51,7 @@ def generate_final_validation_report() -> Dict[str, Any]:
         print("\n2️⃣ Implementation Status...")
         required_files = [
             "/app/government_rfp_bid_1927/src/rag/rag_engine.py",
-            "/app/government_rfp_bid_1927/src/rag/build_index.py", 
+            "/app/government_rfp_bid_1927/src/rag/build_index.py",
             "/app/government_rfp_bid_1927/data/embeddings/faiss_index.bin",
             "/app/government_rfp_bid_1927/data/embeddings/metadata.pkl"
         ]
@@ -64,7 +67,7 @@ def generate_final_validation_report() -> Dict[str, Any]:
         # Test search performance
         test_queries = [
             "bottled water delivery service",
-            "construction project management", 
+            "construction project management",
             "logistics transportation service",
             "government contract requirements",
             "quality assurance standards"
@@ -201,13 +204,13 @@ def generate_final_validation_report() -> Dict[str, Any]:
         if report["system_overview"]["index_exists"]:
             print(f"🗃️ Index Size: {report['system_overview']['total_chunks']:,} chunks")
             print(f"⚡ Avg Search Time: {report['performance_metrics']['avg_search_time']:.3f}s")
-        print(f"\n💡 Recommendations:")
+        print("\n💡 Recommendations:")
         for rec in recommendations:
             print(f"   • {rec}")
         if final_score >= 0.8:
-            print(f"\n🚀 RAG SYSTEM IS PRODUCTION READY!")
+            print("\n🚀 RAG SYSTEM IS PRODUCTION READY!")
         else:
-            print(f"\n⚠️  RAG system needs improvements before production use")
+            print("\n⚠️  RAG system needs improvements before production use")
         # Save report
         report_path = "/app/government_rfp_bid_1927/logs/final_rag_validation_report.json"
         os.makedirs(os.path.dirname(report_path), exist_ok=True)

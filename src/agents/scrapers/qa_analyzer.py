@@ -4,7 +4,7 @@ AI-powered Q&A analyzer for extracting insights and categorizing RFP questions.
 import json
 import logging
 import re
-from typing import Any, Dict, List, Optional
+from typing import Any
 
 logger = logging.getLogger(__name__)
 
@@ -64,8 +64,8 @@ class QAAnalyzer:
     async def analyze(
         self,
         question_text: str,
-        answer_text: Optional[str] = None
-    ) -> Dict[str, Any]:
+        answer_text: str | None = None
+    ) -> dict[str, Any]:
         """
         Analyze a Q&A entry.
 
@@ -93,8 +93,8 @@ class QAAnalyzer:
     async def _analyze_with_llm(
         self,
         question_text: str,
-        answer_text: Optional[str]
-    ) -> Dict[str, Any]:
+        answer_text: str | None
+    ) -> dict[str, Any]:
         """Analyze using LLM."""
         llm_client = self._get_llm_client()
 
@@ -137,8 +137,8 @@ Respond in JSON format:
     def _analyze_rule_based(
         self,
         question_text: str,
-        answer_text: Optional[str]
-    ) -> Dict[str, Any]:
+        answer_text: str | None
+    ) -> dict[str, Any]:
         """
         Rule-based fallback analysis using keywords.
         """
@@ -207,8 +207,8 @@ Respond in JSON format:
     def _extract_basic_insights(
         self,
         question_text: str,
-        answer_text: Optional[str]
-    ) -> List[str]:
+        answer_text: str | None
+    ) -> list[str]:
         """Extract basic insights from Q&A."""
         insights = []
 
@@ -234,7 +234,7 @@ Respond in JSON format:
 
         return insights[:3]  # Limit to 3 insights
 
-    def _determine_related_sections(self, category: str, text: str) -> List[str]:
+    def _determine_related_sections(self, category: str, text: str) -> list[str]:
         """Determine which proposal sections are affected."""
         category_section_map = {
             "technical": ["technical_approach", "compliance_matrix"],
@@ -263,9 +263,9 @@ Respond in JSON format:
 
 
 async def analyze_qa_batch(
-    qa_items: List[Dict[str, str]],
-    analyzer: Optional[QAAnalyzer] = None
-) -> List[Dict[str, Any]]:
+    qa_items: list[dict[str, str]],
+    analyzer: QAAnalyzer | None = None
+) -> list[dict[str, Any]]:
     """
     Analyze a batch of Q&A items.
 

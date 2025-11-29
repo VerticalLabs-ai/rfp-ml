@@ -1,7 +1,10 @@
-import pandas as pd
 import json
 import os
 from datetime import datetime
+
+import pandas as pd
+
+
 def validate_processed_datasets():
     """Validate all processed datasets and generate comprehensive report"""
     print("=== VALIDATING PROCESSED DATASETS ===\n")
@@ -33,7 +36,7 @@ def validate_processed_datasets():
             print(f"  ✗ {filename}: NOT FOUND")
             validation_results[file_type] = {'exists': False}
     # Validate parquet files
-    print(f"\nDataset Structure Validation:")
+    print("\nDataset Structure Validation:")
     parquet_files = ['master_parquet', 'bottled_water', 'construction', 'delivery']
     for file_type in parquet_files:
         if validation_results[file_type]['exists']:
@@ -57,13 +60,13 @@ def validate_processed_datasets():
                 print(f"  ✗ {file_type}: Error loading - {e}")
                 validation_results[file_type]['error'] = str(e)
     # Validate metadata
-    print(f"\nMetadata Validation:")
+    print("\nMetadata Validation:")
     if validation_results['metadata']['exists']:
         try:
-            with open(validation_results['metadata']['path'], 'r') as f:
+            with open(validation_results['metadata']['path']) as f:
                 metadata = json.load(f)
             validation_results['metadata']['content'] = metadata
-            print(f"  ✓ Metadata loaded successfully")
+            print("  ✓ Metadata loaded successfully")
             print(f"    Total records: {metadata.get('total_records', 'N/A')}")
             print(f"    Categories: {metadata.get('category_distribution', {})}")
             print(f"    Average quality: {metadata.get('data_quality_stats', {}).get('mean_quality_score', 'N/A')}")
@@ -73,7 +76,7 @@ def validate_processed_datasets():
     return validation_results
 def validate_data_consistency(validation_results):
     """Validate data consistency across datasets"""
-    print(f"\n=== DATA CONSISTENCY VALIDATION ===\n")
+    print("\n=== DATA CONSISTENCY VALIDATION ===\n")
     # Load master dataset for comparison
     if validation_results['master_parquet']['exists']:
         try:
@@ -93,11 +96,11 @@ def validate_data_consistency(validation_results):
                     else:
                         print(f"  ✓ {category}: Consistent ({category_count} records)")
             if consistency_issues:
-                print(f"\nConsistency Issues:")
+                print("\nConsistency Issues:")
                 for issue in consistency_issues:
                     print(f"  ✗ {issue}")
             else:
-                print(f"\n✓ All category datasets consistent with master dataset")
+                print("\n✓ All category datasets consistent with master dataset")
             return consistency_issues
         except Exception as e:
             print(f"Error validating consistency: {e}")
@@ -105,7 +108,7 @@ def validate_data_consistency(validation_results):
     return ["Master dataset not available for consistency check"]
 def validate_data_quality(validation_results):
     """Validate data quality metrics"""
-    print(f"\n=== DATA QUALITY VALIDATION ===\n")
+    print("\n=== DATA QUALITY VALIDATION ===\n")
     if validation_results['master_parquet']['exists']:
         try:
             master_df = pd.read_parquet(validation_results['master_parquet']['path'])
@@ -124,14 +127,14 @@ def validate_data_quality(validation_results):
             # Check data quality score distribution
             if 'data_quality_score' in master_df.columns:
                 quality_scores = master_df['data_quality_score']
-                print(f"\nData Quality Score Distribution:")
+                print("\nData Quality Score Distribution:")
                 print(f"  Mean: {quality_scores.mean():.3f}")
                 print(f"  Median: {quality_scores.median():.3f}")
                 print(f"  High quality (≥0.8): {(quality_scores >= 0.8).mean():.1%}")
                 print(f"  Low quality (<0.5): {(quality_scores < 0.5).mean():.1%}")
             # Check date fields
             date_fields = ['posted_date', 'response_deadline', 'award_date']
-            print(f"\nDate Field Validation:")
+            print("\nDate Field Validation:")
             for field in date_fields:
                 if field in master_df.columns:
                     valid_dates = pd.to_datetime(master_df[field], errors='coerce').notna()
@@ -139,7 +142,7 @@ def validate_data_quality(validation_results):
             # Check award amounts
             if 'award_amount_clean' in master_df.columns:
                 valid_amounts = master_df['award_amount_clean'].notna()
-                print(f"\nAward Amount Validation:")
+                print("\nAward Amount Validation:")
                 print(f"  Valid amounts: {valid_amounts.mean():.1%}")
                 if valid_amounts.any():
                     amounts = master_df['award_amount_clean'].dropna()
@@ -151,7 +154,7 @@ def validate_data_quality(validation_results):
     return ["Master dataset not available for quality validation"]
 def generate_validation_report(validation_results, consistency_issues, quality_issues):
     """Generate comprehensive validation report"""
-    print(f"\n=== GENERATING VALIDATION REPORT ===\n")
+    print("\n=== GENERATING VALIDATION REPORT ===\n")
     # Create comprehensive report
     report = {
         'validation_timestamp': datetime.now().isoformat(),
@@ -227,16 +230,16 @@ def main():
     # Generate comprehensive report
     report, report_path, summary_path = generate_validation_report(validation_results, consistency_issues, quality_issues)
     # Final summary
-    print(f"\n=== VALIDATION COMPLETE ===")
+    print("\n=== VALIDATION COMPLETE ===")
     print(f"Overall Status: {report['overall_status']}")
     print(f"Files Created: {report['summary']['files_created']}")
     print(f"Total Records: {report['summary']['total_records']:,}")
     print(f"Quality Issues: {len(quality_issues)}")
     print(f"Consistency Issues: {len(consistency_issues)}")
     if report['overall_status'] == 'PASS':
-        print(f"✅ DATA PROCESSING PIPELINE SUCCESSFUL")
-        print(f"✅ All datasets validated and ready for EDA")
+        print("✅ DATA PROCESSING PIPELINE SUCCESSFUL")
+        print("✅ All datasets validated and ready for EDA")
     else:
-        print(f"⚠️ Issues found - review validation report")
+        print("⚠️ Issues found - review validation report")
 if __name__ == "__main__":
     main()

@@ -2,9 +2,10 @@
 Subtask 1 Completion Demonstration
 Shows full LLM infrastructure functionality
 """
-import sys
-import os
 import json
+import os
+import sys
+
 sys.path.append('/app/government_rfp_bid_1927')
 def demonstrate_llm_infrastructure():
     """Demonstrate complete LLM infrastructure functionality"""
@@ -19,14 +20,14 @@ def demonstrate_llm_infrastructure():
         print("✅ LLM interface created")
         # Get comprehensive status
         status = interface.get_status()
-        print(f"\n📊 SYSTEM STATUS:")
+        print("\n📊 SYSTEM STATUS:")
         print(f"   Adapter Type: {status['adapter_type']}")
         print(f"   Current Backend: {status['current_backend']}")
         print(f"   OpenAI Available: {status['openai_available']}")
         print(f"   Local Available: {status['local_available']}")
         print(f"   Production Ready: {interface.is_production_ready()}")
         # Demonstrate all use cases for bid generation
-        print(f"\n🧪 TESTING ALL BID GENERATION USE CASES:")
+        print("\n🧪 TESTING ALL BID GENERATION USE CASES:")
         use_cases = {
             "bid_generation": {
                 "prompt": "Write a professional executive summary for a government contract to supply 10,000 cases of bottled water monthly to federal agencies for 24 months.",
@@ -55,7 +56,7 @@ def demonstrate_llm_infrastructure():
             print(f"   ✅ Tokens: {result['usage']['total_tokens']}")
             print(f"   ✅ Output: {result['text'][:100]}...")
         # Test backward compatibility
-        print(f"\n🔄 TESTING BACKWARD COMPATIBILITY:")
+        print("\n🔄 TESTING BACKWARD COMPATIBILITY:")
         from src.config.llm_adapter import create_llm_manager
         manager = create_llm_manager()
         test_result = manager.test_connection()
@@ -71,7 +72,7 @@ def demonstrate_llm_infrastructure():
             "backward_compatibility": test_result,
             "artifacts_created": [
                 "/app/government_rfp_bid_1927/src/config/llm_config.py",
-                "/app/government_rfp_bid_1927/src/config/minimal_llm_config.py", 
+                "/app/government_rfp_bid_1927/src/config/minimal_llm_config.py",
                 "/app/government_rfp_bid_1927/src/config/llm_adapter.py",
                 "/app/government_rfp_bid_1927/logs/final_llm_validation_report.json"
             ],
@@ -85,7 +86,7 @@ def demonstrate_llm_infrastructure():
         os.makedirs('/app/government_rfp_bid_1927/logs', exist_ok=True)
         with open('/app/government_rfp_bid_1927/logs/subtask1_completion_report.json', 'w') as f:
             json.dump(completion_report, f, indent=2)
-        print(f"\n" + "=" * 60)
+        print("\n" + "=" * 60)
         print("✅ SUBTASK 1 COMPLETION SUMMARY")
         print("=" * 60)
         print("✅ LLM Infrastructure: OPERATIONAL")
@@ -95,12 +96,12 @@ def demonstrate_llm_infrastructure():
         print("✅ Fallback Mechanisms: Working")
         print("✅ Integration Interface: Ready")
         print("✅ Backward Compatibility: Maintained")
-        print(f"\n🎯 NEXT STEPS:")
+        print("\n🎯 NEXT STEPS:")
         print("• Subtask 1 (LLM Infrastructure) - ✅ COMPLETE")
         print("• Subtask 2 (RAG Engine) - 🔄 READY TO BEGIN")
         print("• Integration with processed RFP datasets")
         print("• Vector embeddings and similarity search")
-        print(f"\n📄 Completion report saved: logs/subtask1_completion_report.json")
+        print("\n📄 Completion report saved: logs/subtask1_completion_report.json")
         return True
     except Exception as e:
         print(f"❌ Demo failed: {str(e)}")
@@ -110,8 +111,8 @@ def demonstrate_llm_infrastructure():
 if __name__ == "__main__":
     success = demonstrate_llm_infrastructure()
     if success:
-        print(f"\n🎉 SUBTASK 1: LLM INFRASTRUCTURE & API CONFIGURATION")
-        print(f"🚀 STATUS: ✅ COMPLETE AND OPERATIONAL")
-        print(f"🔄 READY FOR: Subtask 2 (RAG Engine Prototype & Processing)")
+        print("\n🎉 SUBTASK 1: LLM INFRASTRUCTURE & API CONFIGURATION")
+        print("🚀 STATUS: ✅ COMPLETE AND OPERATIONAL")
+        print("🔄 READY FOR: Subtask 2 (RAG Engine Prototype & Processing)")
     else:
-        print(f"\n❌ SUBTASK 1: Issues detected")
+        print("\n❌ SUBTASK 1: Issues detected")

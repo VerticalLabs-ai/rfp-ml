@@ -2,14 +2,13 @@
 Base scraper class for RFP portals.
 Provides common interface and utilities for all portal-specific scrapers.
 """
-import os
 import hashlib
 import logging
 from abc import ABC, abstractmethod
 from dataclasses import dataclass, field
 from datetime import datetime
-from typing import List, Optional, Dict, Any
 from pathlib import Path
+from typing import Any
 
 logger = logging.getLogger(__name__)
 
@@ -19,22 +18,22 @@ class ScrapedDocument:
     """Represents a document downloaded from an RFP."""
     filename: str
     source_url: str
-    file_type: Optional[str] = None
-    document_type: Optional[str] = None  # "solicitation", "amendment", "attachment", "qa_response"
-    file_path: Optional[str] = None  # Local path after download
-    file_size: Optional[int] = None
-    checksum: Optional[str] = None
-    downloaded_at: Optional[datetime] = None
+    file_type: str | None = None
+    document_type: str | None = None  # "solicitation", "amendment", "attachment", "qa_response"
+    file_path: str | None = None  # Local path after download
+    file_size: int | None = None
+    checksum: str | None = None
+    downloaded_at: datetime | None = None
 
 
 @dataclass
 class ScrapedQA:
     """Represents a Q&A entry from an RFP."""
-    question_number: Optional[str] = None
+    question_number: str | None = None
     question_text: str = ""
-    answer_text: Optional[str] = None
-    asked_date: Optional[datetime] = None
-    answered_date: Optional[datetime] = None
+    answer_text: str | None = None
+    asked_date: datetime | None = None
+    answered_date: datetime | None = None
 
 
 @dataclass
@@ -46,30 +45,30 @@ class ScrapedRFP:
 
     # Basic info
     title: str
-    solicitation_number: Optional[str] = None
-    description: Optional[str] = None
-    agency: Optional[str] = None
-    office: Optional[str] = None
+    solicitation_number: str | None = None
+    description: str | None = None
+    agency: str | None = None
+    office: str | None = None
 
     # Dates
-    posted_date: Optional[datetime] = None
-    response_deadline: Optional[datetime] = None
+    posted_date: datetime | None = None
+    response_deadline: datetime | None = None
 
     # Amounts
-    award_amount: Optional[float] = None
-    estimated_value: Optional[float] = None
+    award_amount: float | None = None
+    estimated_value: float | None = None
 
     # Classification
-    naics_code: Optional[str] = None
-    category: Optional[str] = None
+    naics_code: str | None = None
+    category: str | None = None
 
     # Scraped content
-    documents: List[ScrapedDocument] = field(default_factory=list)
-    qa_items: List[ScrapedQA] = field(default_factory=list)
+    documents: list[ScrapedDocument] = field(default_factory=list)
+    qa_items: list[ScrapedQA] = field(default_factory=list)
 
     # Metadata
-    raw_data: Dict[str, Any] = field(default_factory=dict)
-    scrape_checksum: Optional[str] = None
+    raw_data: dict[str, Any] = field(default_factory=dict)
+    scrape_checksum: str | None = None
     scraped_at: datetime = field(default_factory=datetime.utcnow)
 
     def compute_checksum(self) -> str:
@@ -89,7 +88,7 @@ class BaseScraper(ABC):
     """
 
     PLATFORM_NAME: str = "unknown"
-    SUPPORTED_DOMAINS: List[str] = []
+    SUPPORTED_DOMAINS: list[str] = []
 
     def __init__(self, document_storage_path: str = "data/rfp_documents"):
         """
@@ -135,7 +134,7 @@ class BaseScraper(ABC):
         pass
 
     @abstractmethod
-    async def download_documents(self, rfp: ScrapedRFP, rfp_id: str) -> List[ScrapedDocument]:
+    async def download_documents(self, rfp: ScrapedRFP, rfp_id: str) -> list[ScrapedDocument]:
         """
         Download all documents for an RFP.
 
@@ -149,7 +148,7 @@ class BaseScraper(ABC):
         pass
 
     @abstractmethod
-    async def refresh(self, url: str, existing_checksum: Optional[str] = None) -> Dict[str, Any]:
+    async def refresh(self, url: str, existing_checksum: str | None = None) -> dict[str, Any]:
         """
         Check for updates on an existing RFP.
 

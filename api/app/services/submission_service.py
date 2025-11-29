@@ -1,12 +1,12 @@
 """
 Submission management service.
 """
-from sqlalchemy.orm import Session
-from typing import List, Optional, Dict, Any
-from datetime import datetime
 import uuid
+from datetime import datetime
+from typing import Any, Dict, List
 
-from app.models.database import Submission, SubmissionStatus, SubmissionAuditLog, RFPOpportunity
+from app.models.database import RFPOpportunity, Submission, SubmissionAuditLog, SubmissionStatus
+from sqlalchemy.orm import Session
 
 
 class SubmissionService:
@@ -17,7 +17,7 @@ class SubmissionService:
 
     def get_queue(
         self,
-        status: Optional[SubmissionStatus] = None
+        status: SubmissionStatus | None = None
     ) -> List[Submission]:
         """Get submission queue."""
         query = self.db.query(Submission)
@@ -30,7 +30,7 @@ class SubmissionService:
             Submission.deadline.asc()
         ).all()
 
-    def get_submission(self, submission_id: str) -> Optional[Submission]:
+    def get_submission(self, submission_id: str) -> Submission | None:
         """Get submission by ID."""
         return self.db.query(Submission).filter(
             Submission.submission_id == submission_id
@@ -69,7 +69,7 @@ class SubmissionService:
 
         return submission
 
-    def retry_submission(self, submission_id: str) -> Optional[Submission]:
+    def retry_submission(self, submission_id: str) -> Submission | None:
         """Retry a failed submission."""
         submission = self.get_submission(submission_id)
         if not submission:
@@ -124,8 +124,8 @@ class SubmissionService:
         submission_id: int,
         event_type: str,
         success: bool,
-        details: Optional[Dict] = None,
-        error_message: Optional[str] = None
+        details: Dict | None = None,
+        error_message: str | None = None
     ):
         """Create audit log entry."""
         log = SubmissionAuditLog(

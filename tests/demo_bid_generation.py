@@ -2,9 +2,11 @@
 Demonstration script showing LLM infrastructure generating actual bid content
 """
 import sys
-import os
+
 sys.path.append('/app/government_rfp_bid_1927')
 from src.config.production_llm_config import BidGenerationLLMManager
+
+
 def demo_bid_generation():
     """Demonstrate bid generation capabilities"""
     print("🚀 DEMO: AI-Powered Bid Generation")

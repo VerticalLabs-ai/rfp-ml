@@ -1,11 +1,14 @@
-import sys
-import os
-import time
 import json
+import os
+import sys
+import time
 from datetime import datetime
+
 # Add src to path
 sys.path.append('/app/government_rfp_bid_1927/src')
 from rag.rag_engine import OptimizedRAGEngine
+
+
 def comprehensive_rag_validation():
     """
     Comprehensive validation of RAG system with sector-specific queries
@@ -117,13 +120,13 @@ def comprehensive_rag_validation():
         "index_load_time_seconds": load_time
     }
     validation_results["performance_metrics"] = performance_metrics
-    print(f"\n4. Performance Summary:")
+    print("\n4. Performance Summary:")
     print(f"   Total queries tested: {total_queries}")
     print(f"   Average retrieval time: {avg_retrieval_time*1000:.1f}ms")
     print(f"   Average semantic relevance: {avg_semantic_relevance:.3f}")
     print(f"   Index load time: {load_time:.2f}s")
     # Quality assessment
-    retrieval_success_rate = sum(1 for sector_results in validation_results["query_results"].values() 
+    retrieval_success_rate = sum(1 for sector_results in validation_results["query_results"].values()
                                 for result in sector_results if result["num_results"] > 0) / total_queries
     quality_assessment = {
         "retrieval_success_rate": retrieval_success_rate,
@@ -136,7 +139,7 @@ def comprehensive_rag_validation():
         }
     }
     validation_results["quality_assessment"] = quality_assessment
-    print(f"\n5. Quality Assessment:")
+    print("\n5. Quality Assessment:")
     print(f"   Retrieval success rate: {retrieval_success_rate:.1%}")
     print(f"   Speed requirement met: {quality_assessment['meets_speed_requirement']}")
     print(f"   Relevance threshold met: {quality_assessment['meets_relevance_threshold']}")

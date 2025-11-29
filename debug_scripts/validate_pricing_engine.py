@@ -1,10 +1,13 @@
-import sys
-import os
 import json
+import os
+import sys
 from datetime import datetime
+
 # Add src to path
 sys.path.append('/app/government_rfp_bid_1927/src')
 from pricing.pricing_engine import PricingEngine, PricingStrategy
+
+
 def comprehensive_pricing_validation():
     """
     Comprehensive validation of pricing engine across all categories and strategies
@@ -24,7 +27,7 @@ def comprehensive_pricing_validation():
                     print(f"     {key}: {value}")
             else:
                 print(f"     {key}: {value}")
-    print(f"\n2. Historical Data Coverage:")
+    print("\n2. Historical Data Coverage:")
     for category, data in engine.historical_data.items():
         if 'statistics' in data:
             stats = data['statistics']
@@ -103,7 +106,7 @@ def comprehensive_pricing_validation():
         'strategy_comparison': {},
         'performance_metrics': {}
     }
-    print(f"\n3. Testing Pricing Scenarios:")
+    print("\n3. Testing Pricing Scenarios:")
     all_results = []
     strategy_comparisons = []
     for category, scenarios in test_scenarios.items():
@@ -157,7 +160,7 @@ def comprehensive_pricing_validation():
             })
         validation_results['test_results'][category] = category_results
     # Margin compliance analysis
-    print(f"\n4. Margin Compliance Analysis:")
+    print("\n4. Margin Compliance Analysis:")
     compliance_validation = engine.validate_margin_compliance(all_results)
     print(f"   Total pricing results: {compliance_validation['total_results']}")
     print(f"   Margin compliant results: {compliance_validation['compliant_results']}")
@@ -168,7 +171,7 @@ def comprehensive_pricing_validation():
     print(f"   Average margin: {compliance_validation['margin_statistics']['avg_margin']:.1%}")
     validation_results['margin_compliance'] = compliance_validation
     # Strategy comparison analysis
-    print(f"\n5. Strategy Comparison Analysis:")
+    print("\n5. Strategy Comparison Analysis:")
     if strategy_comparisons:
         avg_variance = sum(s['price_variance_percent'] for s in strategy_comparisons) / len(strategy_comparisons)
         max_variance = max(s['price_variance_percent'] for s in strategy_comparisons)
@@ -181,7 +184,7 @@ def comprehensive_pricing_validation():
             if cat not in category_variances:
                 category_variances[cat] = []
             category_variances[cat].append(comp['price_variance_percent'])
-        print(f"   Strategy consistency by category:")
+        print("   Strategy consistency by category:")
         for cat, variances in category_variances.items():
             avg_var = sum(variances) / len(variances)
             print(f"     {cat}: {avg_var:.1f}% average variance")
@@ -191,7 +194,7 @@ def comprehensive_pricing_validation():
         'max_variance_percent': max_variance if strategy_comparisons else 0
     }
     # Performance metrics
-    print(f"\n6. Performance Metrics:")
+    print("\n6. Performance Metrics:")
     # Calculate success rates by strategy
     strategy_success = {}
     strategy_confidence = {}
@@ -204,16 +207,16 @@ def comprehensive_pricing_validation():
         if result.margin_compliant:
             strategy_success[strategy]['compliant'] += 1
         strategy_confidence[strategy].append(result.confidence_score)
-    print(f"   Strategy performance:")
+    print("   Strategy performance:")
     for strategy, data in strategy_success.items():
         success_rate = data['compliant'] / data['total'] if data['total'] > 0 else 0
         avg_confidence = sum(strategy_confidence[strategy]) / len(strategy_confidence[strategy])
         print(f"     {strategy}: {success_rate:.1%} compliance, "
               f"{avg_confidence:.2f} avg confidence")
     validation_results['performance_metrics'] = {
-        'strategy_success_rates': {k: v['compliant']/v['total'] if v['total'] > 0 else 0 
+        'strategy_success_rates': {k: v['compliant']/v['total'] if v['total'] > 0 else 0
                                   for k, v in strategy_success.items()},
-        'strategy_avg_confidence': {k: sum(v)/len(v) if v else 0 
+        'strategy_avg_confidence': {k: sum(v)/len(v) if v else 0
                                    for k, v in strategy_confidence.items()},
         'total_scenarios_tested': len(all_results)
     }

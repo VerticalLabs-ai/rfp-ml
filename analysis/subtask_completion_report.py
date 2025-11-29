@@ -1,12 +1,14 @@
 import json
-import pandas as pd
 from datetime import datetime
-import os
+
+import pandas as pd
+
+
 def generate_subtask_completion_report():
     """Generate comprehensive completion report for the preprocessing pipeline subtask"""
     print("=== GENERATING SUBTASK COMPLETION REPORT ===\n")
     # Load processing metadata
-    with open('/app/government_rfp_bid_1927/data/processed/processing_metadata.json', 'r') as f:
+    with open('/app/government_rfp_bid_1927/data/processed/processing_metadata.json') as f:
         metadata = json.load(f)
     # Load master dataset sample for verification
     master_df = pd.read_parquet('/app/government_rfp_bid_1927/data/processed/rfp_master_dataset.parquet')
@@ -28,7 +30,7 @@ def generate_subtask_completion_report():
                 "details": "Successfully filtered RFPs by target NIGP/NAICS categories",
                 "categories": {
                     "bottled_water": metadata["category_distribution"]["bottled_water"],
-                    "construction": metadata["category_distribution"]["construction"],  
+                    "construction": metadata["category_distribution"]["construction"],
                     "delivery": metadata["category_distribution"]["delivery"]
                 },
                 "total_target_records": metadata["total_records"],
@@ -43,7 +45,7 @@ def generate_subtask_completion_report():
                 "details": "Comprehensive data cleaning and feature engineering applied",
                 "enhancements": [
                     "Date standardization with UTC timezone handling",
-                    "Currency amount extraction and normalization", 
+                    "Currency amount extraction and normalization",
                     "Lead time calculation (posting to deadline)",
                     "Data quality scoring (0-1 scale)",
                     "Description length and completeness flags",
@@ -75,7 +77,7 @@ def generate_subtask_completion_report():
                     "master_parquet": "105MB - /app/government_rfp_bid_1927/data/processed/rfp_master_dataset.parquet",
                     "master_csv": "254MB - /app/government_rfp_bid_1927/data/processed/rfp_master_dataset.csv",
                     "bottled_water_parquet": "11MB - /app/government_rfp_bid_1927/data/processed/bottled_water_rfps.parquet",
-                    "construction_parquet": "77MB - /app/government_rfp_bid_1927/data/processed/construction_rfps.parquet", 
+                    "construction_parquet": "77MB - /app/government_rfp_bid_1927/data/processed/construction_rfps.parquet",
                     "delivery_parquet": "16MB - /app/government_rfp_bid_1927/data/processed/delivery_rfps.parquet",
                     "processing_metadata": "1.5KB - /app/government_rfp_bid_1927/data/processed/processing_metadata.json"
                 }
@@ -105,7 +107,7 @@ def generate_subtask_completion_report():
             "confirmed_capabilities": [
                 "Target category analysis (bottled water, construction, delivery)",
                 "Temporal trend analysis (FY2023-2025)",
-                "Agency and geographic distribution analysis", 
+                "Agency and geographic distribution analysis",
                 "Award value and sizing analysis",
                 "Data quality and completeness analysis",
                 "Lead time and deadline pattern analysis"
@@ -138,7 +140,7 @@ def generate_subtask_completion_report():
         f.write(f"✅ **{completion_report['achievements']['target_category_filtering']['categories']['delivery']:,} delivery RFPs** (12.4%)\n")
         f.write(f"✅ **{completion_report['achievements']['target_category_filtering']['categories']['bottled_water']:,} bottled water RFPs** (8.6%)\n")
         f.write(f"✅ **{completion_report['achievements']['data_cleaning_enrichment']['average_quality_score']} average data quality score**\n")
-        f.write(f"✅ **88.9% high-quality records** (quality score ≥ 0.8)\n\n")
+        f.write("✅ **88.9% high-quality records** (quality score ≥ 0.8)\n\n")
         f.write("## Datasets Created\n\n")
         f.write("| Dataset | Size | Records | Purpose |\n")
         f.write("|---------|------|---------|----------|\n")
@@ -164,12 +166,12 @@ def generate_subtask_completion_report():
     return completion_report
 def main():
     completion_report = generate_subtask_completion_report()
-    print(f"\n=== SUBTASK COMPLETION SUMMARY ===")
+    print("\n=== SUBTASK COMPLETION SUMMARY ===")
     print(f"Status: {completion_report['status']}")
     print(f"Total Records Processed: {completion_report['pipeline_metrics']['total_target_records']:,}")
-    print(f"Datasets Created: 6 files, 463MB total")
+    print("Datasets Created: 6 files, 463MB total")
     print(f"Data Quality: {completion_report['achievements']['data_cleaning_enrichment']['average_quality_score']} average score")
-    print(f"System Readiness: EDA and ML pipeline integration ready")
-    print(f"\n🎯 PREPROCESSING PIPELINE SUBTASK COMPLETED SUCCESSFULLY")
+    print("System Readiness: EDA and ML pipeline integration ready")
+    print("\n🎯 PREPROCESSING PIPELINE SUBTASK COMPLETED SUCCESSFULLY")
 if __name__ == "__main__":
     main()

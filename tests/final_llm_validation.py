@@ -1,10 +1,11 @@
 """
 Final validation script to confirm all LLM infrastructure requirements are met
 """
-import sys
-import os
 import json
-from typing import Dict, Any, List
+import os
+import sys
+from typing import Any, Dict
+
 sys.path.append('/app/government_rfp_bid_1927')
 def validate_requirements_met() -> Dict[str, Any]:
     """Validate that all specified requirements have been implemented"""
@@ -85,13 +86,13 @@ def validate_requirements_met() -> Dict[str, Any]:
             print(f"   {status} {test_name.replace('_', ' ').title()}")
     except Exception as e:
         print(f"   ✗ Functionality tests failed: {e}")
-    # Check 3: Performance Validation  
+    # Check 3: Performance Validation
     print("\n3️⃣ Performance Validation...")
     # Load validation report if available
     report_path = "/app/government_rfp_bid_1927/logs/llm_validation_report.json"
     if os.path.exists(report_path):
         try:
-            with open(report_path, 'r') as f:
+            with open(report_path) as f:
                 perf_data = json.load(f)
             perf_metrics = perf_data.get("performance_metrics", {})
             # Check performance criteria
@@ -159,7 +160,7 @@ def validate_requirements_met() -> Dict[str, Any]:
         "needs_work": "❌ LLM Infrastructure needs significant work before use"
     }
     print(f"\n{status_messages.get(validation_summary['overall_status'], 'Unknown status')}")
-    print(f"\n📋 Next Steps:")
+    print("\n📋 Next Steps:")
     for i, step in enumerate(validation_summary["next_steps"], 1):
         print(f"   {i}. {step}")
     return validation_summary
@@ -169,7 +170,7 @@ if __name__ == "__main__":
     os.makedirs('/app/government_rfp_bid_1927/logs', exist_ok=True)
     with open('/app/government_rfp_bid_1927/logs/final_llm_validation.json', 'w') as f:
         json.dump(results, f, indent=2)
-    print(f"\n📄 Final validation saved to: /app/government_rfp_bid_1927/logs/final_llm_validation.json")
+    print("\n📄 Final validation saved to: /app/government_rfp_bid_1927/logs/final_llm_validation.json")
     # Exit with status code
     exit_code = 0 if results["overall_status"] == "ready" else 1
     sys.exit(exit_code)

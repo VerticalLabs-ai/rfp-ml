@@ -2,11 +2,14 @@
 Final validation script for LLM Configuration Module
 Tests core functionality and creates validation report
 """
-import sys
-import os
 import json
+import os
+import sys
+
 sys.path.append('/app/government_rfp_bid_1927')
-from src.config.llm_config import create_llm_manager, LLMConfig, LLMBackend
+from src.config.llm_config import create_llm_manager
+
+
 def comprehensive_llm_test():
     """Comprehensive test of LLM configuration"""
     validation_results = {
@@ -31,7 +34,7 @@ def comprehensive_llm_test():
     try:
         status = llm_manager.get_status()
         validation_results["tests"]["status_check"] = {
-            "status": "PASS", 
+            "status": "PASS",
             "data": status
         }
         print("   ✓ Status retrieved successfully")

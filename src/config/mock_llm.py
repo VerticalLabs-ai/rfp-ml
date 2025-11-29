@@ -1,15 +1,16 @@
 """
 Mock LLM implementation for testing and development without API keys
 """
-import time
 import random
-import json
-from typing import Dict, Any
+import time
+from typing import Any
+
+
 class MockLLMClient:
     """Mock LLM client that simulates OpenAI responses for testing"""
     def __init__(self, model_name: str = "mock-gpt-4"):
         self.model_name = model_name
-    def chat_completions_create(self, model: str, messages: list, **kwargs) -> Dict[str, Any]:
+    def chat_completions_create(self, model: str, messages: list, **kwargs) -> dict[str, Any]:
         """Mock the OpenAI chat completions API"""
         # Simulate API latency
         time.sleep(random.uniform(0.1, 0.5))

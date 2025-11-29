@@ -1,12 +1,15 @@
 """
 Final validation for the enhanced LLM infrastructure
 """
-import sys
-import os
-import time
 import json
+import os
+import sys
+import time
+
 sys.path.append('/app/government_rfp_bid_1927')
 from src.config.enhanced_bid_llm import EnhancedBidLLMManager
+
+
 def run_final_validation():
     """Run comprehensive final validation"""
     print("🎯 FINAL ENHANCED LLM INFRASTRUCTURE VALIDATION")
@@ -67,7 +70,7 @@ def run_final_validation():
             "success_rate": 1.0  # All sections generated successfully
         }
         perf_metrics = validation_results["performance_metrics"]
-        print(f"\n   Performance Summary:")
+        print("\n   Performance Summary:")
         print(f"   • Total time: {perf_metrics['total_generation_time']:.2f}s")
         print(f"   • Average per section: {perf_metrics['avg_generation_time']:.2f}s")
         print(f"   • Average quality: {perf_metrics['avg_quality_score']:.2f}")
@@ -148,7 +151,7 @@ def run_final_validation():
         os.makedirs('/app/government_rfp_bid_1927/logs', exist_ok=True)
         with open('/app/government_rfp_bid_1927/logs/final_enhanced_validation.json', 'w') as f:
             json.dump(validation_results, f, indent=2)
-        print(f"\n📄 Validation results saved to: /app/government_rfp_bid_1927/logs/final_enhanced_validation.json")
+        print("\n📄 Validation results saved to: /app/government_rfp_bid_1927/logs/final_enhanced_validation.json")
         return validation_results["readiness_status"] == "production_ready"
     except Exception as e:
         print(f"\n❌ Validation failed with error: {e}")

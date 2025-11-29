@@ -1,15 +1,14 @@
 """
 Demonstration of AI Pricing Engine usage for bid generation
 """
-import sys
 import os
-import json
+import sys
+
 # Add src to path for imports
 sys.path.append(os.path.join(os.path.dirname(__file__), '..'))
-from pricing.pricing_engine import (
-    create_pricing_engine, calculate_bid_price, 
-    PricingStrategy, RiskLevel
-)
+from pricing.pricing_engine import PricingStrategy, calculate_bid_price, create_pricing_engine
+
+
 def demo_basic_pricing():
     """Demonstrate basic pricing functionality"""
     print("=" * 70)
@@ -134,7 +133,7 @@ def demo_margin_compliance():
     # Overall compliance validation
     if pricing_results:
         validation = engine.validate_margin_compliance(pricing_results)
-        print(f"\nCompliance Summary:")
+        print("\nCompliance Summary:")
         print(f"  Total bids: {validation['total_bids']}")
         print(f"  Compliant bids: {validation['compliant_bids']}")
         print(f"  Compliance rate: {validation['compliance_rate']:.1%}")
@@ -180,7 +179,7 @@ def demo_competitive_analysis():
                 print(f"Risk Factors: {', '.join(analysis['risk_factors'])}")
             # Cost breakdown
             breakdown = result.cost_breakdown
-            print(f"Cost Structure:")
+            print("Cost Structure:")
             for component, value in breakdown.items():
                 if component != 'total':
                     pct = (value / breakdown['total']) * 100
@@ -211,7 +210,7 @@ def demo_integration_with_rag():
                 print(f"     Content: {rfp['content'][:80]}...")
         # Generate pricing with RAG context
         result = engine.generate_pricing(rfp_description=test_rfp)
-        print(f"\nContextual Pricing Result:")
+        print("\nContextual Pricing Result:")
         print(f"  Price: ${result.recommended_price:,.2f}")
         print(f"  Margin: {result.margin_percentage:.1%}")
         print(f"  Confidence: {result.confidence_score:.2f}")
@@ -221,7 +220,7 @@ def demo_integration_with_rag():
         result = engine.generate_pricing(
             rfp_description="Quarterly delivery of bottled water to government facilities"
         )
-        print(f"Baseline Pricing Result:")
+        print("Baseline Pricing Result:")
         print(f"  Price: ${result.recommended_price:,.2f}")
         print(f"  Margin: {result.margin_percentage:.1%}")
 def demo_engine_statistics():
@@ -243,10 +242,10 @@ def demo_engine_statistics():
     print(f"  Maximum margin: {margin_config['max_margin']:.1%}")
     print(f"\nStrategies Available: {', '.join(stats['strategies_available'])}")
     if 'historical_records' in stats:
-        print(f"\nHistorical Data:")
+        print("\nHistorical Data:")
         print(f"  Total records: {stats['historical_records']:,}")
         if 'category_distribution' in stats:
-            print(f"  Category distribution:")
+            print("  Category distribution:")
             for category, count in stats['category_distribution'].items():
                 print(f"    {category}: {count:,} contracts")
 if __name__ == "__main__":

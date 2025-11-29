@@ -1,11 +1,11 @@
-import pandas as pd
-import numpy as np
-import os
 import json
+import os
 import re
 from datetime import datetime
-import matplotlib.pyplot as plt
-import seaborn as sns
+
+import numpy as np
+import pandas as pd
+
 
 def load_all_rfp_datasets(raw_data_path):
     print("=== LOADING ALL RFP DATASETS ===\n")
@@ -37,7 +37,7 @@ def standardize_schema(datasets):
     # Define standardized column mapping
     standard_columns = {
         'rfp_id': 'NoticeId',
-        'title': 'Title', 
+        'title': 'Title',
         'solicitation_number': 'Sol#',
         'agency': 'Department/Ind.Agency',
         'sub_agency': 'Sub-Tier',
@@ -280,12 +280,12 @@ def main():
     master_df = create_master_dataset(processed_datasets)
     # Save processed data
     master_path, metadata_path = save_processed_data(master_df, processed_datasets, category_counts, base_path)
-    print(f"\n=== PROCESSING COMPLETE ===")
+    print("\n=== PROCESSING COMPLETE ===")
     print(f"✓ Master dataset: {len(master_df):,} RFPs across target categories")
     print(f"✓ Categories: {dict(master_df['category'].value_counts())}")
     print(f"✓ Fiscal years: {sorted(master_df['fiscal_year'].dropna().unique())}")
     print(f"✓ Average data quality: {master_df['data_quality_score'].mean():.3f}")
-    print(f"✓ Ready for exploratory data analysis!")
+    print("✓ Ready for exploratory data analysis!")
 
 if __name__ == "__main__":
     main()

@@ -2,15 +2,17 @@
 """
 Validate compliance matrix generator functionality and quality.
 """
-import sys
 import os
-import json
+import sys
+
 import pandas as pd
-from typing import Dict, List, Any
+
 # Add src to path
 sys.path.insert(0, '/app/government_rfp_bid_1927/src')
-from rag.rag_engine import RAGEngine
 from compliance.compliance_matrix import ComplianceMatrixGenerator
+from rag.rag_engine import RAGEngine
+
+
 def validate_requirement_extraction():
     """Test requirement extraction capabilities."""
     print("🔍 Testing Requirement Extraction...")
@@ -74,7 +76,7 @@ def validate_compliance_responses():
             "confidence": 0.9
         },
         {
-            "id": "test_req_2", 
+            "id": "test_req_2",
             "text": "Contractor shall provide detailed cost breakdown including labor and materials",
             "category": "financial",
             "mandatory": True,
@@ -157,7 +159,7 @@ def validate_export_functionality():
     sample_matrix = {
         "rfp_info": {
             "title": "Test RFP Export",
-            "agency": "Test Agency", 
+            "agency": "Test Agency",
             "rfp_id": "TEST_001",
             "naics_code": "541511",
             "solicitation_number": "TEST-SOL-001"
@@ -263,7 +265,7 @@ def main():
     # Run all validation tests
     validation_tests = [
         ("Requirement Extraction", validate_requirement_extraction),
-        ("Compliance Responses", validate_compliance_responses), 
+        ("Compliance Responses", validate_compliance_responses),
         ("RAG Integration", validate_rag_integration),
         ("Export Functionality", validate_export_functionality),
         ("End-to-End Workflow", validate_end_to_end_workflow)
@@ -280,7 +282,7 @@ def main():
             print(f"\n{test_name}: ❌ ERROR - {e}")
             results[test_name] = False
     # Overall assessment
-    print(f"\n" + "=" * 80)
+    print("\n" + "=" * 80)
     print("OVERALL VALIDATION RESULTS")
     print("=" * 80)
     passed_tests = sum(results.values())

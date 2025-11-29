@@ -2,11 +2,13 @@
 Demonstration of LLM infrastructure usage for bid generation tasks
 """
 import sys
-import os
+
 sys.path.append('/app/government_rfp_bid_1927/src')
-from config.llm_config import get_default_llm_manager
-import json
 import time
+
+from config.llm_config import get_default_llm_manager
+
+
 def demo_bid_generation_tasks():
     """Demonstrate LLM usage for different bid generation tasks"""
     print("=== LLM Bid Generation Demo ===\n")
@@ -99,7 +101,7 @@ def demo_bid_generation_tasks():
     print(f"Provider: {model_info['provider']}")
     print(f"Model: {model_info['model_name']}")
     print(f"Available: {model_info['is_available']}")
-    print(f"Temperature settings:")
+    print("Temperature settings:")
     for task, temp in model_info['task_temperatures'].items():
         print(f"  - {task}: {temp}")
     print("\n🎉 LLM infrastructure demo complete!")

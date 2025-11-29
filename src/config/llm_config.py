@@ -2,12 +2,13 @@
 LLM Infrastructure Configuration Module
 Supports OpenAI GPT-5.1 and local models with environment-based configuration
 """
-import os
+import json
 import logging
-from typing import Dict, Any, Optional, Union
+import os
 from dataclasses import dataclass
 from enum import Enum
-import json
+from typing import Any
+
 try:
     from dotenv import load_dotenv
     load_dotenv()
@@ -25,8 +26,8 @@ class LLMConfig:
     """Configuration for LLM settings"""
     provider: LLMProvider
     model_name: str
-    api_key: Optional[str] = None
-    base_url: Optional[str] = None
+    api_key: str | None = None
+    base_url: str | None = None
     temperature: float = 0.7
     max_tokens: int = 2000
     timeout: float = 30.0
@@ -61,7 +62,7 @@ class LLMConfigManager:
         "go_nogo_decision": {"temperature": 0.4, "max_tokens": 1000}
     }
     def __init__(self):
-        self.config: Optional[LLMConfig] = None
+        self.config: LLMConfig | None = None
         self._initialize_config()
     def _initialize_config(self):
         """Initialize LLM configuration from environment variables"""
@@ -114,7 +115,7 @@ class LLMConfigManager:
             return LLMProvider.HUGGINGFACE
         else:
             return LLMProvider.LOCAL
-    def get_config(self, task_type: Optional[str] = None) -> LLMConfig:
+    def get_config(self, task_type: str | None = None) -> LLMConfig:
         """Get LLM configuration, optionally customized for specific task"""
         if not self.config:
             raise RuntimeError("LLM configuration not initialized")
@@ -133,7 +134,7 @@ class LLMConfigManager:
                 retries=config.retries
             )
         return config
-    def get_client(self, task_type: Optional[str] = None):
+    def get_client(self, task_type: str | None = None):
         """Get appropriate LLM client based on configuration"""
         config = self.get_config(task_type)
         if config.provider == LLMProvider.OPENAI:
@@ -153,26 +154,26 @@ class LLMConfigManager:
                 timeout=config.timeout
             )
             return client
-        except ImportError:
-            raise ImportError("OpenAI package not installed. Install with: pip install openai")
+        except ImportError as err:
+            raise ImportError("OpenAI package not installed. Install with: pip install openai") from err
     def _get_huggingface_client(self, config: LLMConfig):
         """Get HuggingFace client"""
         try:
-            from transformers import pipeline
+            import transformers  # noqa: F401
             # For HuggingFace, we'll use a simple wrapper
             return {
                 "config": config,
                 "type": "huggingface"
             }
-        except ImportError:
-            raise ImportError("Transformers package not installed. Install with: pip install transformers")
+        except ImportError as err:
+            raise ImportError("Transformers package not installed. Install with: pip install transformers") from err
     def _get_local_client(self, config: LLMConfig):
         """Get local model client"""
         return {
             "config": config,
             "type": "local"
         }
-    def validate_configuration(self) -> Dict[str, Any]:
+    def validate_configuration(self) -> dict[str, Any]:
         """Validate current LLM configuration"""
         if not self.config:
             return {"status": "error", "message": "Configuration not initialized"}
@@ -192,11 +193,11 @@ class LLMInterface:
     """Unified interface for different LLM providers"""
     def __init__(self, config_manager: LLMConfigManager):
         self.config_manager = config_manager
-    def generate_completion(self, 
-                          prompt: str, 
-                          task_type: Optional[str] = None,
-                          system_message: Optional[str] = None,
-                          **kwargs) -> Dict[str, Any]:
+    def generate_completion(self,
+                          prompt: str,
+                          task_type: str | None = None,
+                          system_message: str | None = None,
+                          **kwargs) -> dict[str, Any]:
         """Generate completion using configured LLM"""
         try:
             config = self.config_manager.get_config(task_type)
@@ -216,7 +217,7 @@ class LLMInterface:
                 "error": str(e),
                 "content": None
             }
-    def _openai_completion(self, client, prompt: str, system_message: Optional[str], config: LLMConfig) -> Dict[str, Any]:
+    def _openai_completion(self, client, prompt: str, system_message: str | None, config: LLMConfig) -> dict[str, Any]:
         """Generate completion using OpenAI"""
         messages = []
         if system_message:
@@ -239,7 +240,7 @@ class LLMInterface:
             },
             "model": config.model_name
         }
-    def _huggingface_completion(self, client, prompt: str, system_message: Optional[str], config: LLMConfig) -> Dict[str, Any]:
+    def _huggingface_completion(self, client, prompt: str, system_message: str | None, config: LLMConfig) -> dict[str, Any]:
         """Generate completion using HuggingFace (simplified implementation)"""
         full_prompt = prompt
         if system_message:
@@ -252,7 +253,7 @@ class LLMInterface:
             "usage": {"tokens": len(full_prompt.split())},
             "model": config.model_name
         }
-    def _local_completion(self, client, prompt: str, system_message: Optional[str], config: LLMConfig) -> Dict[str, Any]:
+    def _local_completion(self, client, prompt: str, system_message: str | None, config: LLMConfig) -> dict[str, Any]:
         """Generate completion using local model (mock implementation)"""
         full_prompt = prompt
         if system_message:
@@ -281,13 +282,13 @@ class LLMManager:
         """
         # Temporarily override config if needed (not fully implemented in this facade but noted)
         # For now we rely on task_type config lookups
-        
+
         response = self.interface.generate_completion(prompt, task_type)
         if response['status'] == 'success' and response['content']:
             return response['content']
         return ""
 
-    def validate_setup(self) -> Dict[str, Any]:
+    def validate_setup(self) -> dict[str, Any]:
         """Validate setup"""
         res = self.config_manager.validate_configuration()
         # Add 'setup_valid' key as expected by EnhancedBidLLMManager
@@ -296,18 +297,18 @@ class LLMManager:
 # Global instances
 config_manager = LLMConfigManager()
 llm_interface = LLMInterface(config_manager)
-def get_llm_config(task_type: Optional[str] = None) -> LLMConfig:
+def get_llm_config(task_type: str | None = None) -> LLMConfig:
     """Get LLM configuration for specific task"""
     return config_manager.get_config(task_type)
-def get_llm_client(task_type: Optional[str] = None):
+def get_llm_client(task_type: str | None = None):
     """Get LLM client for specific task"""
     return config_manager.get_client(task_type)
-def generate_completion(prompt: str, 
-                       task_type: Optional[str] = None,
-                       system_message: Optional[str] = None) -> Dict[str, Any]:
+def generate_completion(prompt: str,
+                       task_type: str | None = None,
+                       system_message: str | None = None) -> dict[str, Any]:
     """Generate completion using configured LLM"""
     return llm_interface.generate_completion(prompt, task_type, system_message)
-def test_llm_connection() -> Dict[str, Any]:
+def test_llm_connection() -> dict[str, Any]:
     """Test LLM connection and configuration"""
     try:
         # Test basic configuration

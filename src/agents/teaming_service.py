@@ -1,10 +1,12 @@
-from typing import List, Dict, Any, Optional
-from sqlalchemy.orm import Session
 import json
+from typing import Any
+
+from sqlalchemy.orm import Session
 
 from api.app.models.database import RFPOpportunity
 from src.agents.sam_gov_client import SAMGovClient
 from src.config.llm_config import get_llm_client
+
 
 class TeamingPartnerService:
     """
@@ -16,7 +18,7 @@ class TeamingPartnerService:
         self.sam_client = SAMGovClient()
         self.llm_client = get_llm_client("teaming_analysis")
 
-    def find_partners(self, rfp_id: str, limit: int = 10) -> List[Dict[str, Any]]:
+    def find_partners(self, rfp_id: str, limit: int = 10) -> list[dict[str, Any]]:
         """
         Find matches based on NAICS codes and keywords using live API.
         """
@@ -30,7 +32,7 @@ class TeamingPartnerService:
         if rfp_naics and len(rfp_naics) > 6:
              # If it's a list or long string, take the first 6 digits
              rfp_naics = rfp_naics[:6]
-        
+
         # Extract keywords for secondary scoring
         keywords = self._extract_keywords(rfp.description or "")
         keyword_query = " ".join(keywords[:3]) # Pass top 3 keywords to API if supported
@@ -42,23 +44,23 @@ class TeamingPartnerService:
             keywords=keyword_query,
             limit=limit * 2 # Fetch more to filter/score
         )
-        
+
         matches = []
         for entity in api_results:
             score = 50 # Base score for being returned by API
             match_reasons = ["Live SAM.gov Result"]
-            
+
             # Bonus scoring
             if rfp_naics and rfp_naics in entity.get("capabilities", ""):
                 score += 20
                 match_reasons.append(f"Matched NAICS {rfp_naics}")
-            
+
             # Simple keyword check in name (since API result is brief)
             ent_name = entity.get("name", "").lower()
             for kw in keywords:
                 if kw in ent_name:
                     score += 5
-            
+
             matches.append({
                 "uei": entity.get("uei"),
                 "name": entity.get("name"),
@@ -72,10 +74,10 @@ class TeamingPartnerService:
 
         # Sort by score
         matches.sort(key=lambda x: x["score"], reverse=True)
-        
+
         return matches[:limit]
 
-    def _extract_keywords(self, text: str) -> List[str]:
+    def _extract_keywords(self, text: str) -> list[str]:
         """Simple keyword extractor (mock)."""
         # In reality, use NLP or LLM
         common_stops = {"the", "and", "of", "for", "in", "to", "a", "services", "support", "contract", "requirements"}

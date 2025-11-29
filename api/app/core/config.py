@@ -1,11 +1,10 @@
 """
 Configuration for FastAPI application.
 """
-from pydantic_settings import BaseSettings
-from typing import Optional
-import os
 from pathlib import Path
+
 from dotenv import load_dotenv
+from pydantic_settings import BaseSettings
 
 # Explicitly load .env from project root
 env_path = Path(__file__).parent.parent.parent.parent / ".env"
@@ -47,18 +46,18 @@ class Settings(BaseSettings):
     SUBMISSION_RETRY_BACKOFF: int = 2
 
     # Portal Credentials (from environment)
-    SAM_GOV_API_KEY: Optional[str] = None
-    GSA_EBUY_USERNAME: Optional[str] = None
-    GSA_EBUY_PASSWORD: Optional[str] = None
+    SAM_GOV_API_KEY: str | None = None
+    GSA_EBUY_USERNAME: str | None = None
+    GSA_EBUY_PASSWORD: str | None = None
 
     # Notification Settings
-    SMTP_HOST: Optional[str] = None
+    SMTP_HOST: str | None = None
     SMTP_PORT: int = 587
-    SMTP_USER: Optional[str] = None
-    SMTP_PASSWORD: Optional[str] = None
+    SMTP_USER: str | None = None
+    SMTP_PASSWORD: str | None = None
     EMAIL_FROM: str = "noreply@rfpbid.com"
 
-    SLACK_WEBHOOK_URL: Optional[str] = None
+    SLACK_WEBHOOK_URL: str | None = None
 
     # Paths
     DATA_DIR: str = "./data"
@@ -86,13 +85,12 @@ class Settings(BaseSettings):
 
     def __init__(self, **kwargs):
         # Try to load from parent directory if not found in current
-        import os
         from pathlib import Path
-        
+
         parent_env = Path(__file__).parent.parent.parent.parent / ".env"
         if parent_env.exists():
             self.Config.env_file = str(parent_env)
-            
+
         super().__init__(**kwargs)
 
 

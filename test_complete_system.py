@@ -3,10 +3,10 @@
 Complete AI-powered bid generation system test.
 Tests the entire pipeline from RFP input to final bid decision.
 """
-import sys
 import os
+import sys
 import time
-import json
+
 import pandas as pd
 
 # Add src to path for imports
@@ -18,10 +18,11 @@ def test_complete_bid_generation_system():
     print("=" * 80)
     try:
         # Import all components
-        from compliance.compliance_matrix import ComplianceMatrixGenerator
-        from pricing.pricing_engine import PricingEngine
         from bid_generation.document_generator_fixed import BidDocumentGenerator
+
+        from compliance.compliance_matrix import ComplianceMatrixGenerator
         from decision.go_nogo_engine import GoNoGoEngine
+        from pricing.pricing_engine import PricingEngine
         print("✅ All system components imported successfully")
         # Initialize complete system
         print("\n🚀 Initializing complete autonomous bid generation system...")
@@ -86,7 +87,7 @@ def test_complete_bid_generation_system():
                     print(f"✅ Bid document generated in {doc_time:.2f}s")
                     print(f"   Content: {bid_document['metadata']['document_stats']['content_length']:,} characters")
                     print(f"   Requirements: {bid_document['metadata']['document_stats']['requirements_addressed']}")
-                    print(f"   Exports: MD, JSON")
+                    print("   Exports: MD, JSON")
                 else:
                     print("⏭️  Step 2: Skipping document generation (NO-GO recommendation)")
                 # Step 3: Export decision analysis
@@ -119,7 +120,7 @@ def test_complete_bid_generation_system():
                 print(f"❌ Pipeline failed for RFP {i}: {e}")
                 continue
         # Final system validation
-        print(f"\n" + "="*80)
+        print("\n" + "="*80)
         print("🤖 COMPLETE AUTONOMOUS BID GENERATION SYSTEM VALIDATION")
         print("="*80)
         if system_results:
@@ -132,16 +133,16 @@ def test_complete_bid_generation_system():
             avg_overall_score = sum(r['overall_score'] for r in system_results) / len(system_results)
             avg_confidence = sum(r['confidence'] for r in system_results) / len(system_results)
             print(f"✅ Successfully processed: {successful_analyses}/{len(test_rfps)} RFPs")
-            print(f"📊 Decision Distribution:")
+            print("📊 Decision Distribution:")
             print(f"   GO decisions: {go_decisions}")
             print(f"   REVIEW decisions: {review_decisions}")
             print(f"   NO-GO decisions: {nogo_decisions}")
             print(f"   Bid documents generated: {documents_generated}")
-            print(f"\n📈 Performance Metrics:")
+            print("\n📈 Performance Metrics:")
             print(f"   Average processing time: {avg_processing_time:.2f} seconds")
             print(f"   Average overall score: {avg_overall_score:.1f}%")
             print(f"   Average confidence: {avg_confidence:.1f}%")
-            print(f"\n📋 Individual Results:")
+            print("\n📋 Individual Results:")
             for result in system_results:
                 print(f"   RFP {result['rfp_id']}: {result['recommendation'].upper()} "
                       f"({result['overall_score']:.0f}% score, "
@@ -156,7 +157,7 @@ def test_complete_bid_generation_system():
                 'appropriate_document_generation': documents_generated <= go_decisions + review_decisions,
                 'exports_successful': all(os.path.exists(r['decision_export']) for r in system_results)
             }
-            print(f"\n🎯 SYSTEM VALIDATION:")
+            print("\n🎯 SYSTEM VALIDATION:")
             passed_criteria = 0
             for criterion, passed in validation_criteria.items():
                 status = "✅ PASS" if passed else "❌ FAIL"

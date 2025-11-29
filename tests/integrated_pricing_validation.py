@@ -2,15 +2,17 @@
 Integrated validation of pricing engine with RAG system
 Tests complete pricing pipeline with semantic context enhancement
 """
-import sys
-import os
-import time
 import json
-from typing import Dict, Any
+import sys
+import time
+from typing import Any, Dict
+
 # Add project root to path
 sys.path.append('/app/government_rfp_bid_1927')
 from src.pricing.pricing_engine import PricingEngine
 from src.rag.rag_engine import search_rfps
+
+
 class IntegratedPricingValidator:
     """Validates integrated pricing engine with RAG context"""
     def __init__(self):
@@ -52,7 +54,7 @@ class IntegratedPricingValidator:
                 }
             },
             {
-                "title": "RAG-Enhanced Construction Pricing", 
+                "title": "RAG-Enhanced Construction Pricing",
                 "rag_query": "construction building maintenance OSHA government facility",
                 "sector": "construction",
                 "requirements": {
@@ -68,7 +70,7 @@ class IntegratedPricingValidator:
             {
                 "title": "RAG-Enhanced Delivery Pricing",
                 "rag_query": "delivery services logistics transportation tracking emergency",
-                "sector": "delivery", 
+                "sector": "delivery",
                 "requirements": {
                     "duration": "18 months",
                     "frequency": "120",
@@ -85,7 +87,7 @@ class IntegratedPricingValidator:
             print(f"\\n   🔍 Scenario {i}: {scenario['title']}")
             try:
                 # Step 1: Get RAG context
-                print(f"      🔍 Retrieving RAG context...")
+                print("      🔍 Retrieving RAG context...")
                 start_time = time.time()
                 rag_results = search_rfps(scenario['rag_query'], top_k=5)
                 rag_time = time.time() - start_time
@@ -98,7 +100,7 @@ class IntegratedPricingValidator:
                 if rag_insights:
                     enhanced_requirements['rag_award_insights'] = rag_insights
                 # Step 3: Generate pricing
-                print(f"      💰 Generating enhanced pricing...")
+                print("      💰 Generating enhanced pricing...")
                 pricing_start = time.time()
                 pricing_result = self.pricing_engine.generate_competitive_bid(
                     scenario['sector'],
@@ -149,11 +151,11 @@ class IntegratedPricingValidator:
                     "error": str(e)
                 }
         # Performance Summary
-        print(f"\\n3️⃣ Integrated Performance Assessment...")
+        print("\\n3️⃣ Integrated Performance Assessment...")
         successful_scenarios = len([r for r in integrated_results.values() if 'error' not in r])
         total_scenarios = len(integrated_scenarios)
         if successful_scenarios > 0:
-            avg_total_time = sum(r['performance']['total_time'] for r in integrated_results.values() 
+            avg_total_time = sum(r['performance']['total_time'] for r in integrated_results.values()
                                if 'performance' in r) / successful_scenarios
             avg_pricing_time = sum(r['performance']['pricing_time'] for r in integrated_results.values()
                                  if 'performance' in r) / successful_scenarios
@@ -198,7 +200,7 @@ class IntegratedPricingValidator:
             json.dump(final_results, f, indent=2, default=str)
         print(f"\\n📄 Integrated validation results saved to: {results_path}")
         if status in ["EXCELLENT", "GOOD"]:
-            print(f"\\n🚀 INTEGRATED PRICING SYSTEM IS PRODUCTION READY!")
+            print("\\n🚀 INTEGRATED PRICING SYSTEM IS PRODUCTION READY!")
         return final_results
     def _analyze_rag_for_pricing(self, rag_results: List[Dict[str, Any]]) -> Dict[str, Any]:
         """Analyze RAG results for pricing insights"""

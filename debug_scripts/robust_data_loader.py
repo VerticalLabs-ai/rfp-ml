@@ -1,8 +1,11 @@
-import pandas as pd
-import os
 import json
-import chardet
+import os
 from datetime import datetime
+
+import chardet
+import pandas as pd
+
+
 def detect_file_encoding(file_path, sample_size=10000):
     """Detect file encoding using multiple methods"""
     print(f"Detecting encoding for {os.path.basename(file_path)}...")
@@ -17,7 +20,7 @@ def detect_file_encoding(file_path, sample_size=10000):
     common_encodings = ['utf-8', 'latin1', 'cp1252', 'iso-8859-1', 'utf-16']
     for encoding in common_encodings:
         try:
-            with open(file_path, 'r', encoding=encoding) as f:
+            with open(file_path, encoding=encoding) as f:
                 # Try to read first few lines
                 for i, line in enumerate(f):
                     if i > 10:  # Read first 10 lines
@@ -38,7 +41,7 @@ def load_csv_with_encoding(file_path, encoding=None, max_rows=None):
     try:
         # Load with pandas, handling various issues
         df = pd.read_csv(
-            file_path, 
+            file_path,
             encoding=encoding,
             nrows=max_rows,
             low_memory=False,
@@ -51,10 +54,10 @@ def load_csv_with_encoding(file_path, encoding=None, max_rows=None):
         print(f"  ✗ Error loading with {encoding}: {e}")
         # Try with latin1 as fallback
         if encoding != 'latin1':
-            print(f"  Retrying with latin1 encoding...")
+            print("  Retrying with latin1 encoding...")
             try:
                 df = pd.read_csv(
-                    file_path, 
+                    file_path,
                     encoding='latin1',
                     nrows=max_rows,
                     low_memory=False,
@@ -95,7 +98,7 @@ def analyze_data_structure(df, file_name):
             found_columns[key] = matches
             print(f"  ✓ {key}: {matches}")
     # Show sample data
-    print(f"\nSample data (first 2 rows):")
+    print("\nSample data (first 2 rows):")
     for i, row in df.head(2).iterrows():
         print(f"  Row {i}: {dict(row)}")
         break  # Just show first row to avoid too much output
@@ -185,18 +188,18 @@ def main():
             else:
                 f.write(f"### ❌ {file}\n")
                 f.write(f"- **Error:** {result.get('error', 'Unknown error')}\n\n")
-        f.write(f"## Summary\n\n")
+        f.write("## Summary\n\n")
         f.write(f"- **Files processed:** {len(results)}\n")
         f.write(f"- **Successfully loaded:** {successful}\n")
         f.write(f"- **Ready for analysis:** {'Yes' if successful > 0 else 'No'}\n")
     print(f"✓ Summary report saved: {summary_path}")
-    print(f"\n=== FINAL SUMMARY ===")
+    print("\n=== FINAL SUMMARY ===")
     successful_files = [f for f, r in results.items() if r['status'] == 'SUCCESS']
     print(f"✓ Successfully loaded {len(successful_files)}/{len(results)} files")
     if successful_files:
         print(f"✓ Files ready for analysis: {successful_files}")
-        print(f"✓ Ready to proceed with data processing and EDA")
+        print("✓ Ready to proceed with data processing and EDA")
     else:
-        print(f"✗ No files successfully loaded - need to investigate further")
+        print("✗ No files successfully loaded - need to investigate further")
 if __name__ == "__main__":
     main()

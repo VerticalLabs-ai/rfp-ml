@@ -3,11 +3,12 @@ Production-ready LLM configuration optimized for bid generation
 Includes environment detection and performance optimization
 """
 import logging
-import os
 from dataclasses import dataclass, field
-from typing import Any, Dict, Optional
+from typing import Any
 
 from src.config.llm_config import LLMConfig, LLMManager
+
+
 @dataclass
 class BidGenerationLLMConfig(LLMConfig):
     """Specialized configuration for bid generation tasks"""
@@ -40,7 +41,7 @@ class BidGenerationLLMManager:
     Specialized LLM manager for bid generation tasks
     Optimized for government RFP bid writing
     """
-    def __init__(self, config: Optional[BidGenerationLLMConfig] = None):
+    def __init__(self, config: BidGenerationLLMConfig | None = None):
         self.config = config or BidGenerationLLMConfig()
         # Initialize base LLM manager
         base_config = LLMConfig(
@@ -70,9 +71,9 @@ class BidGenerationLLMManager:
         self,
         section_type: str,
         rfp_context: str,
-        requirements: Dict[str, Any],
+        requirements: dict[str, Any],
         max_words: int = 300
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Generate a specific section of a bid document
         Args:
@@ -118,7 +119,7 @@ class BidGenerationLLMManager:
         self,
         section_type: str,
         rfp_context: str,
-        requirements: Dict[str, Any],
+        requirements: dict[str, Any],
         max_words: int
     ) -> str:
         """Create specialized prompts for different bid sections"""
@@ -174,7 +175,7 @@ class BidGenerationLLMManager:
         {company_info}
         Maximum length: {max_words} words.
         """)
-    def _format_requirements(self, requirements: Dict[str, Any]) -> str:
+    def _format_requirements(self, requirements: dict[str, Any]) -> str:
         """Format requirements dictionary into readable text"""
         if not requirements:
             return "No specific requirements provided."
@@ -203,7 +204,7 @@ class BidGenerationLLMManager:
             else:
                 content = truncated_content
         return content
-    def _calculate_confidence_score(self, content: str, requirements: Dict[str, Any]) -> float:
+    def _calculate_confidence_score(self, content: str, requirements: dict[str, Any]) -> float:
         """Calculate confidence score based on content quality and requirement coverage"""
         score = 0.0
         # Base score for having content
@@ -229,7 +230,7 @@ class BidGenerationLLMManager:
         quality_score = sum(quality_indicators) / len(quality_indicators)
         score += quality_score * 0.3
         return min(score, 1.0)
-    def extract_requirements(self, rfp_text: str) -> Dict[str, Any]:
+    def extract_requirements(self, rfp_text: str) -> dict[str, Any]:
         """
         Extract requirements from RFP text using structured extraction
         Args:
@@ -263,7 +264,7 @@ class BidGenerationLLMManager:
         except Exception as e:
             self.logger.error(f"Failed to extract requirements: {e}")
             return {}
-    def _parse_requirements_response(self, response: str) -> Dict[str, Any]:
+    def _parse_requirements_response(self, response: str) -> dict[str, Any]:
         """Parse LLM response into structured requirements dictionary"""
         requirements = {}
         current_category = "general"
@@ -284,7 +285,7 @@ class BidGenerationLLMManager:
                     req_key = f"{current_category}_{len(requirements) + 1}"
                     requirements[req_key] = req_text
         return requirements
-    def validate_infrastructure(self) -> Dict[str, Any]:
+    def validate_infrastructure(self) -> dict[str, Any]:
         """Validate the bid generation LLM infrastructure"""
         self.logger.info("Validating bid generation LLM infrastructure...")
         # Get base validation results
@@ -328,7 +329,7 @@ class BidGenerationLLMManager:
         )
         return bid_validation
 # Convenience function for creating bid generation LLM manager
-def create_bid_generation_llm_manager(config: Optional[BidGenerationLLMConfig] = None) -> BidGenerationLLMManager:
+def create_bid_generation_llm_manager(config: BidGenerationLLMConfig | None = None) -> BidGenerationLLMManager:
     """Create and return configured bid generation LLM manager"""
     return BidGenerationLLMManager(config)
 if __name__ == "__main__":

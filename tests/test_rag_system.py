@@ -1,9 +1,10 @@
-import pytest
-import time
-from typing import List, Dict, Any
 from dataclasses import dataclass
+from typing import List
+
+import pytest
 
 from src.rag.rag_engine import RAGEngine
+
 
 @dataclass
 class RAGTestCase:
@@ -70,7 +71,7 @@ class TestRAGSystem:
                 rag_engine.build_index()
             except Exception:
                 pytest.skip("RAG index could not be built")
-        
+
         stats = rag_engine.get_statistics()
         assert stats is not None
         assert "total_documents" in stats
@@ -87,14 +88,14 @@ class TestRAGSystem:
         for test_case in test_cases:
             print(f"\nTesting query: {test_case.query}")
             results = rag_engine.retrieve(test_case.query, k=10)
-            
+
             # Basic checks
             assert len(results) >= 0 # It's possible to have 0 results if index is empty
-            
+
             if len(results) > 0:
                 # Check score
                 assert results[0].similarity_score >= 0.0
-                
+
                 # Check keyword relevance (soft check)
                 combined_text = "".join([r.content.lower() for r in results[:3]])
                 matches = sum(1 for k in test_case.expected_keywords if k.lower() in combined_text)
@@ -112,7 +113,7 @@ class TestRAGSystem:
                 rag_engine.build_index()
              except Exception:
                 pytest.skip("RAG index could not be built")
-            
+
         results = rag_engine.retrieve(query, k=5)
         if results:
             assert results[0].similarity_score >= expected_min_score

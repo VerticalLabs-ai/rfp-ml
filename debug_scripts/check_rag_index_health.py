@@ -1,8 +1,10 @@
-import sys
-import os
 import json
+import os
 import pickle
+import sys
+
 import faiss
+
 sys.path.append('/app/government_rfp_bid_1927/src')
 def check_index_health():
     """Check the health and integrity of the RAG index"""
@@ -11,7 +13,7 @@ def check_index_health():
     # Check file existence
     required_files = [
         "faiss_index.bin",
-        "metadata.json", 
+        "metadata.json",
         "embeddings.pkl",
         "index_info.json"
     ]
@@ -35,7 +37,7 @@ def check_index_health():
         print(f"   FAISS index loaded: {index.ntotal:,} vectors")
         print(f"   Vector dimension: {index.d}")
         # Load metadata
-        with open(os.path.join(index_path, "metadata.json"), 'r') as f:
+        with open(os.path.join(index_path, "metadata.json")) as f:
             metadata = json.load(f)
         print(f"   Metadata entries: {len(metadata):,}")
         # Load embeddings
@@ -43,7 +45,7 @@ def check_index_health():
             embeddings = pickle.load(f)
         print(f"   Embeddings shape: {embeddings.shape}")
         # Load index info
-        with open(os.path.join(index_path, "index_info.json"), 'r') as f:
+        with open(os.path.join(index_path, "index_info.json")) as f:
             index_info = json.load(f)
         print(f"   Index built: {index_info['build_date']}")
         print(f"   Source documents: {index_info['num_documents']:,}")
@@ -55,17 +57,17 @@ def check_index_health():
             print(f"   ✗ Mismatch: FAISS vectors ({index.ntotal}) != metadata entries ({len(metadata)})")
             consistent = False
         else:
-            print(f"   ✓ Vector count matches metadata entries")
+            print("   ✓ Vector count matches metadata entries")
         if embeddings.shape[0] != index.ntotal:
             print(f"   ✗ Mismatch: Embeddings ({embeddings.shape[0]}) != FAISS vectors ({index.ntotal})")
             consistent = False
         else:
-            print(f"   ✓ Embeddings count matches FAISS vectors")
+            print("   ✓ Embeddings count matches FAISS vectors")
         if embeddings.shape[1] != index.d:
             print(f"   ✗ Mismatch: Embedding dim ({embeddings.shape[1]}) != FAISS dim ({index.d})")
             consistent = False
         else:
-            print(f"   ✓ Embedding dimensions match")
+            print("   ✓ Embedding dimensions match")
         # Check metadata structure
         print("\n4. Metadata Structure Check:")
         if metadata:
@@ -89,6 +91,7 @@ def check_index_health():
         # Performance test
         print("\n6. Performance Test:")
         import time
+
         from sentence_transformers import SentenceTransformer
         model = SentenceTransformer("all-MiniLM-L6-v2")
         test_query = "bottled water delivery services"

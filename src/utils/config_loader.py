@@ -5,18 +5,18 @@ Provides consistent config file loading with defaults across modules.
 import json
 import logging
 from pathlib import Path
-from typing import Any, Dict, TypeVar, Union
+from typing import Any, TypeVar
 
 logger = logging.getLogger(__name__)
 
-T = TypeVar("T", bound=Dict[str, Any])
+T = TypeVar("T", bound=dict[str, Any])
 
 
 def load_or_create_config(
-    path: Union[str, Path],
-    defaults: Dict[str, Any],
+    path: str | Path,
+    defaults: dict[str, Any],
     create_if_missing: bool = True
-) -> Dict[str, Any]:
+) -> dict[str, Any]:
     """
     Load configuration from a JSON file, or create it with defaults if missing.
 
@@ -38,7 +38,7 @@ def load_or_create_config(
 
     if path.exists():
         try:
-            with open(path, "r", encoding="utf-8") as f:
+            with open(path, encoding="utf-8") as f:
                 loaded = json.load(f)
             logger.info(f"Loaded configuration from {path}")
             # Merge with defaults to ensure all keys exist
@@ -61,7 +61,7 @@ def load_or_create_config(
     return defaults.copy()
 
 
-def save_config(path: Union[str, Path], config: Dict[str, Any]) -> bool:
+def save_config(path: str | Path, config: dict[str, Any]) -> bool:
     """
     Save configuration to a JSON file.
 

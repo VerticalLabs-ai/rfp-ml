@@ -6,14 +6,16 @@ import json
 import logging
 import os
 import re
+import sys
 from datetime import datetime
-from typing import Any, Dict, List, Optional, Tuple
+from typing import Any
 
-import numpy as np
 import pandas as pd
 
 from src.config.paths import PathConfig
 from src.utils.config_loader import load_or_create_config
+
+
 class ComplianceMatrixGenerator:
     """
     Generate compliance matrices that map RFP requirements to bid responses.
@@ -50,7 +52,7 @@ class ComplianceMatrixGenerator:
         self.response_templates = self._load_response_templates()
         # Requirement extraction patterns
         self.requirement_patterns = self._get_requirement_patterns()
-    def _load_response_templates(self) -> Dict[str, Any]:
+    def _load_response_templates(self) -> dict[str, Any]:
         """Load or create response templates for common compliance items."""
         templates_path = os.path.join(self.templates_dir, "compliance_response_templates.json")
         default_templates = {
@@ -80,7 +82,7 @@ class ComplianceMatrixGenerator:
             }
         }
         return load_or_create_config(templates_path, default_templates)
-    def _get_requirement_patterns(self) -> List[Dict[str, Any]]:
+    def _get_requirement_patterns(self) -> list[dict[str, Any]]:
         """Define patterns for extracting requirements from RFP text."""
         return [
             {
@@ -129,7 +131,7 @@ class ComplianceMatrixGenerator:
                 "category": "performance"
             }
         ]
-    def extract_requirements_rule_based(self, rfp_text: str) -> List[Dict[str, Any]]:
+    def extract_requirements_rule_based(self, rfp_text: str) -> list[dict[str, Any]]:
         """
         Extract requirements using rule-based pattern matching.
         Args:
@@ -160,7 +162,7 @@ class ComplianceMatrixGenerator:
         # Remove duplicates and very similar requirements
         requirements = self._deduplicate_requirements(requirements)
         return requirements
-    def extract_requirements_llm(self, rfp_text: str) -> List[Dict[str, Any]]:
+    def extract_requirements_llm(self, rfp_text: str) -> list[dict[str, Any]]:
         """
         Extract requirements using LLM-based analysis.
         Note: This is a placeholder for LLM integration. 
@@ -175,7 +177,7 @@ class ComplianceMatrixGenerator:
         requirements = []
         # For now, use enhanced rule-based extraction with LLM-style analysis
         sentences = re.split(r'[.!?]+', rfp_text)
-        for i, sentence in enumerate(sentences):
+        for _i, sentence in enumerate(sentences):
             sentence = sentence.strip()
             if len(sentence) < 30:  # Skip very short sentences
                 continue
@@ -217,7 +219,7 @@ class ComplianceMatrixGenerator:
             return 'administrative'
         else:
             return 'general'
-    def _deduplicate_requirements(self, requirements: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
+    def _deduplicate_requirements(self, requirements: list[dict[str, Any]]) -> list[dict[str, Any]]:
         """Remove duplicate and very similar requirements."""
         if not requirements:
             return requirements
@@ -238,7 +240,7 @@ class ComplianceMatrixGenerator:
                 unique_requirements.append(req)
                 seen_texts.add(normalized_text)
         return unique_requirements
-    def generate_compliance_response(self, requirement: Dict[str, Any], rfp_context: Dict[str, Any]) -> Dict[str, Any]:
+    def generate_compliance_response(self, requirement: dict[str, Any], rfp_context: dict[str, Any]) -> dict[str, Any]:
         """
         Generate a compliance response for a specific requirement.
         Args:
@@ -258,7 +260,7 @@ class ComplianceMatrixGenerator:
                 self.logger.warning(f"RAG retrieval failed: {e}")
         # Get appropriate template
         category = requirement.get('category', 'general')
-        template_info = self.response_templates.get(category + '_requirements', 
+        template_info = self.response_templates.get(category + '_requirements',
                                                   self.response_templates.get('technical_requirements'))
         # Generate response based on category and context
         response_text = self._generate_category_response(requirement, rfp_context, rag_context, template_info)
@@ -276,8 +278,8 @@ class ComplianceMatrixGenerator:
             "generated_at": datetime.now().isoformat()
         }
         return response
-    def _generate_category_response(self, requirement: Dict[str, Any], rfp_context: Dict[str, Any], 
-                                  rag_context: Optional[List[str]], template_info: Dict[str, Any]) -> str:
+    def _generate_category_response(self, requirement: dict[str, Any], rfp_context: dict[str, Any],
+                                  rag_context: list[str] | None, template_info: dict[str, Any]) -> str:
         """Generate category-specific response text."""
         category = requirement.get('category', 'general')
         if category == 'technical':
@@ -292,10 +294,10 @@ class ComplianceMatrixGenerator:
             return self._generate_administrative_response(requirement, rfp_context, rag_context)
         else:
             return self._generate_general_response(requirement, rfp_context, rag_context)
-    def _generate_technical_response(self, requirement: Dict[str, Any], rfp_context: Dict[str, Any], 
-                                   rag_context: Optional[List[str]]) -> str:
+    def _generate_technical_response(self, requirement: dict[str, Any], rfp_context: dict[str, Any],
+                                   rag_context: list[str] | None) -> str:
         """Generate technical requirement response."""
-        base_response = f"We fully comply with this technical requirement. "
+        base_response = "We fully comply with this technical requirement. "
         if 'system' in requirement['text'].lower():
             base_response += "Our system architecture is designed to meet all specified technical standards. "
         if 'software' in requirement['text'].lower():
@@ -303,43 +305,43 @@ class ComplianceMatrixGenerator:
         if 'security' in requirement['text'].lower():
             base_response += "We implement comprehensive security measures including encryption, access controls, and monitoring. "
         if rag_context:
-            base_response += f"Based on our experience with similar projects, we have successfully implemented comparable solutions. "
+            base_response += "Based on our experience with similar projects, we have successfully implemented comparable solutions. "
         base_response += "Our technical team has extensive experience and will ensure full compliance throughout the project lifecycle."
         return base_response
-    def _generate_financial_response(self, requirement: Dict[str, Any], rfp_context: Dict[str, Any], 
-                                   rag_context: Optional[List[str]]) -> str:
+    def _generate_financial_response(self, requirement: dict[str, Any], rfp_context: dict[str, Any],
+                                   rag_context: list[str] | None) -> str:
         """Generate financial requirement response."""
         return ("We comply with all financial requirements and pricing structures outlined in the RFP. "
                 "Our pricing is competitive and transparent, with detailed cost breakdowns provided. "
                 "We offer flexible payment terms and maintain strong financial standing with proven capability "
                 "to complete projects of this scope and duration.")
-    def _generate_qualification_response(self, requirement: Dict[str, Any], rfp_context: Dict[str, Any], 
-                                       rag_context: Optional[List[str]]) -> str:
+    def _generate_qualification_response(self, requirement: dict[str, Any], rfp_context: dict[str, Any],
+                                       rag_context: list[str] | None) -> str:
         """Generate qualification requirement response."""
         return ("Our team meets all qualification requirements with extensive relevant experience. "
                 "We hold all necessary certifications and licenses required for this project. "
                 "Our staff includes certified professionals with proven track records in similar engagements. "
                 "We can provide detailed resumes and certification documentation upon request.")
-    def _generate_performance_response(self, requirement: Dict[str, Any], rfp_context: Dict[str, Any], 
-                                     rag_context: Optional[List[str]]) -> str:
+    def _generate_performance_response(self, requirement: dict[str, Any], rfp_context: dict[str, Any],
+                                     rag_context: list[str] | None) -> str:
         """Generate performance requirement response."""
         return ("We commit to meeting all performance requirements and service level agreements. "
                 "Our performance management system includes regular monitoring, reporting, and continuous improvement. "
                 "We have consistently exceeded performance targets in similar projects and will provide "
                 "detailed performance metrics and reporting as specified.")
-    def _generate_administrative_response(self, requirement: Dict[str, Any], rfp_context: Dict[str, Any], 
-                                        rag_context: Optional[List[str]]) -> str:
+    def _generate_administrative_response(self, requirement: dict[str, Any], rfp_context: dict[str, Any],
+                                        rag_context: list[str] | None) -> str:
         """Generate administrative requirement response."""
         return ("We will comply with all administrative requirements including submission formats, deadlines, and documentation. "
                 "Our project management processes ensure timely delivery of all required documents and reports. "
                 "We maintain comprehensive record-keeping and quality assurance procedures to ensure full compliance.")
-    def _generate_general_response(self, requirement: Dict[str, Any], rfp_context: Dict[str, Any], 
-                                 rag_context: Optional[List[str]]) -> str:
+    def _generate_general_response(self, requirement: dict[str, Any], rfp_context: dict[str, Any],
+                                 rag_context: list[str] | None) -> str:
         """Generate general requirement response."""
         return ("We acknowledge and commit to full compliance with this requirement. "
                 "Our approach will ensure all specified criteria are met through proven methodologies and best practices. "
                 "We will provide regular updates and documentation to demonstrate ongoing compliance.")
-    def _assess_compliance_status(self, requirement: Dict[str, Any], rfp_context: Dict[str, Any]) -> str:
+    def _assess_compliance_status(self, requirement: dict[str, Any], rfp_context: dict[str, Any]) -> str:
         """Assess compliance status for a requirement."""
         # Simple heuristic-based assessment
         # In production, this could be enhanced with more sophisticated analysis
@@ -353,7 +355,7 @@ class ComplianceMatrixGenerator:
             return 'review_required'
         else:
             return 'compliant'
-    def generate_compliance_matrix(self, rfp_data: Dict[str, Any]) -> Dict[str, Any]:
+    def generate_compliance_matrix(self, rfp_data: dict[str, Any]) -> dict[str, Any]:
         """
         Generate complete compliance matrix for an RFP.
         Args:
@@ -412,7 +414,7 @@ class ComplianceMatrixGenerator:
             "generator_version": "1.0.0"
         }
         return compliance_matrix
-    def export_compliance_matrix(self, compliance_matrix: Dict[str, Any], 
+    def export_compliance_matrix(self, compliance_matrix: dict[str, Any],
                                 output_format: str = "json") -> str:
         """
         Export compliance matrix to various formats.
@@ -456,7 +458,7 @@ class ComplianceMatrixGenerator:
             raise ValueError(f"Unsupported output format: {output_format}")
         self.logger.info(f"Compliance matrix exported to: {filepath}")
         return filepath
-    def _generate_html_matrix(self, compliance_matrix: Dict[str, Any]) -> str:
+    def _generate_html_matrix(self, compliance_matrix: dict[str, Any]) -> str:
         """Generate HTML formatted compliance matrix."""
         html = f"""
         <!DOCTYPE html>
@@ -541,16 +543,16 @@ def main():
         json_path = generator.export_compliance_matrix(compliance_matrix, "json")
         csv_path = generator.export_compliance_matrix(compliance_matrix, "csv")
         html_path = generator.export_compliance_matrix(compliance_matrix, "html")
-        print(f"\nCompliance matrix generated successfully!")
+        print("\nCompliance matrix generated successfully!")
         print(f"Total requirements extracted: {compliance_matrix['compliance_summary']['total_requirements']}")
         print(f"Compliance rate: {compliance_matrix['compliance_summary']['compliance_rate']:.1%}")
         print(f"Overall status: {compliance_matrix['compliance_summary']['overall_status']}")
-        print(f"\nExported files:")
+        print("\nExported files:")
         print(f"JSON: {json_path}")
         print(f"CSV: {csv_path}")
         print(f"HTML: {html_path}")
         # Show sample requirements
-        print(f"\nSample requirements:")
+        print("\nSample requirements:")
         for i, response in enumerate(compliance_matrix['requirements_and_responses'][:3]):
             print(f"\n{i+1}. [{response['category']}] {response['requirement_text'][:100]}...")
             print(f"   Status: {response['compliance_status']}")

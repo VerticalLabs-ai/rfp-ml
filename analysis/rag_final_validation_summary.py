@@ -1,6 +1,8 @@
 import json
 import os
 from datetime import datetime
+
+
 def create_final_rag_summary():
     """Create final validation summary for RAG system"""
     print("=== RAG SYSTEM FINAL VALIDATION SUMMARY ===")
@@ -24,7 +26,7 @@ def create_final_rag_summary():
     # Validation scripts
     validation_scripts = [
         "/app/government_rfp_bid_1927/debug_scripts/validate_rag_system.py",
-        "/app/government_rfp_bid_1927/debug_scripts/test_rag_queries.py", 
+        "/app/government_rfp_bid_1927/debug_scripts/test_rag_queries.py",
         "/app/government_rfp_bid_1927/debug_scripts/simple_rag_test.py"
     ]
     for script_path in validation_scripts:
@@ -37,13 +39,13 @@ def create_final_rag_summary():
     validation_report_path = "/app/government_rfp_bid_1927/analysis/rag_validation_report.json"
     validation_results = {}
     if os.path.exists(validation_report_path):
-        with open(validation_report_path, 'r') as f:
+        with open(validation_report_path) as f:
             validation_results = json.load(f)
     # Load index info
     index_info_path = os.path.join(index_path, "index_info.json")
     index_info = {}
     if os.path.exists(index_info_path):
-        with open(index_info_path, 'r') as f:
+        with open(index_info_path) as f:
             index_info = json.load(f)
     # Create comprehensive summary
     summary = {
@@ -96,22 +98,22 @@ def create_final_rag_summary():
     # Print key results
     print(f"Status: {summary['rag_system_status']}")
     print(f"Critical Files: {summary['critical_files_status']}")
-    print(f"\nIndex Statistics:")
+    print("\nIndex Statistics:")
     if index_info:
         print(f"  Total documents: {index_info.get('num_documents', 0):,}")
         print(f"  Total chunks: {index_info.get('num_chunks', 0):,}")
         print(f"  Embedding dimension: {index_info.get('embedding_dim', 0)}")
         print(f"  Build date: {index_info.get('build_date', 'N/A')}")
-    print(f"\nArtifacts Status:")
+    print("\nArtifacts Status:")
     for artifact, status in artifacts_status.items():
         indicator = "✓" if status['exists'] else "✗"
         size_mb = status['size'] / (1024*1024) if status['size'] > 0 else 0
         print(f"  {indicator} {artifact}: {size_mb:.1f}MB")
     if "performance_assessment" in summary:
-        print(f"\nPerformance Assessment:")
+        print("\nPerformance Assessment:")
         for metric, result in summary["performance_assessment"].items():
             print(f"  {metric}: {result}")
-    print(f"\nRequirements Compliance:")
+    print("\nRequirements Compliance:")
     for req, status in summary["requirements_compliance"].items():
         print(f"  {status} {req}")
     print(f"\nDetailed report saved: {summary_path}")

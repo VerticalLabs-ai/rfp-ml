@@ -1,12 +1,10 @@
 """
 Portal adapters for government procurement systems.
 """
-import os
 import logging
-from typing import Dict, List, Any
-from abc import ABC, abstractmethod
 import time
 import uuid
+from abc import ABC, abstractmethod
 
 logger = logging.getLogger(__name__)
 
@@ -15,7 +13,7 @@ class PortalAdapter(ABC):
     """Base class for portal-specific submission logic."""
 
     @abstractmethod
-    def validate_requirements(self, bid_data: Dict) -> List[str]:
+    def validate_requirements(self, bid_data: dict) -> list[str]:
         """
         Check if bid meets portal requirements.
 
@@ -28,7 +26,7 @@ class PortalAdapter(ABC):
         pass
 
     @abstractmethod
-    def format_submission(self, bid_document: Dict) -> Dict:
+    def format_submission(self, bid_document: dict) -> dict:
         """
         Format bid for portal-specific requirements.
 
@@ -41,7 +39,7 @@ class PortalAdapter(ABC):
         pass
 
     @abstractmethod
-    def submit(self, formatted_data: Dict) -> Dict:
+    def submit(self, formatted_data: dict) -> dict:
         """
         Submit bid to portal.
 
@@ -54,7 +52,7 @@ class PortalAdapter(ABC):
         pass
 
     @abstractmethod
-    def verify_submission(self, confirmation_data: Dict) -> bool:
+    def verify_submission(self, confirmation_data: dict) -> bool:
         """
         Verify submission was received.
 
@@ -94,7 +92,7 @@ class SAMGovAdapter(PortalAdapter):
         self.base_url = "https://api.sam.gov"
         logger.info("SAM.gov adapter initialized")
 
-    def validate_requirements(self, bid_data: Dict) -> List[str]:
+    def validate_requirements(self, bid_data: dict) -> list[str]:
         """Validate SAM.gov requirements."""
         errors = []
 
@@ -121,7 +119,7 @@ class SAMGovAdapter(PortalAdapter):
 
         return errors
 
-    def format_submission(self, bid_document: Dict) -> Dict:
+    def format_submission(self, bid_document: dict) -> dict:
         """Format bid for SAM.gov submission."""
         formatted = {
             "api_key": self.api_key,
@@ -149,7 +147,7 @@ class SAMGovAdapter(PortalAdapter):
 
         return formatted
 
-    def submit(self, formatted_data: Dict) -> Dict:
+    def submit(self, formatted_data: dict) -> dict:
         """
         Submit bid to SAM.gov.
 
@@ -181,7 +179,7 @@ class SAMGovAdapter(PortalAdapter):
         logger.info(f"Submission successful: {result['confirmation_number']}")
         return result
 
-    def verify_submission(self, confirmation_data: Dict) -> bool:
+    def verify_submission(self, confirmation_data: dict) -> bool:
         """Verify SAM.gov submission."""
         # In production, verify via API
         return confirmation_data.get("confirmation_number") is not None
@@ -208,7 +206,7 @@ class GSAeBuyAdapter(PortalAdapter):
         self.portal_url = "https://www.ebuy.gsa.gov"
         logger.info("GSA eBuy adapter initialized")
 
-    def validate_requirements(self, bid_data: Dict) -> List[str]:
+    def validate_requirements(self, bid_data: dict) -> list[str]:
         """Validate GSA eBuy requirements."""
         errors = []
 
@@ -224,7 +222,7 @@ class GSAeBuyAdapter(PortalAdapter):
 
         return errors
 
-    def format_submission(self, bid_document: Dict) -> Dict:
+    def format_submission(self, bid_document: dict) -> dict:
         """Format bid for GSA eBuy."""
         formatted = {
             "rfq_number": bid_document.get("rfq_number"),
@@ -237,7 +235,7 @@ class GSAeBuyAdapter(PortalAdapter):
 
         return formatted
 
-    def submit(self, formatted_data: Dict) -> Dict:
+    def submit(self, formatted_data: dict) -> dict:
         """
         Submit to GSA eBuy (browser automation required).
 
@@ -267,7 +265,7 @@ class GSAeBuyAdapter(PortalAdapter):
 
         return result
 
-    def verify_submission(self, confirmation_data: Dict) -> bool:
+    def verify_submission(self, confirmation_data: dict) -> bool:
         """Verify GSA eBuy submission."""
         return confirmation_data.get("confirmation_number") is not None
 
@@ -284,7 +282,7 @@ class MockPortalAdapter(PortalAdapter):
         self.submissions = {}
         logger.info("Mock portal adapter initialized")
 
-    def validate_requirements(self, bid_data: Dict) -> List[str]:
+    def validate_requirements(self, bid_data: dict) -> list[str]:
         """Mock validation (always passes)."""
         errors = []
 
@@ -294,11 +292,11 @@ class MockPortalAdapter(PortalAdapter):
 
         return errors
 
-    def format_submission(self, bid_document: Dict) -> Dict:
+    def format_submission(self, bid_document: dict) -> dict:
         """Mock formatting (pass through)."""
         return bid_document
 
-    def submit(self, formatted_data: Dict) -> Dict:
+    def submit(self, formatted_data: dict) -> dict:
         """Mock submission (always succeeds)."""
         submission_id = str(uuid.uuid4())
         confirmation = f"MOCK-{uuid.uuid4().hex[:8].upper()}"
@@ -320,7 +318,7 @@ class MockPortalAdapter(PortalAdapter):
             "status": "submitted"
         }
 
-    def verify_submission(self, confirmation_data: Dict) -> bool:
+    def verify_submission(self, confirmation_data: dict) -> bool:
         """Mock verification (always true)."""
         return True
 

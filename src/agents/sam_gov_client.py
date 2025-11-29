@@ -1,8 +1,8 @@
-import os
-import requests
-from typing import List, Dict, Optional
-from datetime import datetime, timedelta
 import logging
+import os
+from datetime import datetime, timedelta
+
+import requests
 
 logger = logging.getLogger(__name__)
 
@@ -12,7 +12,7 @@ class SAMGovClient:
     OPP_BASE_URL = "https://api.sam.gov/opportunities/v2/search"
     ENTITY_BASE_URL = "https://api.sam.gov/entity-information/v3/entities"
 
-    def __init__(self, api_key: Optional[str] = None):
+    def __init__(self, api_key: str | None = None):
         """
         Initialize the SAM.gov client.
         
@@ -23,7 +23,7 @@ class SAMGovClient:
         if not self.api_key:
             logger.warning("SAM.gov API key not provided. API calls will fail.")
 
-    def search_entities(self, naics_code: Optional[str] = None, keywords: Optional[str] = None, limit: int = 10) -> List[Dict]:
+    def search_entities(self, naics_code: str | None = None, keywords: str | None = None, limit: int = 10) -> list[dict]:
         """
         Search for entities in SAM.gov using the Entity Management API.
         
@@ -43,7 +43,7 @@ class SAMGovClient:
         # Note: The actual SAM.gov Entity API parameters might vary (e.g. 'q', 'legalBusinessName', 'naicsCode')
         # Based on documentation, we use 'naicsCode' and 'q' (for general search) or specific fields.
         # We'll attempt to use 'naicsCode' as a primary filter.
-        
+
         params = {
             "api_key": self.api_key,
             "limit": limit,
@@ -53,24 +53,24 @@ class SAMGovClient:
 
         if naics_code:
             params["naicsCode"] = naics_code
-        
+
         if keywords:
             params["q"] = keywords # General query parameter if supported, else we filter client-side
 
         try:
             logger.info(f"Searching SAM.gov entities (NAICS={naics_code}, Keywords={keywords})...")
             response = requests.get(self.ENTITY_BASE_URL, params=params, timeout=30)
-            
+
             if response.status_code == 404:
                  logger.warning("SAM.gov Entity API endpoint not found (404). Check URL version.")
                  return []
             if response.status_code == 403:
                  logger.error("SAM.gov Entity API access denied (403). Check API Key permissions.")
                  return []
-            
+
             response.raise_for_status()
             data = response.json()
-            
+
             entities = data.get("entityData", [])
             logger.info(f"Found {len(entities)} entities.")
             return self._map_entity_results(entities)
@@ -79,7 +79,7 @@ class SAMGovClient:
             logger.error(f"Error searching SAM.gov entities: {e}")
             return []
 
-    def _map_entity_results(self, entities: List[Dict]) -> List[Dict]:
+    def _map_entity_results(self, entities: list[dict]) -> list[dict]:
         """Map SAM.gov Entity API response to internal TeamingPartner schema."""
         mapped = []
         for ent in entities:
@@ -87,11 +87,11 @@ class SAMGovClient:
                 core_data = ent.get("coreData", {})
                 assertions = ent.get("assertions", {})
                 reps_certs = ent.get("repsAndCerts", {})
-                
+
                 # Extract fields
                 uei = core_data.get("ueiSAM", "")
                 legal_name = core_data.get("legalBusinessName", "Unknown")
-                
+
                 # Business Types (Certs)
                 biz_types = core_data.get("businessTypes", {})
                 certs = []
@@ -100,7 +100,7 @@ class SAMGovClient:
                     # This is a simplification; actual structure is complex
                     if isinstance(biz_types, list):
                         certs = [bt.get("businessTypeDescription") for bt in biz_types if bt.get("businessTypeDescription")]
-                
+
                 # NAICS
                 naics_list = []
                 goods_services = assertions.get("goodsAndServices", {})
@@ -123,7 +123,7 @@ class SAMGovClient:
                 continue
         return mapped
 
-    def search_opportunities(self, days_back: int = 30, limit: int = 10) -> List[Dict]:
+    def search_opportunities(self, days_back: int = 30, limit: int = 10) -> list[dict]:
         """
         Search for active opportunities posted in the last N days.
         """
@@ -133,7 +133,7 @@ class SAMGovClient:
 
         end_date = datetime.now()
         start_date = end_date - timedelta(days=days_back)
-        
+
         # Format dates as MM/DD/YYYY
         posted_from = start_date.strftime("%m/%d/%Y")
         posted_to = end_date.strftime("%m/%d/%Y")
@@ -151,10 +151,10 @@ class SAMGovClient:
             logger.info(f"Fetching opportunities from SAM.gov (last {days_back} days)...")
             response = requests.get(self.OPP_BASE_URL, params=params, timeout=30)
             response.raise_for_status()
-            
+
             data = response.json()
             opportunities = data.get("opportunitiesData", [])
-            
+
             logger.info(f"Found {len(opportunities)} opportunities.")
             return self._map_results(opportunities)
 
@@ -167,10 +167,10 @@ class SAMGovClient:
             logger.error(f"Error processing SAM.gov response: {e}")
             return []
 
-    def _map_results(self, opportunities: List[Dict]) -> List[Dict]:
+    def _map_results(self, opportunities: list[dict]) -> list[dict]:
         """Map SAM.gov API response format to internal schema."""
         mapped_results = []
-        
+
         for opp in opportunities:
             try:
                 # Extract fields safely
@@ -181,11 +181,11 @@ class SAMGovClient:
                 posted_date = opp.get("postedDate", "")
                 response_deadline = opp.get("responseDeadLine", "")
                 description = opp.get("description", "")
-                
+
                 # Try to find award amount (often not in search results, but maybe in description or extra fields)
                 # For now, default to 0.0 as it's often not structured in search results
-                award_amount = 0.0 
-                
+                award_amount = 0.0
+
                 # Construct URL
                 opp_id = opp.get("noticeId", "")
                 url = f"https://sam.gov/opp/{opp_id}/view" if opp_id else ""
@@ -204,9 +204,9 @@ class SAMGovClient:
                     "source": "sam.gov_api"
                 }
                 mapped_results.append(mapped_opp)
-                
+
             except Exception as e:
                 logger.warning(f"Error mapping opportunity: {e}")
                 continue
-                
+
         return mapped_results

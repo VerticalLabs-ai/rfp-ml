@@ -1,9 +1,10 @@
-import os
 import json
-import pandas as pd
+import os
 import xml.etree.ElementTree as ET
-from pathlib import Path
-import sys
+
+import pandas as pd
+
+
 def explore_directory_structure(base_path):
     """Explore directory structure and catalog all files"""
     print(f"=== EXPLORING DIRECTORY: {base_path} ===\n")
@@ -45,14 +46,14 @@ def explore_directory_structure(base_path):
                 })
             except OSError as e:
                 print(f"{subindent}{file} (ERROR: {e})")
-    print(f"\n=== SUMMARY ===")
+    print("\n=== SUMMARY ===")
     print(f"Total files found: {len(all_files)}")
     print(f"Total size: {total_size/(1024**2):.2f}MB")
     print(f"File types: {file_types}")
     return all_files, file_types
 def validate_sample_files(all_files, max_samples=5):
     """Attempt to read and validate sample files"""
-    print(f"\n=== SAMPLE FILE VALIDATION ===\n")
+    print("\n=== SAMPLE FILE VALIDATION ===\n")
     if not all_files:
         print("No files found to validate!")
         return {}
@@ -72,7 +73,7 @@ def validate_sample_files(all_files, max_samples=5):
         print(f"Testing {ext} file: {test_file['name']} ({test_file['size']/(1024**2):.2f}MB)")
         try:
             if ext == '.json':
-                with open(file_path, 'r', encoding='utf-8') as f:
+                with open(file_path, encoding='utf-8') as f:
                     # Try to read first few lines to check if it's JSON Lines or single JSON
                     first_line = f.readline().strip()
                     f.seek(0)
@@ -114,7 +115,7 @@ def validate_sample_files(all_files, max_samples=5):
                     'status': 'SUCCESS',
                     'format': 'CSV',
                     'columns': list(df.columns),
-                    'record_count': f'5+ (sample)',
+                    'record_count': '5+ (sample)',
                     'sample_data': df.head(2).to_dict('records')
                 }
             elif ext == '.xml':
@@ -133,11 +134,11 @@ def validate_sample_files(all_files, max_samples=5):
                     'status': 'SUCCESS',
                     'format': 'Parquet',
                     'columns': list(df.columns),
-                    'record_count': f'5+ (sample)',
+                    'record_count': '5+ (sample)',
                     'sample_data': df.head(2).to_dict('records')
                 }
             elif ext == '.txt':
-                with open(file_path, 'r', encoding='utf-8') as f:
+                with open(file_path, encoding='utf-8') as f:
                     lines = f.readlines()[:10]
                 validation_results[file_path] = {
                     'status': 'SUCCESS',
@@ -163,7 +164,7 @@ def main():
     # Validate sample files
     validation_results = validate_sample_files(all_files)
     # Print detailed validation results
-    print(f"\n=== DETAILED VALIDATION RESULTS ===\n")
+    print("\n=== DETAILED VALIDATION RESULTS ===\n")
     for file_path, result in validation_results.items():
         print(f"File: {os.path.basename(file_path)}")
         print(f"Status: {result['status']}")
@@ -181,7 +182,7 @@ def main():
             print(f"Error: {result['error']}")
         print("-" * 50)
     # Final recommendations
-    print(f"\n=== RECOMMENDATIONS ===")
+    print("\n=== RECOMMENDATIONS ===")
     if not all_files:
         print("❌ NO DATA FOUND - External data acquisition required")
         print("→ Proceed to download RFP data from sam.gov Google Cloud Storage")

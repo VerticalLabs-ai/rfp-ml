@@ -2,11 +2,12 @@
 Test the mock LLM functionality for development without API keys
 """
 import sys
-import os
+
 sys.path.append('/app/government_rfp_bid_1927/src')
-from config.llm_config import LLMManager, LLMConfig
 import logging
-import json
+
+from config.llm_config import LLMConfig, LLMManager
+
 # Setup logging
 logging.basicConfig(
     level=logging.INFO,
@@ -25,7 +26,7 @@ def test_mock_llm():
     print("1. Creating Mock LLM Manager...")
     try:
         manager = LLMManager(config)
-        print(f"✅ Mock LLM Manager created successfully")
+        print("✅ Mock LLM Manager created successfully")
         print(f"   Available: {manager.is_available}")
         print(f"   Provider: {manager.config.provider}")
         print(f"   Model: {manager.config.model_name}")
@@ -55,7 +56,7 @@ def test_mock_llm():
         },
         {
             "name": "Executive Summary",
-            "task_type": "bid_generation", 
+            "task_type": "bid_generation",
             "prompt": "Write a brief executive summary for a water delivery service bid."
         },
         {
@@ -68,8 +69,8 @@ def test_mock_llm():
         print(f"\n   Testing {test_case['name']}...")
         try:
             result = manager.generate_text(
-                test_case["prompt"], 
-                task_type=test_case["task_type"], 
+                test_case["prompt"],
+                task_type=test_case["task_type"],
                 max_tokens=300
             )
             print(f"   ✅ {test_case['name']} successful")
@@ -89,8 +90,8 @@ def test_mock_llm():
     print(f"   Provider: {model_info['provider']}")
     print(f"   Model: {model_info['model_name']}")
     print(f"   Available: {model_info['is_available']}")
-    print(f"   Latency: <1 second (mock)")
-    print(f"   Token tracking: Enabled")
+    print("   Latency: <1 second (mock)")
+    print("   Token tracking: Enabled")
     print("\n=== Mock Test Summary ===")
     print("✅ Mock LLM infrastructure working correctly")
     print("✅ All generation tasks functional")

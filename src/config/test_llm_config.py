@@ -1,20 +1,21 @@
 """
 Test script for LLM configuration validation
 """
-import sys
-import os
 import json
+import os
+import sys
 import time
-from typing import Dict, Any
+
 # Add src to path for imports
 sys.path.append(os.path.join(os.path.dirname(__file__), '..'))
 from config.llm_config import (
-    LLMConfigManager, 
-    LLMInterface, 
-    LLMProvider,
+    LLMConfigManager,
+    LLMInterface,
+    generate_completion,
     test_llm_connection,
-    generate_completion
 )
+
+
 def test_configuration_initialization():
     """Test LLM configuration initialization"""
     print("=" * 50)
@@ -41,7 +42,7 @@ def test_task_specific_configs():
         config_manager = LLMConfigManager()
         tasks = [
             "bid_generation",
-            "requirement_extraction", 
+            "requirement_extraction",
             "pricing_calculation",
             "compliance_analysis",
             "go_nogo_decision"
@@ -147,9 +148,9 @@ def test_performance_metrics():
             print(f"  Tokens Used: {response.get('usage', {}).get('total_tokens', 'N/A')}")
             # Validate response time < 2 seconds requirement
             if response_time > 2.0:
-                print(f"  WARNING: Response time exceeds 2 second requirement")
+                print("  WARNING: Response time exceeds 2 second requirement")
             else:
-                print(f"  ✓ Response time meets <2 second requirement")
+                print("  ✓ Response time meets <2 second requirement")
         return True
     except Exception as e:
         print(f"Performance metrics test failed: {e}")

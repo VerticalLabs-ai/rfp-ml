@@ -3,13 +3,16 @@ Complete demonstration of RAG-enhanced bid generation system
 Shows end-to-end integration of RAG retrieval with LLM generation
 """
 import sys
-import os
 import time
-from typing import Dict, Any, List
+from typing import Any, Dict, List
+
 # Add project root to path
 sys.path.append('/app/government_rfp_bid_1927')
 from src.rag.working_rag_engine import WorkingRAGEngine
+
 from src.config.enhanced_bid_llm import EnhancedBidLLMManager
+
+
 class CompleteRAGBidSystem:
     """Complete demonstration of RAG-enhanced bid generation"""
     def __init__(self):
@@ -33,9 +36,9 @@ class CompleteRAGBidSystem:
             print(f"   ❌ Initialization failed: {e}")
             return False
     def enhance_bid_with_rag_context(
-        self, 
-        section_type: str, 
-        rfp_context: str, 
+        self,
+        section_type: str,
+        rfp_context: str,
         requirements: Dict[str, Any],
         max_words: int = 300
     ) -> Dict[str, Any]:
@@ -161,7 +164,7 @@ class CompleteRAGBidSystem:
                 "requirements": {
                     "duration": "24 months",
                     "delivery_frequency": "weekly",
-                    "locations": "20 office locations", 
+                    "locations": "20 office locations",
                     "quality_standards": "FDA compliance required",
                     "tracking": "real-time delivery tracking required",
                     "insurance": "$2M general liability insurance required",
@@ -197,15 +200,15 @@ class CompleteRAGBidSystem:
         for i, rfp in enumerate(sample_rfps, 1):
             print(f"\n🔍 DEMONSTRATION {i}: {rfp['title']}")
             print("-" * 50)
-            print(f"📋 RFP Context:")
+            print("📋 RFP Context:")
             print(rfp['context'].strip())
             # Generate enhanced bid sections
             sections = [
                 ("executive_summary", "Executive Summary", 200),
-                ("company_qualifications", "Company Qualifications", 250), 
+                ("company_qualifications", "Company Qualifications", 250),
                 ("technical_approach", "Technical Approach", 300)
             ]
-            print(f"\n📝 Generating RAG-Enhanced Bid Sections...")
+            print("\n📝 Generating RAG-Enhanced Bid Sections...")
             total_generation_time = 0
             total_rag_queries = 0
             total_rag_context = 0
@@ -259,7 +262,7 @@ class CompleteRAGBidSystem:
         print("   • Integration seamless and performance optimized")
         print("   • Supports all target RFP categories")
         print("   • Ready for pricing engine and compliance integration")
-        print(f"\n💡 Next Steps:")
+        print("\n💡 Next Steps:")
         print("   1. Integrate with pricing engine for cost estimation")
         print("   2. Add compliance matrix generation")
         print("   3. Implement go/no-go decision engine")

@@ -94,12 +94,12 @@ class BeaconBidScraper(BaseScraper):
             logger.info("Stagehand session initialized with Browserbase")
             return stagehand
 
-        except ImportError:
+        except ImportError as err:
             logger.error("Stagehand package not installed. Run: pip install stagehand")
-            raise ScraperError("Stagehand package not installed")
+            raise ScraperError("Stagehand package not installed") from err
         except Exception as e:
             logger.error(f"Failed to create Stagehand session: {e}")
-            raise ScraperConnectionError(f"Failed to connect to Browserbase: {e}")
+            raise ScraperConnectionError(f"Failed to connect to Browserbase: {e}") from e
 
     async def scrape(self, url: str) -> ScrapedRFP:
         """
@@ -160,7 +160,7 @@ class BeaconBidScraper(BaseScraper):
 
         except Exception as e:
             logger.error(f"Error scraping BeaconBid URL {url}: {e}")
-            raise ScraperParseError(f"Failed to scrape BeaconBid: {e}")
+            raise ScraperParseError(f"Failed to scrape BeaconBid: {e}") from e
 
         finally:
             if stagehand:

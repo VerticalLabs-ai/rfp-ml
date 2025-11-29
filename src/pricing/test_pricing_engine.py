@@ -1,17 +1,20 @@
 """
 Comprehensive test suite for AI Pricing Engine
 """
-import sys
 import os
+import sys
 import time
-import json
-from pathlib import Path
+
 # Add src to path for imports
 sys.path.append(os.path.join(os.path.dirname(__file__), '..'))
 from pricing.pricing_engine import (
-    PricingEngine, PricingStrategy, RiskLevel,
-    create_pricing_engine, calculate_bid_price, validate_pricing_compliance
+    PricingStrategy,
+    calculate_bid_price,
+    create_pricing_engine,
+    validate_pricing_compliance,
 )
+
+
 def test_engine_initialization():
     """Test pricing engine initialization"""
     print("=" * 60)
@@ -19,7 +22,7 @@ def test_engine_initialization():
     print("=" * 60)
     try:
         engine = create_pricing_engine()
-        print(f"✓ Pricing engine created successfully")
+        print("✓ Pricing engine created successfully")
         stats = engine.get_pricing_statistics()
         print(f"✓ Engine status: {stats['engine_status']}")
         print(f"✓ Cost baselines loaded: {stats['cost_baselines_loaded']}")

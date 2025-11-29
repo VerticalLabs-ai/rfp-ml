@@ -1,15 +1,15 @@
 """
 Submission management API endpoints.
 """
-from fastapi import APIRouter, Depends, HTTPException
-from sqlalchemy.orm import Session
-from typing import List, Optional
-from pydantic import BaseModel
 from datetime import datetime
+from typing import List
 
 from app.core.database import get_db
-from app.models.database import Submission, SubmissionStatus
+from app.models.database import SubmissionStatus
 from app.services.submission_service import SubmissionService
+from fastapi import APIRouter, Depends, HTTPException
+from pydantic import BaseModel
+from sqlalchemy.orm import Session
 
 router = APIRouter()
 
@@ -17,7 +17,7 @@ router = APIRouter()
 class SubmissionCreate(BaseModel):
     rfp_id: str
     portal: str
-    scheduled_time: Optional[datetime] = None
+    scheduled_time: datetime | None = None
     priority: int = 0
 
 
@@ -27,10 +27,10 @@ class SubmissionResponse(BaseModel):
     rfp_id: int
     portal: str
     status: SubmissionStatus
-    scheduled_time: Optional[datetime]
-    submitted_at: Optional[datetime]
-    confirmed_at: Optional[datetime]
-    confirmation_number: Optional[str]
+    scheduled_time: datetime | None
+    submitted_at: datetime | None
+    confirmed_at: datetime | None
+    confirmation_number: str | None
     attempts: int
     created_at: datetime
 
@@ -40,7 +40,7 @@ class SubmissionResponse(BaseModel):
 
 @router.get("/queue", response_model=List[SubmissionResponse])
 async def get_submission_queue(
-    status: Optional[SubmissionStatus] = None,
+    status: SubmissionStatus | None = None,
     db: Session = Depends(get_db)
 ):
     """Get submission queue."""

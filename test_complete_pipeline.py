@@ -2,11 +2,12 @@
 """
 Complete pipeline test: RAG + Compliance + Pricing + Document Generation
 """
-import sys
 import os
+import sys
 import time
-import json
+
 import pandas as pd
+
 # Add src to path
 sys.path.insert(0, '/app/government_rfp_bid_1927/src')
 def test_complete_pipeline():
@@ -16,9 +17,9 @@ def test_complete_pipeline():
     print("=" * 80)
     try:
         # Import all components
+        from bid_generation.document_generator import BidDocumentGenerator
         from compliance.compliance_matrix import ComplianceMatrixGenerator
         from pricing.pricing_engine import PricingEngine
-        from bid_generation.document_generator import BidDocumentGenerator
         print("✅ All pipeline components imported successfully")
         # Initialize components individually first
         print("\n🔧 Initializing pipeline components...")
@@ -97,12 +98,12 @@ def test_complete_pipeline():
                 print(f"   Requirements addressed: {result['requirements_addressed']}")
                 print(f"   Pricing strategies: {result['pricing_strategies']}")
                 print(f"   Content length: {result['content_length']:,} characters")
-                print(f"   Files exported: Markdown, HTML, JSON")
+                print("   Files exported: Markdown, HTML, JSON")
             except Exception as e:
                 print(f"❌ Pipeline failed for RFP {i}: {e}")
                 continue
         # Final pipeline summary
-        print(f"\n" + "="*80)
+        print("\n" + "="*80)
         print("COMPLETE PIPELINE VALIDATION SUMMARY")
         print("="*80)
         if results:
@@ -111,7 +112,7 @@ def test_complete_pipeline():
             avg_requirements = sum(r['requirements_addressed'] for r in results) / len(results)
             avg_content_length = sum(r['content_length'] for r in results) / len(results)
             print(f"✅ Successfully processed: {successful_rfps}/{len(test_rfps)} RFPs")
-            print(f"📊 Performance Metrics:")
+            print("📊 Performance Metrics:")
             print(f"   Average processing time: {avg_processing_time:.2f} seconds")
             print(f"   Average requirements addressed: {avg_requirements:.1f}")
             print(f"   Average content length: {avg_content_length:,.0f} characters")
@@ -122,12 +123,12 @@ def test_complete_pipeline():
                 md_files = [f for f in all_files if f.endswith('.md')]
                 html_files = [f for f in all_files if f.endswith('.html')]
                 json_files = [f for f in all_files if f.endswith('.json')]
-                print(f"\n📁 Generated Bid Documents:")
+                print("\n📁 Generated Bid Documents:")
                 print(f"   Total files: {len(all_files)}")
                 print(f"   Markdown documents: {len(md_files)}")
                 print(f"   HTML documents: {len(html_files)}")
                 print(f"   JSON documents: {len(json_files)}")
-            print(f"\n📋 Individual Results:")
+            print("\n📋 Individual Results:")
             for result in results:
                 print(f"   RFP {result['rfp_id']} ({result['category']}): "
                       f"{result['requirements_addressed']} reqs, "
@@ -141,7 +142,7 @@ def test_complete_pipeline():
                 'all_exports_working': successful_rfps > 0,
                 'full_pipeline_success': successful_rfps == len(test_rfps)
             }
-            print(f"\n🎯 VALIDATION RESULTS:")
+            print("\n🎯 VALIDATION RESULTS:")
             passed_checks = 0
             for check, passed in validation_checks.items():
                 status = "✅ PASS" if passed else "❌ FAIL"
@@ -155,7 +156,7 @@ def test_complete_pipeline():
                 print("✅ Ready for production deployment and go/no-go decision integration")
                 return True
             elif validation_score >= 0.6:
-                print("\n✅ COMPLETE BID GENERATION PIPELINE: GOOD PERFORMANCE") 
+                print("\n✅ COMPLETE BID GENERATION PIPELINE: GOOD PERFORMANCE")
                 print("🔧 Minor optimizations available but system is functional")
                 return True
             else:

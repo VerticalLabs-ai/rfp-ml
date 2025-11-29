@@ -1,5 +1,8 @@
-import pandas as pd
 import os
+
+import pandas as pd
+
+
 def examine_data_structure():
     processed_dir = "/app/government_rfp_bid_1927/data/processed"
     # Check available files
@@ -12,7 +15,7 @@ def examine_data_structure():
             print(f"\n=== {file} ===")
             print(f"Shape: {df.shape}")
             print(f"Columns: {list(df.columns)}")
-            print(f"Sample data:")
+            print("Sample data:")
             print(df.head(2))
             # Check for text content that can be embedded
             text_columns = []

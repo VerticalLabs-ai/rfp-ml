@@ -44,7 +44,7 @@ def test_transformers_basic():
         test_text = "Hello, this is a test."
         tokens = tokenizer.encode(test_text)
         decoded = tokenizer.decode(tokens)
-        print(f"✓ Tokenizer test successful")
+        print("✓ Tokenizer test successful")
         print(f"  Original: {test_text}")
         print(f"  Tokens: {tokens}")
         print(f"  Decoded: {decoded}")
@@ -68,7 +68,7 @@ def test_torch_setup():
         x = torch.randn(2, 3)
         y = torch.randn(3, 2)
         z = torch.mm(x, y)
-        print(f"✓ Basic tensor operations working")
+        print("✓ Basic tensor operations working")
         return True
     except Exception as e:
         print(f"✗ PyTorch test failed: {str(e)}")

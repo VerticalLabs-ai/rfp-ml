@@ -1,9 +1,10 @@
 """
 LLM Adapter - Provides unified interface for both full and minimal LLM configurations
 """
-import os
 import logging
-from typing import Dict, Any, Optional, Union
+from typing import Any
+
+
 def get_llm_manager(prefer_full: bool = True):
     """
     Get the best available LLM manager based on system capabilities
@@ -29,7 +30,7 @@ def get_llm_manager(prefer_full: bool = True):
         return manager
     except Exception as e:
         logging.error(f"Both LLM configurations failed: {str(e)}")
-        raise RuntimeError("No LLM configuration available")
+        raise RuntimeError("No LLM configuration available") from e
 class UnifiedLLMInterface:
     """
     Unified interface that works with both full and minimal LLM managers
@@ -39,17 +40,17 @@ class UnifiedLLMInterface:
         self.manager = get_llm_manager(prefer_full)
         self.logger = logging.getLogger(__name__)
     def generate_text(
-        self, 
-        prompt: str, 
+        self,
+        prompt: str,
         use_case: str = "bid_generation",
         **kwargs
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """Generate text using the underlying manager"""
         return self.manager.generate_text(prompt, use_case, **kwargs)
-    def test_connection(self) -> Dict[str, Any]:
+    def test_connection(self) -> dict[str, Any]:
         """Test the connection"""
         return self.manager.test_connection()
-    def get_status(self) -> Dict[str, Any]:
+    def get_status(self) -> dict[str, Any]:
         """Get manager status"""
         status = self.manager.get_status()
         # Add adapter info
@@ -64,13 +65,13 @@ class UnifiedLLMInterface:
         try:
             test_result = self.test_connection()
             return test_result["status"] == "success"
-        except:
+        except Exception:
             return False
 def create_llm_interface(prefer_full: bool = True) -> UnifiedLLMInterface:
     """Factory function to create unified LLM interface"""
     return UnifiedLLMInterface(prefer_full)
 # For backward compatibility, provide the same interface as the original module
-def create_llm_manager(config_overrides: Optional[Dict[str, Any]] = None):
+def create_llm_manager(config_overrides: dict[str, Any] | None = None):
     """
     Backward compatible function that returns the best available LLM manager
     """
@@ -78,9 +79,9 @@ def create_llm_manager(config_overrides: Optional[Dict[str, Any]] = None):
         # Try minimal config first as it's more stable
         from .minimal_llm_config import create_minimal_llm_manager
         return create_minimal_llm_manager(config_overrides)
-    except Exception:
+    except Exception as err:
         # If that fails, there's a serious problem
-        raise RuntimeError("No LLM configuration available")
+        raise RuntimeError("No LLM configuration available") from err
 if __name__ == "__main__":
     print("=== LLM Adapter Test ===")
     try:

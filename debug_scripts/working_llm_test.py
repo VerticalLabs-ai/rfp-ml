@@ -1,9 +1,10 @@
 """
 Working LLM test script that uses the minimal configuration
 """
-import sys
-import os
 import json
+import os
+import sys
+
 sys.path.append('/app/government_rfp_bid_1927')
 def test_minimal_llm():
     """Test the minimal LLM configuration"""
@@ -17,13 +18,13 @@ def test_minimal_llm():
         print("✅ LLM Manager created")
         # Get status
         status = llm_manager.get_status()
-        print(f"✅ Status retrieved:")
+        print("✅ Status retrieved:")
         print(f"   - Backend: {status['current_backend']}")
         print(f"   - OpenAI available: {status['openai_available']}")
         print(f"   - Local available: {status['local_available']}")
         # Test connection
         test_result = llm_manager.test_connection()
-        print(f"✅ Connection test:")
+        print("✅ Connection test:")
         print(f"   - Status: {test_result['status']}")
         print(f"   - Backend: {test_result['backend']}")
         print(f"   - Output: {test_result['test_output']}")

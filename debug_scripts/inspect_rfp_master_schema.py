@@ -1,7 +1,9 @@
 # Inspect rfp_master_dataset.parquet for fields and types - essential for agent development
 
-import pandas as pd
 import sys
+
+import pandas as pd
+
 
 def main():
     try:

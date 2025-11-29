@@ -1,10 +1,13 @@
+from unittest.mock import patch
+
 import pytest
-from unittest.mock import MagicMock, patch
-from src.decision.go_nogo_engine import GoNoGoEngine, DecisionResult
+
 from src.config.settings import settings
+from src.decision.go_nogo_engine import GoNoGoEngine
+
 
 class TestDynamicGoNoGo:
-    
+
     @pytest.fixture
     def engine(self):
         return GoNoGoEngine()
@@ -17,7 +20,7 @@ class TestDynamicGoNoGo:
         settings.decision.duration_weight = 0.2
         settings.decision.historical_weight = 0.1
         settings.decision.resource_weight = 0.1
-        
+
         score = engine.calculate_weighted_score(
             margin_score=100,    # 30
             complexity_score=50, # 15
@@ -25,7 +28,7 @@ class TestDynamicGoNoGo:
             historical_score=50, # 5
             resource_score=50    # 5
         )
-        
+
         expected = 30 + 15 + 20 + 5 + 5
         assert score == expected
         assert score == 75.0
@@ -41,7 +44,7 @@ class TestDynamicGoNoGo:
             resource_score=50.0,
             risks=["Risk A"]
         )
-        
+
         assert "Overall Score: 40.0/100" in explanation
         assert "Low margin potential" in explanation
         assert "High technical complexity" in explanation

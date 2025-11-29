@@ -4,13 +4,12 @@ WebSocket endpoints for real-time updates.
 import asyncio
 import json
 import logging
-from typing import Dict, List, Optional
-
-from fastapi import APIRouter, Depends, WebSocket, WebSocketDisconnect
-from sqlalchemy.orm import Session
+from typing import Dict, List
 
 from app.core.database import get_db
 from app.services.rfp_processor import processor
+from fastapi import APIRouter, Depends, WebSocket, WebSocketDisconnect
+from sqlalchemy.orm import Session
 
 logger = logging.getLogger(__name__)
 router = APIRouter()
@@ -23,7 +22,7 @@ class ConnectionManager:
         self.active_connections: List[WebSocket] = [] # For general pipeline updates
         self.document_connections: Dict[str, List[WebSocket]] = {} # For document-specific editing
 
-    async def connect(self, websocket: WebSocket, doc_id: Optional[str] = None):
+    async def connect(self, websocket: WebSocket, doc_id: str | None = None):
         """Accept and store new WebSocket connection.
         If doc_id is provided, connection is for document editing.
         """
@@ -37,7 +36,7 @@ class ConnectionManager:
             self.active_connections.append(websocket)
             logger.info("General WebSocket connected. Total connections: %d", len(self.active_connections))
 
-    def disconnect(self, websocket: WebSocket, doc_id: Optional[str] = None):
+    def disconnect(self, websocket: WebSocket, doc_id: str | None = None):
         """Remove WebSocket connection.
         If doc_id is provided, remove from document connections, otherwise from general.
         """
@@ -69,11 +68,11 @@ class ConnectionManager:
             if conn in self.active_connections:
                 self.active_connections.remove(conn)
 
-    async def broadcast_document_update(self, doc_id: str, message: dict, exclude_websocket: Optional[WebSocket] = None):
+    async def broadcast_document_update(self, doc_id: str, message: dict, exclude_websocket: WebSocket | None = None):
         """Broadcast message to all clients connected to a specific document, excluding sender if specified."""
         if doc_id not in self.document_connections:
             return
-        
+
         message_str = json.dumps(message)
         dead_connections = []
         for connection in self.document_connections[doc_id]:

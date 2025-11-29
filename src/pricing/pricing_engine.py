@@ -2,21 +2,24 @@
 AI Pricing Engine for RFP bid generation system.
 Generates competitive pricing while maintaining target margins using historical data and cost baselines.
 """
-import os
-import sys
 import json
 import logging
-from typing import Dict, List, Any, Optional, Tuple
-from datetime import datetime, timedelta
-import pandas as pd
-import numpy as np
-from dataclasses import dataclass, asdict
+import os
 import statistics
-from src.pricing.win_probability import WinProbabilityModel
-from src.utils.category import determine_category
+import sys
+from dataclasses import asdict, dataclass
+from datetime import datetime
+from typing import Any
+
+import numpy as np
+import pandas as pd
 
 # Import path configuration
 from src.config.paths import PathConfig
+from src.pricing.win_probability import WinProbabilityModel
+from src.utils.category import determine_category
+
+
 @dataclass
 class PricingStrategy:
     """Pricing strategy configuration."""
@@ -41,7 +44,7 @@ class SimulationResult:
     scenario_name: str
     total_price: float
     margin_percent: float
-    breakdown: Dict[str, float]
+    breakdown: dict[str, float]
 
 @dataclass
 class CostBaseline:
@@ -61,8 +64,8 @@ class PricingResult:
     margin_percentage: float
     pricing_strategy: str
     competitive_score: float
-    risk_factors: List[str]
-    price_breakdown: Dict[str, float]
+    risk_factors: list[str]
+    price_breakdown: dict[str, float]
     justification: str
     confidence_score: float
 class PricingEngine:
@@ -118,7 +121,7 @@ class PricingEngine:
         datasets = [
             'rfp_master_dataset.parquet',
             'bottled_water_rfps.parquet',
-            'construction_rfps.parquet', 
+            'construction_rfps.parquet',
             'delivery_rfps.parquet'
         ]
         for dataset in datasets:
@@ -142,14 +145,14 @@ class PricingEngine:
                 combined_df['award_amount'] = np.nan
             # Filter valid records
             valid_df = combined_df[
-                (combined_df['award_amount'].notna()) & 
+                (combined_df['award_amount'].notna()) &
                 (combined_df['award_amount'] > 0)
             ].copy()
             self.logger.info(f"Loaded {len(valid_df)} records with valid award amounts")
             return valid_df
         self.logger.warning("No historical data loaded")
         return pd.DataFrame()
-    def _load_cost_baselines(self) -> Dict[str, CostBaseline]:
+    def _load_cost_baselines(self) -> dict[str, CostBaseline]:
         """Load or create cost baseline data for different categories."""
         baselines_path = os.path.join(self.pricing_dir, "cost_baselines.json")
         # Default cost baselines based on industry standards
@@ -211,7 +214,7 @@ class PricingEngine:
         }
         if os.path.exists(baselines_path):
             try:
-                with open(baselines_path, 'r') as f:
+                with open(baselines_path) as f:
                     loaded_baselines = json.load(f)
                 self.logger.info(f"Loaded cost baselines from {baselines_path}")
                 # Convert to CostBaseline objects
@@ -230,7 +233,7 @@ class PricingEngine:
             baselines[key] = CostBaseline(**data)
         self.logger.info(f"Created default cost baselines at {baselines_path}")
         return baselines
-    def _initialize_pricing_strategies(self) -> Dict[str, PricingStrategy]:
+    def _initialize_pricing_strategies(self) -> dict[str, PricingStrategy]:
         """Initialize different pricing strategies."""
         strategies = {
             "competitive": PricingStrategy(
@@ -242,7 +245,7 @@ class PricingEngine:
                 maximum_margin=0.35
             ),
             "value_based": PricingStrategy(
-                strategy_name="value_based", 
+                strategy_name="value_based",
                 base_margin=0.40,
                 competitive_factor=1.05,  # Bid 5% above median (premium positioning)
                 risk_adjustment=0.10,
@@ -267,14 +270,14 @@ class PricingEngine:
             )
         }
         return strategies
-    def _analyze_naics_pricing(self) -> Dict[str, Dict[str, float]]:
+    def _analyze_naics_pricing(self) -> dict[str, dict[str, float]]:
         """Analyze pricing patterns by NAICS code."""
         if self.historical_data.empty:
             return {}
         naics_patterns = {}
         if 'naics_code' in self.historical_data.columns:
             grouped = self.historical_data.groupby('naics_code')['award_amount'].agg([
-                'count', 'mean', 'median', 'std', 
+                'count', 'mean', 'median', 'std',
                 lambda x: x.quantile(0.25),
                 lambda x: x.quantile(0.75)
             ])
@@ -293,10 +296,10 @@ class PricingEngine:
                 }
         self.logger.info(f"Analyzed pricing patterns for {len(naics_patterns)} NAICS codes")
         return naics_patterns
-    def _determine_category(self, rfp_data: Dict[str, Any]) -> str:
+    def _determine_category(self, rfp_data: dict[str, Any]) -> str:
         """Determine the category of an RFP for cost baseline selection."""
         return determine_category(rfp_data)
-    def _get_historical_pricing_context(self, rfp_data: Dict[str, Any]) -> Dict[str, Any]:
+    def _get_historical_pricing_context(self, rfp_data: dict[str, Any]) -> dict[str, Any]:
         """Get historical pricing context for similar RFPs."""
         context = {
             'similar_awards': [],
@@ -344,8 +347,8 @@ class PricingEngine:
             except Exception as e:
                 self.logger.warning(f"RAG retrieval failed: {e}")
         return context
-    def _estimate_base_cost(self, rfp_data: Dict[str, Any], 
-                          extracted_requirements: Optional[List[Dict]] = None) -> float:
+    def _estimate_base_cost(self, rfp_data: dict[str, Any],
+                          extracted_requirements: list[dict] | None = None) -> float:
         """Estimate base cost for the RFP based on requirements and category."""
         category = self._determine_category(rfp_data)
         baseline = self.cost_baselines.get(category, self.cost_baselines['professional_services'])
@@ -400,8 +403,8 @@ class PricingEngine:
         estimated_cost *= baseline.material_multiplier
         estimated_cost *= (1 + baseline.overhead_rate)
         return estimated_cost
-    def _calculate_competitive_pricing(self, base_cost: float, historical_context: Dict[str, Any],
-                                     strategy: PricingStrategy) -> Tuple[float, float, str]:
+    def _calculate_competitive_pricing(self, base_cost: float, historical_context: dict[str, Any],
+                                     strategy: PricingStrategy) -> tuple[float, float, str]:
         """Calculate competitive pricing based on historical data and strategy."""
         # Start with cost-plus pricing
         cost_plus_price = base_cost * (1 + strategy.base_margin)
@@ -455,7 +458,7 @@ class PricingEngine:
         final_price = max(minimum_price, min(maximum_price, risk_adjusted_price))
         return final_price, competitive_score, pricing_rationale
     def _generate_price_breakdown(self, base_cost: float, final_price: float,
-                                category: str) -> Dict[str, float]:
+                                category: str) -> dict[str, float]:
         """Generate detailed price breakdown."""
         baseline = self.cost_baselines.get(category, self.cost_baselines['professional_services'])
         # Calculate component costs
@@ -472,9 +475,9 @@ class PricingEngine:
             'total_price': final_price
         }
         return breakdown
-    def _generate_pricing_justification(self, rfp_data: Dict[str, Any], 
+    def _generate_pricing_justification(self, rfp_data: dict[str, Any],
                                       pricing_result: PricingResult,
-                                      historical_context: Dict[str, Any]) -> str:
+                                      historical_context: dict[str, Any]) -> str:
         """Generate detailed pricing justification."""
         category = self._determine_category(rfp_data)
         justification_parts = []
@@ -526,12 +529,12 @@ class PricingEngine:
             )
         # Value proposition
         justification_parts.append(
-            f"Our pricing reflects proven expertise, quality delivery, and compliance "
-            f"with all requirements while maintaining competitive market positioning."
+            "Our pricing reflects proven expertise, quality delivery, and compliance "
+            "with all requirements while maintaining competitive market positioning."
         )
         return " ".join(justification_parts)
-    def generate_pricing(self, rfp_data: Dict[str, Any], 
-                        extracted_requirements: Optional[List[Dict]] = None,
+    def generate_pricing(self, rfp_data: dict[str, Any],
+                        extracted_requirements: list[dict] | None = None,
                         strategy_name: str = "competitive") -> PricingResult:
         """
         Generate comprehensive pricing for an RFP.
@@ -567,7 +570,7 @@ class PricingEngine:
             risk_factors.append("Limited historical data")
         if extracted_requirements and len(extracted_requirements) > 15:
             risk_factors.append("High complexity requirements")
-        if any(keyword in str(rfp_data.get('description', '')).lower() 
+        if any(keyword in str(rfp_data.get('description', '')).lower()
                for keyword in ['emergency', 'urgent', 'immediate']):
             risk_factors.append("Expedited timeline")
         # Calculate confidence score
@@ -596,8 +599,8 @@ class PricingEngine:
         )
         self.logger.info(f"Generated pricing: ${final_price:,.2f} with {margin_percentage:.1f}% margin")
         return result
-    def compare_strategies(self, rfp_data: Dict[str, Any], 
-                          extracted_requirements: Optional[List[Dict]] = None) -> Dict[str, PricingResult]:
+    def compare_strategies(self, rfp_data: dict[str, Any],
+                          extracted_requirements: list[dict] | None = None) -> dict[str, PricingResult]:
         """Compare pricing across all available strategies."""
         results = {}
         for strategy_name in self.pricing_strategies.keys():
@@ -608,7 +611,7 @@ class PricingEngine:
                 self.logger.error(f"Failed to generate pricing for strategy {strategy_name}: {e}")
         return results
 
-    def run_war_gaming(self, rfp_data: Dict[str, Any], custom_params: Optional[ScenarioParams] = None) -> Dict[str, SimulationResult]:
+    def run_war_gaming(self, rfp_data: dict[str, Any], custom_params: ScenarioParams | None = None) -> dict[str, SimulationResult]:
         """
         Run 'War Gaming' scenarios: Best Case, Worst Case, Most Likely, and Custom.
         Calculates impact of cost variances on final price and margin.
@@ -619,17 +622,17 @@ class PricingEngine:
             "best_case": ScenarioParams(0.9, 0.9, 0.0, 0.0),       # Efficiency gains, no risk
             "worst_case": ScenarioParams(1.2, 1.15, 0.15, 0.0),    # Cost overruns, high risk
         }
-        
+
         if custom_params:
             scenarios["custom"] = custom_params
-            
+
         results = {}
         category = self._determine_category(rfp_data)
         baseline = self.cost_baselines.get(category, self.cost_baselines['professional_services'])
 
         # 1. Get Base Cost (Unadjusted)
         base_cost_raw = self._estimate_base_cost(rfp_data)
-        
+
         # 2. Decompose (Simulated breakdown based on baseline assumptions)
         # Note: In a real system, this comes from detailed estimation.
         # Here we reverse-engineer from the aggregate base cost using approximate ratios.
@@ -640,7 +643,7 @@ class PricingEngine:
         # Let's decompose it roughly:
         # Cost = (Base * Complexity) * MatMult * (1+Overhead)
         # We need to strip overhead to get Direct Cost
-        
+
         direct_cost_raw = base_cost_raw / (1 + baseline.overhead_rate)
         # Now split Direct Cost
         material_raw = direct_cost_raw * (material_ratio / (material_ratio + labor_ratio))
@@ -652,24 +655,24 @@ class PricingEngine:
             material_adj = material_raw * params.material_cost_multiplier
             labor_adj = labor_raw * params.labor_cost_multiplier
             overhead_adj = overhead_raw # Fixed overhead assumption
-            
+
             base_cost_adj = material_adj + labor_adj + overhead_adj
-            
+
             # 4. Apply Risk Contingency
             # Contingency is added ON TOP of adjusted cost
             risk_val = base_cost_adj * params.risk_contingency_percent
             cost_with_risk = base_cost_adj + risk_val
-            
+
             # 5. Calculate Price
             # If desired_margin is set, we target that margin ON TOP of cost_with_risk
             # If not, we use self.target_margin
             margin_target = params.desired_margin if params.desired_margin > 0 else self.target_margin
-            
+
             final_price = cost_with_risk * (1 + margin_target)
-            
+
             # 6. Calculate resulting metrics
             actual_margin_percent = margin_target * 100
-            
+
             results[name] = SimulationResult(
                 scenario_name=name,
                 total_price=final_price,
@@ -682,17 +685,17 @@ class PricingEngine:
                     "profit": round(final_price - cost_with_risk, 2)
                 }
             )
-            
+
         return results
 
-    def identify_subcontractors(self, rfp_data: Dict[str, Any]) -> List[Dict[str, Any]]:
+    def identify_subcontractors(self, rfp_data: dict[str, Any]) -> list[dict[str, Any]]:
         """
         Identify potential subcontracting opportunities based on description/SOW.
         Analyzes text for trade-specific keywords and estimates budget allocation.
         """
         description = str(rfp_data.get('description', '')).lower()
         opportunities = []
-        
+
         # Keywords mapping to potential subcontracting trades
         trades = {
             "plumbing": ["plumbing", "pipe", "water line", "sewer", "drainage"],
@@ -706,17 +709,17 @@ class PricingEngine:
             "it_cabling": ["cat6", "fiber optic", "cabling", "network drop"],
             "consulting": ["consultant", "sme", "subject matter expert", "advisory"]
         }
-        
+
         # Base cost for proportional estimation
         base_est = self._estimate_base_cost(rfp_data)
-        
+
         for trade, keywords in trades.items():
             matches = [k for k in keywords if k in description]
             if matches:
                 # Heuristic: Assume between 5% and 20% of budget depending on match count
                 allocation_pct = min(0.05 * len(matches), 0.25)
                 est_cost = base_est * allocation_pct
-                
+
                 opportunities.append({
                     "trade": trade,
                     "keywords_found": matches,
@@ -724,20 +727,20 @@ class PricingEngine:
                     "allocation_percent": round(allocation_pct * 100, 1),
                     "rationale": f"RFP mentions: {', '.join(matches)}"
                 })
-                
+
         return opportunities
 
-    def calculate_price_to_win(self, rfp_data: Dict[str, Any], target_prob: float = 0.7) -> Dict[str, Any]:
+    def calculate_price_to_win(self, rfp_data: dict[str, Any], target_prob: float = 0.7) -> dict[str, Any]:
         """
         Calculate Price-to-Win (PTW) metrics.
         Reverse-engineers the maximum price to achieve a target win probability.
         """
         context = self._get_historical_pricing_context(rfp_data)
-        
+
         # Determine market median
         market_median = 0.0
         basis = "None"
-        
+
         if context.get('naics_statistics'):
             market_median = context['naics_statistics']['median']
             basis = f"NAICS Historical Median ({context['naics_statistics']['count']} records)"
@@ -749,13 +752,13 @@ class PricingEngine:
             base = self._estimate_base_cost(rfp_data)
             market_median = base * 1.3
             basis = "Cost-Plus Estimation (No historical data)"
-            
+
         ptw_price = self.ptw_model.solve_for_price(target_prob, market_median)
-        
+
         # Also calculate probability for our "Competitive" strategy price
         comp_result = self.generate_pricing(rfp_data, strategy_name="competitive")
         our_prob = self.ptw_model.predict(comp_result.total_price, market_median)
-        
+
         return {
             "target_probability": target_prob,
             "price_to_win": ptw_price,
@@ -765,8 +768,8 @@ class PricingEngine:
             "our_win_probability": our_prob
         }
 
-    def export_pricing_analysis(self, rfp_data: Dict[str, Any], 
-                               pricing_results: Dict[str, PricingResult],
+    def export_pricing_analysis(self, rfp_data: dict[str, Any],
+                               pricing_results: dict[str, PricingResult],
                                output_format: str = "json") -> str:
         """Export pricing analysis to various formats."""
         timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
@@ -820,7 +823,7 @@ def main():
         print(f"NAICS: {sample_rfp.get('naics_code', 'N/A')}")
         # Generate pricing with different strategies
         strategies_results = pricing_engine.compare_strategies(sample_rfp)
-        print(f"\nPricing Strategy Comparison:")
+        print("\nPricing Strategy Comparison:")
         print("-" * 60)
         for strategy_name, result in strategies_results.items():
             print(f"\n{strategy_name.upper()} Strategy:")
@@ -836,7 +839,7 @@ def main():
         export_path = pricing_engine.export_pricing_analysis(sample_rfp, strategies_results)
         print(f"\nPricing analysis exported to: {export_path}")
         # Show recommended strategy
-        best_strategy = max(strategies_results.items(), 
+        best_strategy = max(strategies_results.items(),
                           key=lambda x: x[1].confidence_score * 0.7 + (x[1].margin_percentage / 100) * 0.3)
         print(f"\nRecommended Strategy: {best_strategy[0].upper()}")
         print(f"Justification: {best_strategy[1].justification}")

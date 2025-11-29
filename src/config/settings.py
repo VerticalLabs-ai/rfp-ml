@@ -1,6 +1,6 @@
-from typing import Dict, List, Optional
 from pydantic import Field
 from pydantic_settings import BaseSettings
+
 
 class DecisionSettings(BaseSettings):
     """Settings for Go/No-Go Decision Engine."""
@@ -9,7 +9,7 @@ class DecisionSettings(BaseSettings):
     duration_weight: float = 0.20
     historical_weight: float = 0.15
     resource_weight: float = 0.10
-    
+
     margin_threshold_go: float = 70.0
     margin_threshold_review: float = 50.0
     complexity_threshold_review: float = 70.0
@@ -37,7 +37,7 @@ class DecisionSettings(BaseSettings):
     duration_optimal_max: int = 24
     duration_acceptable_min: int = 3
     duration_acceptable_max: int = 36
-    
+
     lead_time_short: int = 15
     lead_time_long: int = 60
 

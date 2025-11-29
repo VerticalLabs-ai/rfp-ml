@@ -1,10 +1,11 @@
 """
 Fixed comprehensive validation script for LLM infrastructure
 """
-import sys
-import os
-import time
 import json
+import os
+import sys
+import time
+
 # Add project root to path
 sys.path.append('/app/government_rfp_bid_1927')
 def main():
@@ -42,7 +43,7 @@ def main():
             max_words=100
         )
         generation_successful = (
-            test_result["status"] == "generated" and 
+            test_result["status"] == "generated" and
             len(test_result["content"]) > 20 and
             test_result["word_count"] > 0
         )
@@ -52,7 +53,7 @@ def main():
             print(f"   ✓ Quality score: {test_result['confidence_score']:.2f}")
             print(f"   ✓ Content preview: {test_result['content'][:100]}...")
         else:
-            print(f"   ✗ Generation failed or produced poor quality content")
+            print("   ✗ Generation failed or produced poor quality content")
         # Test 4: Requirements Extraction
         print("\n4️⃣ Testing Requirements Extraction...")
         test_rfp = """
@@ -87,7 +88,7 @@ def main():
         if integration_ready:
             print(f"   ✓ Successfully generated {len(sections_to_test)} different sections")
         else:
-            print(f"   ✗ Failed to generate some sections")
+            print("   ✗ Failed to generate some sections")
         # Overall Assessment
         print("\n" + "=" * 60)
         print("📊 VALIDATION SUMMARY")
@@ -117,11 +118,11 @@ def main():
         print(f"Tests Passed: {passed_tests}/{total_tests} ({pass_rate:.1%})")
         print(f"\n{status_message}")
         # Specific test results
-        print(f"\n📋 Test Results:")
+        print("\n📋 Test Results:")
         print(f"   Infrastructure Tests: {infrastructure_score}/{len(validation_results['infrastructure_tests'])}")
         print(f"   Functionality Tests: {functionality_score}/{len(validation_results['functionality_tests'])}")
         # Next steps
-        print(f"\n📋 Next Steps:")
+        print("\n📋 Next Steps:")
         if validation_results["overall_status"] == "ready":
             print("   1. Proceed with RAG system implementation")
             print("   2. Begin vector database setup with FAISS")
@@ -134,7 +135,7 @@ def main():
         os.makedirs('/app/government_rfp_bid_1927/logs', exist_ok=True)
         with open('/app/government_rfp_bid_1927/logs/final_validation_fixed.json', 'w') as f:
             json.dump(validation_results, f, indent=2)
-        print(f"\n📄 Validation results saved to: /app/government_rfp_bid_1927/logs/final_validation_fixed.json")
+        print("\n📄 Validation results saved to: /app/government_rfp_bid_1927/logs/final_validation_fixed.json")
         return validation_results["overall_status"] == "ready"
     except Exception as e:
         print(f"\n❌ Validation failed with error: {e}")

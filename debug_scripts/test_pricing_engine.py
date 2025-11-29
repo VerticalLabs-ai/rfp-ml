@@ -1,23 +1,24 @@
 """
 Comprehensive Pricing Engine Validation Script
 """
-import sys
-import os
 import json
+import os
+import sys
+
 sys.path.append('/app/government_rfp_bid_1927')
 def test_pricing_engine():
     """Comprehensive test of pricing engine functionality"""
     print("💰 COMPREHENSIVE PRICING ENGINE TEST")
     print("=" * 60)
     try:
-        from src.pricing.pricing_engine import create_pricing_engine, PricingStrategy
+        from src.pricing.pricing_engine import PricingStrategy, create_pricing_engine
         print("✅ Pricing Engine import successful")
         # Create pricing engine
         pricing_engine = create_pricing_engine()
         print("✅ Pricing Engine created")
         # Get system summary
         summary = pricing_engine.get_pricing_summary()
-        print(f"\n📊 PRICING ENGINE STATUS:")
+        print("\n📊 PRICING ENGINE STATUS:")
         print(f"   Engine Status: {summary['engine_status']}")
         print(f"   Cost Baselines: {summary['cost_baselines']}")
         print(f"   Market Data Available: {summary['market_data_available']}")
@@ -61,7 +62,7 @@ def test_pricing_engine():
                 "strategy": PricingStrategy.COST_PLUS
             }
         ]
-        print(f"\n🧪 TESTING PRICING SCENARIOS:")
+        print("\n🧪 TESTING PRICING SCENARIOS:")
         scenario_results = []
         for scenario in test_scenarios:
             print(f"\n   {scenario['name'].upper()}:")
@@ -98,7 +99,7 @@ def test_pricing_engine():
                     "error": str(e)
                 })
         # Test pricing sensitivity analysis
-        print(f"\n📈 TESTING PRICING SENSITIVITY:")
+        print("\n📈 TESTING PRICING SENSITIVITY:")
         if scenario_results and "error" not in scenario_results[0]:
             try:
                 # Get the first successful result for sensitivity analysis
@@ -110,8 +111,8 @@ def test_pricing_engine():
                 )
                 sensitivity = pricing_engine.analyze_pricing_sensitivity(base_result)
                 print(f"   ✅ Price Variations Tested: {len(sensitivity['price_variations'])}")
-                print(f"   ✅ Margin Analysis: Available")
-                print(f"   ✅ Win Probability Model: Available")
+                print("   ✅ Margin Analysis: Available")
+                print("   ✅ Win Probability Model: Available")
                 # Show a few sensitivity points
                 for i, analysis in enumerate(sensitivity['margin_analysis'][:3]):
                     price = analysis['price']
@@ -121,7 +122,7 @@ def test_pricing_engine():
             except Exception as e:
                 print(f"   ❌ Sensitivity analysis failed: {str(e)}")
         # Test integration with RAG system
-        print(f"\n🔗 TESTING RAG INTEGRATION:")
+        print("\n🔗 TESTING RAG INTEGRATION:")
         try:
             from src.rag.rag_llm_integration import create_rag_llm_integrator
             integrator = create_rag_llm_integrator()
@@ -155,7 +156,7 @@ def test_pricing_engine():
         os.makedirs('/app/government_rfp_bid_1927/logs', exist_ok=True)
         with open('/app/government_rfp_bid_1927/logs/pricing_engine_test_report.json', 'w') as f:
             json.dump(test_report, f, indent=2, default=str)
-        print(f"\n" + "=" * 60)
+        print("\n" + "=" * 60)
         print("✅ PRICING ENGINE TEST SUMMARY")
         print("=" * 60)
         print(f"✅ Engine Status: {summary['engine_status']}")
@@ -163,7 +164,7 @@ def test_pricing_engine():
         print(f"✅ Margin Compliance Rate: {test_report['margin_compliance_rate']:.1%}")
         print(f"✅ Average Confidence: {test_report['average_confidence']:.2f}")
         print(f"✅ RAG Integration: {rag_integration_success}")
-        print(f"\n📄 Test report saved: logs/pricing_engine_test_report.json")
+        print("\n📄 Test report saved: logs/pricing_engine_test_report.json")
         return True
     except Exception as e:
         print(f"❌ Pricing Engine test failed: {str(e)}")
@@ -173,7 +174,7 @@ def test_pricing_engine():
 if __name__ == "__main__":
     success = test_pricing_engine()
     if success:
-        print(f"\n🎉 PRICING ENGINE: OPERATIONAL AND READY")
-        print(f"🔄 Ready for integration with bid generation pipeline")
+        print("\n🎉 PRICING ENGINE: OPERATIONAL AND READY")
+        print("🔄 Ready for integration with bid generation pipeline")
     else:
-        print(f"\n❌ PRICING ENGINE: Issues detected")
+        print("\n❌ PRICING ENGINE: Issues detected")

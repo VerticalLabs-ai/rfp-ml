@@ -1,14 +1,15 @@
-import pandas as pd
-import numpy as np
 import json
-from datetime import datetime
+
+import pandas as pd
+
+
 def analyze_historical_pricing():
     """Analyze historical award amounts from processed RFP datasets"""
     print("=== Historical Pricing Data Analysis ===\n")
     # Load all datasets to analyze pricing patterns
     datasets = {
         'bottled_water': '/app/government_rfp_bid_1927/data/processed/bottled_water_rfps.parquet',
-        'construction': '/app/government_rfp_bid_1927/data/processed/construction_rfps.parquet', 
+        'construction': '/app/government_rfp_bid_1927/data/processed/construction_rfps.parquet',
         'delivery': '/app/government_rfp_bid_1927/data/processed/delivery_rfps.parquet',
         'master': '/app/government_rfp_bid_1927/data/processed/rfp_master_dataset.parquet'
     }
@@ -83,7 +84,7 @@ def analyze_historical_pricing():
                                 'median': float(in_range.median()),
                                 'mean': float(in_range.mean())
                             }
-                    print(f"Award Distribution by Size:")
+                    print("Award Distribution by Size:")
                     for range_name, data in range_analysis.items():
                         print(f"  {range_name.capitalize()}: {data['count']:,} awards ({data['percentage']:.1f}%) - "
                               f"Median: ${data['median']:,.0f}")

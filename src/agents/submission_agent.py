@@ -4,13 +4,10 @@ Submission Agent: Autonomous bid submission to government portals.
 import json
 import logging
 import os
-import time
 import uuid
 from dataclasses import asdict, dataclass
 from datetime import datetime, timedelta
 from enum import Enum
-from pathlib import Path
-from typing import Any, Dict, List, Optional
 
 from src.config.paths import PathConfig
 
@@ -41,12 +38,12 @@ class SubmissionJob:
     status: SubmissionStatus
     attempts: int = 0
     max_retries: int = 3
-    created_at: Optional[datetime] = None
-    submitted_at: Optional[datetime] = None
-    confirmed_at: Optional[datetime] = None
-    error_message: Optional[str] = None
-    confirmation_number: Optional[str] = None
-    metadata: Optional[Dict] = None
+    created_at: datetime | None = None
+    submitted_at: datetime | None = None
+    confirmed_at: datetime | None = None
+    error_message: str | None = None
+    confirmation_number: str | None = None
+    metadata: dict | None = None
 
     def __post_init__(self):
         if self.created_at is None:
@@ -92,8 +89,8 @@ class SubmissionAgent:
         self.data_dir = data_dir or str(PathConfig.DATA_DIR)
 
         # Submission queue
-        self.queue: List[SubmissionJob] = []
-        self.active_submissions: Dict[str, SubmissionJob] = {}
+        self.queue: list[SubmissionJob] = []
+        self.active_submissions: dict[str, SubmissionJob] = {}
 
         # Portal adapters
         self.portal_adapters = {}
@@ -105,11 +102,11 @@ class SubmissionAgent:
         os.makedirs(self.submission_dir, exist_ok=True)
         os.makedirs(self.audit_dir, exist_ok=True)
 
-        logger.info(f"SubmissionAgent initialized with max {max_concurrent} concurrent submissions")
+        logger.info(f"SubmissionAgent initialized with max {self.max_concurrent} concurrent submissions")
 
     def _initialize_adapters(self):
         """Initialize portal adapters."""
-        from src.agents.portal_adapters import SAMGovAdapter, MockPortalAdapter
+        from src.agents.portal_adapters import MockPortalAdapter, SAMGovAdapter
 
         # Initialize available portal adapters
         try:
@@ -126,10 +123,10 @@ class SubmissionAgent:
 
     def submit_bid(
         self,
-        rfp_data: Dict,
-        bid_document: Dict,
+        rfp_data: dict,
+        bid_document: dict,
         portal: str,
-        scheduled_time: Optional[datetime] = None,
+        scheduled_time: datetime | None = None,
         priority: int = 0
     ) -> SubmissionJob:
         """
@@ -179,7 +176,7 @@ class SubmissionAgent:
 
         return job
 
-    def validate_submission(self, job: SubmissionJob, bid_document: Dict) -> tuple[bool, List[str]]:
+    def validate_submission(self, job: SubmissionJob, bid_document: dict) -> tuple[bool, list[str]]:
         """
         Validate bid meets portal requirements.
 
@@ -351,7 +348,7 @@ class SubmissionAgent:
         self.queue.append(job)
         logger.info(f"Job {job_id} queued for retry")
 
-    def get_job_status(self, job_id: str) -> Optional[Dict]:
+    def get_job_status(self, job_id: str) -> dict | None:
         """Get status of a submission job."""
         job = self._load_job_state(job_id)
         if job:
@@ -364,13 +361,13 @@ class SubmissionAgent:
         with open(job_file, 'w') as f:
             json.dump(asdict(job), f, default=str, indent=2)
 
-    def _load_job_state(self, job_id: str) -> Optional[SubmissionJob]:
+    def _load_job_state(self, job_id: str) -> SubmissionJob | None:
         """Load job state from disk."""
         job_file = os.path.join(self.submission_dir, f"{job_id}.json")
         if not os.path.exists(job_file):
             return None
 
-        with open(job_file, 'r') as f:
+        with open(job_file) as f:
             data = json.load(f)
 
         # Convert string dates back to datetime
@@ -386,7 +383,7 @@ class SubmissionAgent:
         job_id: str,
         event_type: str,
         success: bool,
-        details: Optional[Dict] = None
+        details: dict | None = None
     ):
         """Log audit event."""
         audit_log = {

@@ -1,6 +1,6 @@
 import os
+
 from celery import Celery
-from config.settings import settings
 
 # Get Redis URL from settings or environment
 REDIS_URL = os.getenv("REDIS_URL", "redis://localhost:6379/0")

@@ -1,19 +1,18 @@
 """
 Document processor for bid submission format conversion.
 """
-import os
-import logging
-from typing import Dict, List, Optional
-from io import BytesIO
 import base64
+import logging
+import os
+from io import BytesIO
 
 logger = logging.getLogger(__name__)
 
 # Try to import PDF/DOCX libraries
 try:
     from reportlab.lib.pagesizes import letter
-    from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer
     from reportlab.lib.styles import getSampleStyleSheet
+    from reportlab.platypus import Paragraph, SimpleDocTemplate, Spacer
     REPORTLAB_AVAILABLE = True
 except ImportError:
     REPORTLAB_AVAILABLE = False
@@ -21,7 +20,6 @@ except ImportError:
 
 try:
     from docx import Document
-    from docx.shared import Inches
     DOCX_AVAILABLE = True
 except ImportError:
     DOCX_AVAILABLE = False
@@ -47,7 +45,7 @@ class DocumentProcessor:
 
     def convert_format(
         self,
-        bid_document: Dict,
+        bid_document: dict,
         target_format: str
     ) -> bytes:
         """
@@ -76,7 +74,7 @@ class DocumentProcessor:
         else:
             raise ValueError(f"Format not implemented: {target_format}")
 
-    def _convert_to_pdf(self, bid_document: Dict) -> bytes:
+    def _convert_to_pdf(self, bid_document: dict) -> bytes:
         """Convert to PDF format."""
         if not REPORTLAB_AVAILABLE:
             raise RuntimeError("PDF conversion not available - reportlab not installed")
@@ -112,7 +110,7 @@ class DocumentProcessor:
         logger.info(f"Generated PDF: {len(pdf_bytes)} bytes")
         return pdf_bytes
 
-    def _convert_to_docx(self, bid_document: Dict) -> bytes:
+    def _convert_to_docx(self, bid_document: dict) -> bytes:
         """Convert to DOCX format."""
         if not DOCX_AVAILABLE:
             raise RuntimeError("DOCX conversion not available - python-docx not installed")
@@ -138,7 +136,7 @@ class DocumentProcessor:
         logger.info(f"Generated DOCX: {len(docx_bytes)} bytes")
         return docx_bytes
 
-    def _convert_to_html(self, bid_document: Dict) -> bytes:
+    def _convert_to_html(self, bid_document: dict) -> bytes:
         """Convert to HTML format."""
         html_content = bid_document.get('content_html', '')
 
@@ -166,7 +164,7 @@ class DocumentProcessor:
 
         return html_content.encode('utf-8')
 
-    def _convert_to_json(self, bid_document: Dict) -> bytes:
+    def _convert_to_json(self, bid_document: dict) -> bytes:
         """Convert to JSON format."""
         import json
         json_str = json.dumps(bid_document, indent=2, default=str)
@@ -174,9 +172,9 @@ class DocumentProcessor:
 
     def assemble_package(
         self,
-        bid_document: Dict,
-        portal_requirements: Dict
-    ) -> Dict:
+        bid_document: dict,
+        portal_requirements: dict
+    ) -> dict:
         """
         Assemble complete submission package.
 
@@ -219,7 +217,7 @@ class DocumentProcessor:
         logger.info(f"Assembled submission package with {len(package['attachments'])} attachments")
         return package
 
-    def _generate_standard_form(self, form_name: str, bid_document: Dict) -> Dict:
+    def _generate_standard_form(self, form_name: str, bid_document: dict) -> dict:
         """Generate standard government form."""
         # Simplified form generation
         # In production, this would use actual form templates
@@ -237,9 +235,9 @@ class DocumentProcessor:
 
     def validate_package(
         self,
-        package: Dict,
-        requirements: Dict
-    ) -> List[str]:
+        package: dict,
+        requirements: dict
+    ) -> list[str]:
         """
         Validate submission package.
 

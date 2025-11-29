@@ -2,11 +2,14 @@
 Final comprehensive validation of LLM infrastructure
 """
 import sys
-import os
+
 sys.path.append('/app/government_rfp_bid_1927/src')
-from config.llm_config import get_default_llm_manager, LLMManager, LLMConfig
 import json
 import time
+
+from config.llm_config import LLMConfig, LLMManager, get_default_llm_manager
+
+
 def final_validation():
     """Final comprehensive validation"""
     print("=" * 80)
@@ -24,7 +27,7 @@ def final_validation():
     print("-" * 50)
     try:
         manager = get_default_llm_manager()
-        print(f"✅ Manager created successfully")
+        print("✅ Manager created successfully")
         print(f"   Provider: {manager.config.provider}")
         print(f"   Model: {manager.config.model_name}")
         print(f"   Available: {manager.is_available}")
@@ -33,7 +36,7 @@ def final_validation():
         test_result = manager.test_connection()
         end_time = time.time()
         if test_result["success"]:
-            print(f"✅ Connection test passed")
+            print("✅ Connection test passed")
             print(f"   Response: {test_result['response']}")
             print(f"   Latency: {test_result['latency_seconds']:.3f}s")
             validation_results["test_results"]["default_manager"] = {
@@ -59,7 +62,7 @@ def final_validation():
     try:
         mock_config = LLMConfig(provider="mock", use_mock=True)
         mock_manager = LLMManager(mock_config)
-        print(f"✅ Mock manager created")
+        print("✅ Mock manager created")
         print(f"   Available: {mock_manager.is_available}")
         if mock_manager.is_available:
             # Test all task types
@@ -118,7 +121,7 @@ def final_validation():
         # Test model info
         model_info = manager.get_model_info()
         temp_settings = model_info.get("task_temperatures", {})
-        print(f"✅ Task-specific temperatures:")
+        print("✅ Task-specific temperatures:")
         for task, temp in temp_settings.items():
             print(f"   - {task}: {temp}")
         validation_results["test_results"]["configuration"] = {
@@ -150,7 +153,7 @@ def final_validation():
                 avg_latency = sum(latencies) / len(latencies)
                 min_latency = min(latencies)
                 max_latency = max(latencies)
-                print(f"✅ Latency Analysis:")
+                print("✅ Latency Analysis:")
                 print(f"   - Average: {avg_latency:.3f}s")
                 print(f"   - Min: {min_latency:.3f}s")
                 print(f"   - Max: {max_latency:.3f}s")

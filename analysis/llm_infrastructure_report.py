@@ -1,10 +1,11 @@
 """
 LLM Infrastructure Implementation Report
 """
-import os
 import json
+import os
 import sys
 from datetime import datetime
+
 # Add src to path for imports
 sys.path.append(os.path.join(os.path.dirname(__file__), '..', 'src'))
 def generate_implementation_report():
@@ -23,7 +24,7 @@ def generate_implementation_report():
         },
         "files_created": [
             "/app/government_rfp_bid_1927/src/config/llm_config.py",
-            "/app/government_rfp_bid_1927/src/config/test_llm_config.py", 
+            "/app/government_rfp_bid_1927/src/config/test_llm_config.py",
             "/app/government_rfp_bid_1927/src/config/demo_llm_usage.py",
             "/app/government_rfp_bid_1927/src/config/validate_requirements.py",
             "/app/government_rfp_bid_1927/.env.example"
@@ -87,7 +88,7 @@ def generate_implementation_report():
         },
         "next_steps": [
             "Add actual API keys to .env file for production use",
-            "Integrate with RAG system for context-aware generation", 
+            "Integrate with RAG system for context-aware generation",
             "Connect to pricing engine for cost calculations",
             "Implement compliance matrix generation workflows"
         ],
@@ -127,7 +128,7 @@ def save_report():
     print("\nFiles Created:")
     for file_path in report['files_created']:
         print(f"  ✓ {file_path}")
-    print(f"\nNext Steps:")
+    print("\nNext Steps:")
     for i, step in enumerate(report['next_steps'], 1):
         print(f"  {i}. {step}")
     return report_path

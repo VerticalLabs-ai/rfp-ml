@@ -1,14 +1,14 @@
 """
 FastAPI main application for RFP Dashboard.
 """
-from fastapi import FastAPI
-from fastapi.middleware.cors import CORSMiddleware
 from contextlib import asynccontextmanager
 
 from app.core.config import settings
 from app.core.database import init_db
-from app.routes import rfps, pipeline, submissions, predictions, generation, profiles, scraper
+from app.routes import generation, pipeline, predictions, profiles, rfps, scraper, submissions
 from app.websockets import websocket_router
+from fastapi import FastAPI
+from fastapi.middleware.cors import CORSMiddleware
 
 
 @asynccontextmanager

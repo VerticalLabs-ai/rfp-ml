@@ -1,10 +1,8 @@
 """
 Notification service for submission updates and alerts.
 """
-import os
 import logging
-from typing import Optional, List, Dict
-from datetime import datetime
+import os
 from enum import Enum
 
 logger = logging.getLogger(__name__)
@@ -31,9 +29,9 @@ class NotificationService:
 
     def __init__(
         self,
-        enabled_channels: Optional[List[str]] = None,
-        smtp_config: Optional[Dict] = None,
-        slack_webhook: Optional[str] = None
+        enabled_channels: list[str] | None = None,
+        smtp_config: dict | None = None,
+        slack_webhook: str | None = None
     ):
         """
         Initialize notification service.
@@ -72,8 +70,8 @@ class NotificationService:
         subject: str,
         message: str,
         priority: NotificationPriority = NotificationPriority.NORMAL,
-        channels: Optional[List[str]] = None,
-        metadata: Optional[Dict] = None
+        channels: list[str] | None = None,
+        metadata: dict | None = None
     ):
         """
         Send notification through configured channels.
@@ -132,7 +130,7 @@ class NotificationService:
 class EmailChannel:
     """Email notification channel."""
 
-    def __init__(self, smtp_config: Dict):
+    def __init__(self, smtp_config: dict):
         """Initialize email channel."""
         self.smtp_host = smtp_config.get("host", os.getenv("SMTP_HOST"))
         self.smtp_port = smtp_config.get("port", int(os.getenv("SMTP_PORT", 587)))
@@ -146,7 +144,7 @@ class EmailChannel:
         subject: str,
         message: str,
         priority: NotificationPriority,
-        metadata: Optional[Dict] = None
+        metadata: dict | None = None
     ):
         """Send email notification."""
         # In production, use actual SMTP
@@ -178,7 +176,7 @@ class SlackChannel:
         subject: str,
         message: str,
         priority: NotificationPriority,
-        metadata: Optional[Dict] = None
+        metadata: dict | None = None
     ):
         """Send Slack notification."""
         # In production, use actual Slack webhook

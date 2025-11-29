@@ -1,9 +1,10 @@
 """
 RAG Engine Validation and Testing Script
 """
-import sys
-import os
 import json
+import os
+import sys
+
 sys.path.append('/app/government_rfp_bid_1927')
 def test_rag_engine():
     """Comprehensive test of RAG engine functionality"""
@@ -24,7 +25,7 @@ def test_rag_engine():
         print("✅ RAG Index built successfully")
         # Get post-build statistics
         stats = rag_engine.get_statistics()
-        print(f"\n📊 RAG ENGINE STATISTICS:")
+        print("\n📊 RAG ENGINE STATISTICS:")
         print(f"   Built: {stats['is_built']}")
         print(f"   Total Documents: {stats['total_documents']}")
         print(f"   Embedding Model: {stats['embedding_model']}")
@@ -39,7 +40,7 @@ def test_rag_engine():
             "water supply requirements",
             "contract award amount"
         ]
-        print(f"\n🔍 TESTING RETRIEVAL:")
+        print("\n🔍 TESTING RETRIEVAL:")
         retrieval_results = {}
         for query in test_queries:
             try:
@@ -59,7 +60,7 @@ def test_rag_engine():
                 print(f"   '{query}': FAILED - {str(e)}")
                 retrieval_results[query] = {"error": str(e)}
         # Test integration with LLM
-        print(f"\n🤖 TESTING RAG + LLM INTEGRATION:")
+        print("\n🤖 TESTING RAG + LLM INTEGRATION:")
         try:
             from src.config.llm_adapter import create_llm_interface
             llm_interface = create_llm_interface()
@@ -72,7 +73,7 @@ Retrieved Context:
 {context.context_text[:500]}...
 Based on the above context, generate a professional bid response:"""
             result = llm_interface.generate_text(enhanced_prompt, use_case="bid_generation")
-            print(f"   ✅ RAG + LLM Integration: SUCCESS")
+            print("   ✅ RAG + LLM Integration: SUCCESS")
             print(f"   Backend: {result['backend']}")
             print(f"   Context Length: {len(context.context_text)} chars")
             print(f"   Generated: {result['text'][:100]}...")
@@ -94,7 +95,7 @@ Based on the above context, generate a professional bid response:"""
         os.makedirs('/app/government_rfp_bid_1927/logs', exist_ok=True)
         with open('/app/government_rfp_bid_1927/logs/rag_engine_test_report.json', 'w') as f:
             json.dump(test_report, f, indent=2)
-        print(f"\n" + "=" * 50)
+        print("\n" + "=" * 50)
         print("✅ RAG ENGINE TEST SUMMARY")
         print("=" * 50)
         print(f"✅ Index Built: {stats['is_built']}")
@@ -103,7 +104,7 @@ Based on the above context, generate a professional bid response:"""
         print(f"✅ Retrieval Working: {test_report['successful_retrievals']}/{test_report['total_queries_tested']} queries")
         print(f"✅ LLM Integration: {integration_success}")
         print(f"✅ Average Retrieved: {test_report['average_docs_retrieved']:.1f} docs/query")
-        print(f"\n📄 Test report saved: logs/rag_engine_test_report.json")
+        print("\n📄 Test report saved: logs/rag_engine_test_report.json")
         return True
     except Exception as e:
         print(f"❌ RAG Engine test failed: {str(e)}")
@@ -113,7 +114,7 @@ Based on the above context, generate a professional bid response:"""
 if __name__ == "__main__":
     success = test_rag_engine()
     if success:
-        print(f"\n🎉 RAG ENGINE: OPERATIONAL AND READY")
-        print(f"🔄 Ready for integration with bid generation pipeline")
+        print("\n🎉 RAG ENGINE: OPERATIONAL AND READY")
+        print("🔄 Ready for integration with bid generation pipeline")
     else:
-        print(f"\n❌ RAG ENGINE: Issues detected")
+        print("\n❌ RAG ENGINE: Issues detected")

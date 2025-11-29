@@ -2,17 +2,17 @@
 Working demonstration of mock LLM functionality
 """
 import sys
-import os
+
 sys.path.append('/app/government_rfp_bid_1927/src')
 def demo_working_mock():
     """Demonstrate working mock LLM"""
     print("=== Working Mock LLM Demo ===\n")
     try:
-        from config.llm_config import LLMManager, LLMConfig
+        from config.llm_config import LLMConfig, LLMManager
         # Create explicit mock configuration
         config = LLMConfig(
             provider="mock",
-            model_name="mock-gpt-4-turbo", 
+            model_name="mock-gpt-4-turbo",
             use_mock=True
         )
         print("1. Creating Mock LLM Manager...")

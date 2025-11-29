@@ -2,7 +2,6 @@
 Path configuration for the RFP ML system.
 Provides dynamic path resolution for local and Docker environments.
 """
-import os
 from pathlib import Path
 
 

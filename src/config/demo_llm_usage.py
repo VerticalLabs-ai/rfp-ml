@@ -1,12 +1,15 @@
 """
 Demo script showing practical LLM usage for bid generation tasks
 """
-import sys
-import os
 import json
+import os
+import sys
+
 # Add src to path for imports
 sys.path.append(os.path.join(os.path.dirname(__file__), '..'))
 from config.llm_config import generate_completion, get_llm_config
+
+
 def demo_bid_generation():
     """Demo bid generation task"""
     print("=" * 60)
@@ -153,7 +156,7 @@ if __name__ == "__main__":
     demo_configuration_info()
     # Run practical demos
     demo_bid_generation()
-    demo_requirement_extraction() 
+    demo_requirement_extraction()
     demo_pricing_analysis()
     print("\n" + "=" * 70)
     print("Demo completed! This shows how the LLM will be used in the bid generation system.")

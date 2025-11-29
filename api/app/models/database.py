@@ -2,9 +2,20 @@
 Database models for RFP Dashboard and Submission System.
 """
 from datetime import datetime
-from typing import Optional, List
 from enum import Enum as PyEnum
-from sqlalchemy import Column, Integer, String, Float, DateTime, Boolean, Text, JSON, ForeignKey, Enum
+
+from sqlalchemy import (
+    JSON,
+    Boolean,
+    Column,
+    DateTime,
+    Enum,
+    Float,
+    ForeignKey,
+    Integer,
+    String,
+    Text,
+)
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import relationship
 
@@ -540,7 +551,7 @@ class SamEntity(Base):
     purpose_of_registration = Column(Text, nullable=True)
     capabilities_narrative = Column(Text, nullable=True)
     keywords = Column(Text, nullable=True) # Comma-separated or similar
-    
+
     # Contact Info
     primary_poc_name = Column(String, nullable=True)
     primary_poc_email = Column(String, nullable=True)

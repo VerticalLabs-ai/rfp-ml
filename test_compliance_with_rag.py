@@ -2,14 +2,17 @@
 """
 Test compliance matrix generator with RAG integration.
 """
-import sys
 import os
-import json
+import sys
+
 import pandas as pd
+
 # Add src to path
 sys.path.insert(0, '/app/government_rfp_bid_1927/src')
-from rag.rag_engine import RAGEngine
 from compliance.compliance_matrix import ComplianceMatrixGenerator
+from rag.rag_engine import RAGEngine
+
+
 def test_compliance_with_rag():
     """Test compliance matrix generation with RAG integration."""
     print("=" * 80)
@@ -75,20 +78,20 @@ def test_compliance_with_rag():
             print(f"✅ Requirements extracted: {result['total_requirements']}")
             print(f"✅ Compliance rate: {result['compliance_rate']:.1%}")
             print(f"✅ Overall status: {result['overall_status']}")
-            print(f"✅ Files exported: JSON, CSV, HTML")
+            print("✅ Files exported: JSON, CSV, HTML")
             # Show sample requirements
             if compliance_matrix['requirements_and_responses']:
-                print(f"\nSample requirements:")
+                print("\nSample requirements:")
                 for j, response in enumerate(compliance_matrix['requirements_and_responses'][:2]):
                     print(f"  {j+1}. [{response['category']}] {response['requirement_text'][:80]}...")
                     print(f"     Status: {response['compliance_status']}")
                     if response.get('supporting_evidence'):
-                        print(f"     RAG Context: Available")
+                        print("     RAG Context: Available")
         except Exception as e:
             print(f"❌ Error generating compliance matrix: {e}")
             continue
     # Summary results
-    print(f"\n" + "=" * 80)
+    print("\n" + "=" * 80)
     print("COMPLIANCE MATRIX GENERATION SUMMARY")
     print("=" * 80)
     if results:
@@ -100,12 +103,12 @@ def test_compliance_with_rag():
         print(f"Successful generations: {successful_tests}")
         print(f"Average requirements per RFP: {avg_requirements:.1f}")
         print(f"Average compliance rate: {avg_compliance_rate:.1%}")
-        print(f"\nDetailed Results:")
+        print("\nDetailed Results:")
         for result in results:
             print(f"  {result['category']}: {result['total_requirements']} reqs, "
                   f"{result['compliance_rate']:.1%} compliance, {result['overall_status']}")
         # Check artifacts
-        print(f"\n📁 Generated Artifacts:")
+        print("\n📁 Generated Artifacts:")
         compliance_dir = '/app/government_rfp_bid_1927/data/compliance'
         if os.path.exists(compliance_dir):
             files = os.listdir(compliance_dir)
@@ -123,7 +126,7 @@ def test_compliance_with_rag():
             'good_compliance': avg_compliance_rate >= 0.7,
             'files_exported': successful_tests > 0
         }
-        print(f"\n🎯 VALIDATION RESULTS:")
+        print("\n🎯 VALIDATION RESULTS:")
         passed = 0
         for criterion, result in validation_results.items():
             status = "✅ PASS" if result else "❌ FAIL"

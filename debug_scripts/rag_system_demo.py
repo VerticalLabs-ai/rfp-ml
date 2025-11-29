@@ -2,9 +2,10 @@
 RAG System End-to-End Demonstration
 Shows complete workflow from RFP processing to bid generation
 """
-import sys
-import os
 import json
+import os
+import sys
+
 sys.path.append('/app/government_rfp_bid_1927')
 def rag_system_demo():
     """Demonstrate complete RAG system workflow"""
@@ -21,31 +22,31 @@ def rag_system_demo():
         print(f"   ✅ LLM Backend: {status['llm_backend']}")
         print(f"   ✅ Embedding Model: {status['embedding_model']}")
         # Demo Scenario 1: Bottled Water Contract
-        print(f"\n2. 🍶 SCENARIO 1: Bottled Water Supply Contract")
-        print(f"   RFP: Supply bottled water to federal agencies")
+        print("\n2. 🍶 SCENARIO 1: Bottled Water Supply Contract")
+        print("   RFP: Supply bottled water to federal agencies")
         bid_result = integrator.generate_bid_response(
             "Supply bottled water to federal agencies nationwide",
             "Requirements: 10,000 cases per month, 24-month contract, delivery within 48 hours, FDA approved products, liability insurance minimum $2M"
         )
-        print(f"   📊 Retrieval Results:")
+        print("   📊 Retrieval Results:")
         print(f"      - Documents Retrieved: {bid_result.documents_retrieved}")
         print(f"      - Method: {bid_result.retrieval_method}")
         print(f"      - Source Datasets: {bid_result.metadata.get('source_datasets', [])}")
-        print(f"   📝 Generated Bid Response:")
+        print("   📝 Generated Bid Response:")
         print(f"      {bid_result.generated_text[:300]}...")
         # Demo Scenario 2: Construction Services
-        print(f"\n3. 🏗️ SCENARIO 2: Construction Services Contract")
+        print("\n3. 🏗️ SCENARIO 2: Construction Services Contract")
         construction_result = integrator.generate_bid_response(
             "Construction and renovation services for government facilities",
             "Requirements: General construction, electrical work, plumbing, HVAC installation, security clearance required"
         )
-        print(f"   📊 Retrieval Results:")
+        print("   📊 Retrieval Results:")
         print(f"      - Documents Retrieved: {construction_result.documents_retrieved}")
         print(f"      - Context Used: {len(construction_result.context_used)} characters")
-        print(f"   📝 Generated Bid Response:")
+        print("   📝 Generated Bid Response:")
         print(f"      {construction_result.generated_text[:300]}...")
         # Demo Scenario 3: Requirement Extraction
-        print(f"\n4. 📋 SCENARIO 3: RFP Requirement Extraction")
+        print("\n4. 📋 SCENARIO 3: RFP Requirement Extraction")
         sample_rfp = """
         Request for Proposal: Delivery Services
         The Department of Agriculture requires a contractor to provide delivery services for agricultural supplies. 
@@ -61,28 +62,28 @@ def rag_system_demo():
         Submissions due: 30 days from solicitation date
         """
         req_result = integrator.extract_rfp_requirements(sample_rfp)
-        print(f"   📊 Extraction Results:")
+        print("   📊 Extraction Results:")
         print(f"      - Related Docs Found: {req_result.documents_retrieved}")
         print(f"      - Context Enhanced: {len(req_result.context_used) > 0}")
-        print(f"   📋 Extracted Requirements:")
+        print("   📋 Extracted Requirements:")
         print(f"      {req_result.generated_text[:400]}...")
         # Demo Scenario 4: Pricing Analysis
-        print(f"\n5. 💰 SCENARIO 4: Pricing Strategy Analysis")
+        print("\n5. 💰 SCENARIO 4: Pricing Strategy Analysis")
         pricing_result = integrator.analyze_pricing(
             "Delivery services for agricultural supplies",
             "500 tons monthly to 15 locations, refrigerated transport required"
         )
-        print(f"   📊 Pricing Analysis:")
+        print("   📊 Pricing Analysis:")
         print(f"      - Historical Data Used: {pricing_result.documents_retrieved} contracts")
         print(f"      - Analysis Method: {pricing_result.retrieval_method}")
-        print(f"   💵 Pricing Recommendations:")
+        print("   💵 Pricing Recommendations:")
         print(f"      {pricing_result.generated_text[:400]}...")
         # Performance Summary
-        print(f"\n6. 📈 PERFORMANCE SUMMARY")
+        print("\n6. 📈 PERFORMANCE SUMMARY")
         total_docs_retrieved = (
-            bid_result.documents_retrieved + 
-            construction_result.documents_retrieved + 
-            req_result.documents_retrieved + 
+            bid_result.documents_retrieved +
+            construction_result.documents_retrieved +
+            req_result.documents_retrieved +
             pricing_result.documents_retrieved
         )
         total_content_generated = (
@@ -94,7 +95,7 @@ def rag_system_demo():
         print(f"   ✅ Total Documents Retrieved: {total_docs_retrieved}")
         print(f"   ✅ Total Content Generated: {total_content_generated} characters")
         print(f"   ✅ Average Docs per Query: {total_docs_retrieved / 4:.1f}")
-        print(f"   ✅ All Use Cases Functional: Bid Generation, Requirement Extraction, Pricing")
+        print("   ✅ All Use Cases Functional: Bid Generation, Requirement Extraction, Pricing")
         # Create demo report
         demo_report = {
             "timestamp": str(os.popen('date').read().strip()),
@@ -133,7 +134,7 @@ def rag_system_demo():
         os.makedirs('/app/government_rfp_bid_1927/logs', exist_ok=True)
         with open('/app/government_rfp_bid_1927/logs/rag_system_demo_report.json', 'w') as f:
             json.dump(demo_report, f, indent=2)
-        print(f"\n" + "=" * 60)
+        print("\n" + "=" * 60)
         print("✅ RAG SYSTEM DEMONSTRATION COMPLETE")
         print("=" * 60)
         print("🎉 All scenarios executed successfully!")
@@ -141,7 +142,7 @@ def rag_system_demo():
         print("✅ Context-enhanced generation producing relevant content")
         print("✅ Multiple use cases (bid generation, extraction, pricing) functional")
         print("✅ System ready for production bid generation workflows")
-        print(f"\n📄 Demo report saved: logs/rag_system_demo_report.json")
+        print("\n📄 Demo report saved: logs/rag_system_demo_report.json")
         return True
     except Exception as e:
         print(f"❌ RAG System demo failed: {str(e)}")
@@ -151,7 +152,7 @@ def rag_system_demo():
 if __name__ == "__main__":
     success = rag_system_demo()
     if success:
-        print(f"\n🚀 RAG SYSTEM: FULLY OPERATIONAL AND PRODUCTION-READY")
-        print(f"✅ Subtask 2 (RAG Engine Prototype & Processing) COMPLETE")
+        print("\n🚀 RAG SYSTEM: FULLY OPERATIONAL AND PRODUCTION-READY")
+        print("✅ Subtask 2 (RAG Engine Prototype & Processing) COMPLETE")
     else:
-        print(f"\n❌ RAG SYSTEM: Issues detected")
+        print("\n❌ RAG SYSTEM: Issues detected")

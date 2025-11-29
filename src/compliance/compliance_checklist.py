@@ -1,9 +1,10 @@
-import os
 import json
 import logging
-from typing import Dict, List, Any, Optional
+import os
+from dataclasses import asdict, dataclass, field
 from datetime import datetime, timedelta
-from dataclasses import dataclass, asdict, field
+from typing import Any
+
 import pandas as pd
 
 # Import path configuration
@@ -19,10 +20,10 @@ class ChecklistItem:
     id: str
     description: str
     status: str = "pending"  # pending, in_progress, completed, waived
-    assigned_to: Optional[str] = None
-    due_date: Optional[datetime] = None
-    notes: Optional[str] = None
-    meta: Dict[str, Any] = field(default_factory=dict)
+    assigned_to: str | None = None
+    due_date: datetime | None = None
+    notes: str | None = None
+    meta: dict[str, Any] = field(default_factory=dict)
 
     def to_dict(self):
         return {
@@ -41,11 +42,11 @@ class ComplianceChecklist:
     Post-award compliance checklist generated from RFP requirements.
     """
     rfp_id: str
-    bid_document_id: Optional[str] = None
+    bid_document_id: str | None = None
     generated_at: datetime = field(default_factory=datetime.utcnow)
     status: str = "draft"  # draft, active, complete
-    items: List[ChecklistItem] = field(default_factory=list)
-    summary: Dict[str, Any] = field(default_factory=dict)
+    items: list[ChecklistItem] = field(default_factory=list)
+    summary: dict[str, Any] = field(default_factory=dict)
 
 
 class ComplianceChecklistGenerator:
@@ -57,7 +58,7 @@ class ComplianceChecklistGenerator:
         os.makedirs(self.output_dir, exist_ok=True)
         self.logger = logger
 
-    def generate_from_bid_document(self, rfp_data: Dict[str, Any], bid_document_content: Dict[str, Any]) -> ComplianceChecklist:
+    def generate_from_bid_document(self, rfp_data: dict[str, Any], bid_document_content: dict[str, Any]) -> ComplianceChecklist:
         """
         Generate a compliance checklist from a finalized bid document's content.
         
@@ -70,12 +71,12 @@ class ComplianceChecklistGenerator:
             A ComplianceChecklist object.
         """
         rfp_id = rfp_data.get("rfp_id", "unknown_rfp")
-        checklist_items: List[ChecklistItem] = []
+        checklist_items: list[ChecklistItem] = []
 
         # Extract requirements from compliance matrix
         compliance_matrix = bid_document_content.get("sections", {}).get("compliance_matrix", {})
         requirements_and_responses = compliance_matrix.get("requirements_and_responses", [])
-        
+
         for i, req in enumerate(requirements_and_responses):
             checklist_items.append(ChecklistItem(
                 id=f"REQ-{rfp_id}-{i+1}",
@@ -91,7 +92,7 @@ class ComplianceChecklistGenerator:
 
         # Extract deliverables/milestones from technical approach (mock for now)
         technical_approach = bid_document_content.get("sections", {}).get("technical_approach", {})
-        
+
         # Example: if there's a Gantt chart, extract its tasks
         # For now, manually create a few common post-award tasks
         common_post_award_tasks = [
@@ -104,7 +105,7 @@ class ComplianceChecklistGenerator:
             "Submit First Progress Report (within 30 days)",
             "Monitor Contract Performance Metrics"
         ]
-        
+
         for i, task_desc in enumerate(common_post_award_tasks):
             checklist_items.append(ChecklistItem(
                 id=f"POSTAWARD-{rfp_id}-{i+1}",
@@ -117,7 +118,7 @@ class ComplianceChecklistGenerator:
                     "priority": "high" if i < 2 else "medium"
                 }
             ))
-        
+
         # Summary statistics
         total_items = len(checklist_items)
         pending_items = len([item for item in checklist_items if item.status == "pending"])
@@ -141,7 +142,7 @@ class ComplianceChecklistGenerator:
         Export the compliance checklist to a file.
         """
         filename_base = f"post_award_checklist_{checklist.rfp_id}_{checklist.generated_at.strftime('%Y%m%d%H%M%S')}"
-        
+
         if output_format.lower() == "json":
             filepath = os.path.join(self.output_dir, f"{filename_base}.json")
             with open(filepath, 'w') as f:

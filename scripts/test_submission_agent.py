@@ -2,15 +2,16 @@
 """
 Test the Submission Agent with mock data.
 """
-import sys
 import os
+import sys
 from datetime import datetime, timedelta
 
 # Add src to path
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..', 'src'))
 
-from agents.submission_agent import SubmissionAgent
 from agents.notification_service import NotificationService
+from agents.submission_agent import SubmissionAgent
+
 
 def main():
     """Test submission agent."""
@@ -26,7 +27,7 @@ def main():
         data_dir="./data"
     )
 
-    print(f"\n✅ Submission Agent initialized")
+    print("\n✅ Submission Agent initialized")
     print(f"   Available portals: {list(agent.portal_adapters.keys())}")
 
     # Create test RFP and bid document

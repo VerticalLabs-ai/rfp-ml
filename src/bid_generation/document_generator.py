@@ -2,21 +2,24 @@
 Fixed Bid Document Generator for AI-powered RFP bid generation system.
 Integrates RAG, Compliance Matrix, and Pricing Engine outputs into structured bid documents.
 """
-import os
-import sys
 import json
 import logging
+import os
+import sys
 import time
-from typing import Dict, List, Any, Optional
 from datetime import datetime, timedelta
-import pandas as pd
-from jinja2 import Template, Environment, FileSystemLoader
+from typing import Any
+
 import markdown
-from .visualizer import Visualizer
-from src.utils.category import determine_category
+import pandas as pd
 
 # Import path configuration
 from src.config.paths import PathConfig
+from src.utils.category import determine_category
+
+from .visualizer import Visualizer
+
+
 class BidDocumentGenerator:
     """
     Generate complete, structured bid documents integrating all pipeline components.
@@ -40,10 +43,10 @@ class BidDocumentGenerator:
         self.templates_dir = templates_dir or str(PathConfig.TEMPLATES_DIR)
         self.content_library_dir = content_library_dir or str(PathConfig.CONTENT_LIBRARY_DIR)
         self.output_dir = output_dir or str(PathConfig.BID_DOCUMENTS_DIR)
-        
+
         # Initialize visualizer
         self.visualizer = Visualizer(output_dir=os.path.join(self.output_dir, "assets"))
-        
+
         # Create directories
         os.makedirs(self.templates_dir, exist_ok=True)
         os.makedirs(self.content_library_dir, exist_ok=True)
@@ -52,7 +55,7 @@ class BidDocumentGenerator:
         self.logger = logging.getLogger(__name__)
         # Load content library
         self.content_library = self._load_content_library()
-    def _load_content_library(self) -> Dict[str, Any]:
+    def _load_content_library(self) -> dict[str, Any]:
         """Load or create content library with reusable content blocks."""
         # Company profile
         company_profile_path = os.path.join(self.content_library_dir, "company_profile.json")
@@ -69,7 +72,7 @@ class BidDocumentGenerator:
             ],
             "core_competencies": [
                 "Government Contract Management",
-                "Supply Chain Solutions", 
+                "Supply Chain Solutions",
                 "Facility Services Management",
                 "Technology Integration",
                 "Compliance and Quality Assurance"
@@ -84,7 +87,7 @@ class BidDocumentGenerator:
                 },
                 {
                     "client": "Department of Veterans Affairs",
-                    "project": "Medical Equipment Maintenance Services", 
+                    "project": "Medical Equipment Maintenance Services",
                     "value": "$1.8M",
                     "duration": "2 years",
                     "performance_rating": "Outstanding"
@@ -121,11 +124,11 @@ class BidDocumentGenerator:
         }
         self.logger.info(f"Content library loaded with {len(content_library)} sections")
         return content_library
-    def _determine_category(self, rfp_data: Dict[str, Any]) -> str:
+    def _determine_category(self, rfp_data: dict[str, Any]) -> str:
         """Determine RFP category for appropriate content selection."""
         return determine_category(rfp_data)
-    def _generate_executive_summary(self, rfp_data: Dict[str, Any], 
-                                  compliance_summary: Dict[str, Any],
+    def _generate_executive_summary(self, rfp_data: dict[str, Any],
+                                  compliance_summary: dict[str, Any],
                                   pricing_result: Any) -> str:
         """Generate executive summary using available data."""
         title = rfp_data.get('title', 'Government Contract')
@@ -147,8 +150,8 @@ class BidDocumentGenerator:
             )
         else:
             summary_parts.append(
-                f"We have carefully analyzed all requirements and provide detailed responses addressing "
-                f"the full scope of work with actionable compliance strategies."
+                "We have carefully analyzed all requirements and provide detailed responses addressing "
+                "the full scope of work with actionable compliance strategies."
             )
         # Pricing highlights
         if hasattr(pricing_result, 'pricing_strategy'):
@@ -163,29 +166,29 @@ class BidDocumentGenerator:
             )
         else:
             summary_parts.append(
-                f"Our competitive pricing approach offers exceptional value "
-                f"while ensuring sustainable service delivery and compliance with all requirements."
+                "Our competitive pricing approach offers exceptional value "
+                "while ensuring sustainable service delivery and compliance with all requirements."
             )
         # Category-specific value proposition
         if category == 'bottled_water':
             summary_parts.append(
-                f"We specialize in reliable, cost-effective water supply solutions with "
-                f"24/7 delivery capabilities and comprehensive inventory management."
+                "We specialize in reliable, cost-effective water supply solutions with "
+                "24/7 delivery capabilities and comprehensive inventory management."
             )
         elif category == 'construction':
             summary_parts.append(
-                f"Our construction management expertise encompasses full project lifecycle "
-                f"from planning through completion with emphasis on safety, quality, and schedule adherence."
+                "Our construction management expertise encompasses full project lifecycle "
+                "from planning through completion with emphasis on safety, quality, and schedule adherence."
             )
         elif category == 'delivery':
             summary_parts.append(
-                f"We provide comprehensive logistics and delivery services with real-time "
-                f"tracking, flexible scheduling, and proven reliability for government operations."
+                "We provide comprehensive logistics and delivery services with real-time "
+                "tracking, flexible scheduling, and proven reliability for government operations."
             )
         else:
             summary_parts.append(
-                f"Our proven methodology combines industry best practices with innovative "
-                f"solutions specifically designed for government contracting requirements."
+                "Our proven methodology combines industry best practices with innovative "
+                "solutions specifically designed for government contracting requirements."
             )
         # Closing
         summary_parts.append(
@@ -193,11 +196,11 @@ class BidDocumentGenerator:
             f"that meet your mission-critical objectives while providing exceptional value."
         )
         return " ".join(summary_parts)
-    def _generate_technical_approach(self, rfp_data: Dict[str, Any], 
-                                   compliance_matrix: Dict[str, Any]) -> Dict[str, str]:
+    def _generate_technical_approach(self, rfp_data: dict[str, Any],
+                                   compliance_matrix: dict[str, Any]) -> dict[str, str]:
         """Generate technical approach section with visualizations."""
         category = self._determine_category(rfp_data)
-        
+
         # Generate visualizations
         # 1. Schedule
         schedule_tasks = [
@@ -241,7 +244,7 @@ class BidDocumentGenerator:
                 "Our proven methodology combines industry best practices with innovative "
                 "solutions tailored to government requirements."
             )
-            
+
         return {
             "methodology": methodology,
             "project_management": self.content_library['standard_clauses']['technical_approach']['project_management'],
@@ -250,7 +253,7 @@ class BidDocumentGenerator:
             "gantt_chart_path": gantt_rel_path,
             "org_chart_path": org_rel_path
         }
-    def _format_pricing_for_document(self, pricing_results: Dict[str, Any]) -> Dict[str, Any]:
+    def _format_pricing_for_document(self, pricing_results: dict[str, Any]) -> dict[str, Any]:
         """Format pricing results for document inclusion."""
         # Find recommended strategy (best confidence score)
         recommended = None
@@ -277,7 +280,7 @@ class BidDocumentGenerator:
             "risk_factors": getattr(recommended, 'risk_factors', []),
         }
         return formatted_pricing
-    def generate_bid_document(self, rfp_data: Dict[str, Any]) -> Dict[str, Any]:
+    def generate_bid_document(self, rfp_data: dict[str, Any]) -> dict[str, Any]:
         """Generate complete bid document integrating all pipeline components."""
         self.logger.info(f"Generating bid document for: {rfp_data.get('title', 'Unknown RFP')}")
         generation_start = time.time()
@@ -306,15 +309,15 @@ class BidDocumentGenerator:
             pricing_results = self._create_default_pricing()
         # Step 3: Generate content sections
         executive_summary = self._generate_executive_summary(
-            rfp_data, 
-            compliance_matrix['compliance_summary'], 
+            rfp_data,
+            compliance_matrix['compliance_summary'],
             list(pricing_results.values())[0] if pricing_results else None
         )
         technical_approach = self._generate_technical_approach(rfp_data, compliance_matrix)
         formatted_pricing = self._format_pricing_for_document(pricing_results)
         # Step 4: Create document content
         document_content = self._create_document_content(
-            rfp_data, executive_summary, technical_approach, 
+            rfp_data, executive_summary, technical_approach,
             formatted_pricing, compliance_matrix
         )
         # Step 5: Create bid document package
@@ -354,9 +357,9 @@ class BidDocumentGenerator:
             }
         }
         return bid_document
-    def _create_document_content(self, rfp_data: Dict[str, Any], executive_summary: str,
-                               technical_approach: Dict[str, str], pricing: Dict[str, Any],
-                               compliance_matrix: Dict[str, Any]) -> str:
+    def _create_document_content(self, rfp_data: dict[str, Any], executive_summary: str,
+                               technical_approach: dict[str, str], pricing: dict[str, Any],
+                               compliance_matrix: dict[str, Any]) -> str:
         """Create the main document content in markdown format."""
         content_parts = []
         # Header
@@ -415,13 +418,13 @@ class BidDocumentGenerator:
         content_parts.append("")
         content_parts.append(technical_approach['methodology'])
         content_parts.append("")
-        
+
         if technical_approach.get('gantt_chart_path'):
             content_parts.append("### Implementation Schedule")
             content_parts.append("")
             content_parts.append(f"![Schedule]({technical_approach['gantt_chart_path']})")
             content_parts.append("")
-            
+
         if technical_approach.get('org_chart_path'):
             content_parts.append("### Project Organization")
             content_parts.append("")
@@ -494,7 +497,7 @@ class BidDocumentGenerator:
         content_parts.append("")
         content_parts.append(f"**Proposal Valid Through:** {(datetime.now() + timedelta(days=30)).strftime('%B %d, %Y')}")
         return "\n".join(content_parts)
-    def _create_default_compliance_matrix(self) -> Dict[str, Any]:
+    def _create_default_compliance_matrix(self) -> dict[str, Any]:
         """Create default compliance matrix when compliance generator is not available."""
         return {
             "compliance_summary": {
@@ -516,7 +519,7 @@ class BidDocumentGenerator:
                 }
             ]
         }
-    def _create_default_pricing(self) -> Dict[str, Any]:
+    def _create_default_pricing(self) -> dict[str, Any]:
         """Create default pricing when pricing engine is not available."""
         class MockPricingResult:
             def __init__(self):
@@ -529,7 +532,7 @@ class BidDocumentGenerator:
                 self.price_breakdown = {'base_cost': 75000.0, 'profit': 25000.0}
                 self.risk_factors = []
         return {"competitive": MockPricingResult()}
-    def export_bid_document(self, bid_document: Dict[str, Any], 
+    def export_bid_document(self, bid_document: dict[str, Any],
                           output_format: str = "markdown") -> str:
         """Export bid document to various formats."""
         rfp_id = bid_document['rfp_info'].get('rfp_id', 'unknown')
@@ -591,7 +594,7 @@ def main():
         print(f"\nTest RFP: {test_rfp['title']}")
         print(f"Agency: {test_rfp['agency']}")
         # Generate bid document
-        print(f"\nGenerating complete bid document...")
+        print("\nGenerating complete bid document...")
         start_time = time.time()
         bid_document = generator.generate_bid_document(test_rfp)
         generation_time = time.time() - start_time
@@ -599,12 +602,12 @@ def main():
         markdown_path = generator.export_bid_document(bid_document, "markdown")
         html_path = generator.export_bid_document(bid_document, "html")
         json_path = generator.export_bid_document(bid_document, "json")
-        print(f"✅ Bid document generated successfully!")
+        print("✅ Bid document generated successfully!")
         print(f"Generation time: {generation_time:.2f} seconds")
         print(f"Content length: {bid_document['metadata']['document_stats']['content_length']:,} characters")
         print(f"Requirements addressed: {bid_document['metadata']['document_stats']['requirements_addressed']}")
         print(f"Pricing strategies analyzed: {bid_document['metadata']['document_stats']['pricing_strategies_analyzed']}")
-        print(f"\nExported files:")
+        print("\nExported files:")
         for path in [markdown_path, html_path, json_path]:
             if os.path.exists(path):
                 size = os.path.getsize(path)

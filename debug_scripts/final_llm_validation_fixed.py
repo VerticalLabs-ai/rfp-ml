@@ -1,9 +1,10 @@
 """
 Final LLM validation script that works with the current environment
 """
-import sys
-import os
 import json
+import os
+import sys
+
 sys.path.append('/app/government_rfp_bid_1927')
 def comprehensive_validation():
     """Run comprehensive LLM validation"""
@@ -24,7 +25,7 @@ def comprehensive_validation():
             "status": "PASS",
             "data": status
         }
-        print(f"   ✓ Adapter created successfully")
+        print("   ✓ Adapter created successfully")
         print(f"   ✓ Adapter type: {status['adapter_type']}")
         print(f"   ✓ Backend: {status['current_backend']}")
         print(f"   ✓ OpenAI available: {interface.is_openai_available()}")
@@ -74,7 +75,7 @@ def comprehensive_validation():
             "status": "PASS" if test_result["status"] == "success" else "PARTIAL",
             "data": test_result
         }
-        print(f"   ✓ create_llm_manager() works")
+        print("   ✓ create_llm_manager() works")
         print(f"   ✓ Connection test: {test_result['status']}")
         print(f"   ✓ Backend: {test_result['backend']}")
     except Exception as e:
@@ -93,7 +94,7 @@ def comprehensive_validation():
             "connection_test": interface.test_connection()
         }
         all_integration_pass = all(
-            test.get("status") == "success" if "status" in test 
+            test.get("status") == "success" if "status" in test
             else test.get("text") is not None
             for test in integration_tests.values()
         )
@@ -118,7 +119,7 @@ def comprehensive_validation():
     print("\n" + "=" * 60)
     print("FINAL VALIDATION SUMMARY")
     print("=" * 60)
-    passed_tests = sum(1 for test in validation_results["tests"].values() 
+    passed_tests = sum(1 for test in validation_results["tests"].values()
                       if test["status"] in ["PASS", "PARTIAL"])
     total_tests = len(validation_results["tests"])
     validation_results["summary"] = {
@@ -141,14 +142,14 @@ def comprehensive_validation():
             print("   This is sufficient for development and testing")
     else:
         print("\n❌ LLM INFRASTRUCTURE NEEDS ATTENTION")
-        failed_tests = [name for name, result in validation_results["tests"].items() 
+        failed_tests = [name for name, result in validation_results["tests"].items()
                        if result["status"] == "FAIL"]
         print(f"Failed tests: {', '.join(failed_tests)}")
     # Save report
     os.makedirs('/app/government_rfp_bid_1927/logs', exist_ok=True)
     with open('/app/government_rfp_bid_1927/logs/final_llm_validation_report.json', 'w') as f:
         json.dump(validation_results, f, indent=2)
-    print(f"\n📄 Validation report saved to: logs/final_llm_validation_report.json")
+    print("\n📄 Validation report saved to: logs/final_llm_validation_report.json")
     return validation_results
 if __name__ == "__main__":
     results = comprehensive_validation()

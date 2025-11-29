@@ -1,11 +1,14 @@
 """
 Test the fallback mechanism when OpenAI API is not available
 """
-import sys
 import os
+import sys
+
 sys.path.append('/app/government_rfp_bid_1927/src')
-from config.llm_config import LLMManager, LLMConfig
 import logging
+
+from config.llm_config import LLMConfig, LLMManager
+
 # Setup logging
 logging.basicConfig(
     level=logging.INFO,
@@ -54,7 +57,7 @@ def test_fallback_scenarios():
         api_key_preview = os.getenv("OPENAI_API_KEY")[:10] + "..." if os.getenv("OPENAI_API_KEY") else "None"
         print(f"   API Key preview: {api_key_preview}")
     env_vars = [
-        "LLM_PROVIDER", "LLM_MODEL_NAME", "LLM_TEMPERATURE", 
+        "LLM_PROVIDER", "LLM_MODEL_NAME", "LLM_TEMPERATURE",
         "LLM_MAX_TOKENS", "OPENAI_BASE_URL"
     ]
     for var in env_vars:

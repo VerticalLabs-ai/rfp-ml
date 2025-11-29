@@ -1,19 +1,21 @@
 import json
 import os
 from datetime import datetime
+
+
 def generate_rag_summary():
     """Generate comprehensive summary of RAG implementation and validation"""
     # Load validation results
     validation_path = "/app/government_rfp_bid_1927/analysis/rag_validation_report.json"
     validation_results = {}
     if os.path.exists(validation_path):
-        with open(validation_path, 'r') as f:
+        with open(validation_path) as f:
             validation_results = json.load(f)
     # Check index health
     index_path = "/app/government_rfp_bid_1927/data/embeddings/"
     index_files = [
         "faiss_index.bin",
-        "metadata.json", 
+        "metadata.json",
         "embeddings.pkl",
         "index_info.json"
     ]
@@ -43,7 +45,7 @@ def generate_rag_summary():
             "chunk_strategy": "512 tokens with 50 token overlap",
             "data_sources": [
                 "rfp_master_dataset.parquet",
-                "bottled_water_rfps.parquet", 
+                "bottled_water_rfps.parquet",
                 "construction_rfps.parquet",
                 "delivery_rfps.parquet"
             ]
@@ -53,7 +55,7 @@ def generate_rag_summary():
         "index_statistics": validation_results.get("index_stats", {}),
         "requirements_compliance": {
             "embedding_generation": "✓ Implemented with sentence-transformers",
-            "faiss_indexing": "✓ FAISS index built and persistent", 
+            "faiss_indexing": "✓ FAISS index built and persistent",
             "semantic_search": "✓ Top-k retrieval with similarity scoring",
             "category_filtering": "✓ Supports filtering by RFP category",
             "chunk_processing": "✓ Text chunking for better granularity",

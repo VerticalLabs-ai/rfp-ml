@@ -2,9 +2,11 @@
 Simple test to verify mock LLM functionality
 """
 import sys
-import os
+
 sys.path.append('/app/government_rfp_bid_1927/src')
 from config.llm_config import get_default_llm_manager
+
+
 def test_simple_mock():
     """Simple test of mock functionality"""
     print("=== Simple Mock LLM Test ===")

@@ -1,18 +1,14 @@
 """
 Validation script to verify AI Pricing Engine meets all specified requirements
 """
-import json
-import time
-from pathlib import Path
 
 from src.config.paths import PathConfig
 from src.pricing.pricing_engine import (
     PricingStrategy,
-    RiskLevel,
-    calculate_bid_price,
     create_pricing_engine,
-    validate_pricing_compliance,
 )
+
+
 def validate_requirement_1():
     """Validate: Historical award extraction and analysis"""
     print("✓ Checking historical award data integration...")
@@ -109,7 +105,7 @@ def validate_requirement_3():
                 if analysis.get('market_position'):
                     print(f"    ✓ Market position: {analysis['market_position']}")
             else:
-                print(f"    ⚠ Insufficient historical data for validation")
+                print("    ⚠ Insufficient historical data for validation")
         return True
     except Exception as e:
         print(f"  ✗ Competitive pricing validation failed: {e}")
@@ -135,7 +131,7 @@ def validate_requirement_4():
                 if base_cost > 0 and all(v >= 0 for v in breakdown.values()):
                     print(f"    ✓ Cost calculation functional: ${base_cost:,.2f}")
                 else:
-                    print(f"    ✗ Cost calculation failed")
+                    print("    ✗ Cost calculation failed")
                     return False
             else:
                 print(f"  ✗ Missing baseline for {category}")
@@ -195,16 +191,16 @@ def validate_requirement_5():
             validation = engine.validate_margin_compliance(pricing_results)
             compliance_rate = validation['compliance_rate']
             target_rate = 0.90
-            print(f"\n  Compliance Summary:")
+            print("\n  Compliance Summary:")
             print(f"    Total test cases: {len(pricing_results)}")
             print(f"    Compliant cases: {validation['compliant_bids']}")
             print(f"    Compliance rate: {compliance_rate:.1%}")
             print(f"    Target rate: {target_rate:.1%}")
             if compliance_rate >= target_rate:
-                print(f"  ✓ Meets 90% compliance requirement")
+                print("  ✓ Meets 90% compliance requirement")
                 return True
             else:
-                print(f"  ✗ Below 90% compliance requirement")
+                print("  ✗ Below 90% compliance requirement")
                 return False
         else:
             print("  ✗ No successful test cases")
@@ -248,9 +244,9 @@ def validate_requirement_6():
                 required_elements = ['margin', 'cost', 'strategy']
                 elements_found = sum(1 for element in required_elements if element.lower() in justification.lower())
                 if elements_found >= 2:
-                    print(f"    ✓ Contains key justification elements")
+                    print("    ✓ Contains key justification elements")
                 else:
-                    print(f"    ⚠ Missing some justification elements")
+                    print("    ⚠ Missing some justification elements")
             else:
                 print(f"  ✗ {scenario['strategy'].value}: insufficient justification")
                 return False
@@ -273,7 +269,10 @@ def validate_requirement_7():
         if baselines_file.exists():
             print(f"  ✓ Cost baselines file created: {baselines_file}")
         # Check API functions
-        from pricing.pricing_engine import create_pricing_engine, calculate_bid_price, validate_pricing_compliance
+        from pricing.pricing_engine import (
+            calculate_bid_price,
+            create_pricing_engine,
+        )
         print("  ✓ create_pricing_engine() function available")
         print("  ✓ calculate_bid_price() function available")
         print("  ✓ validate_pricing_compliance() function available")
@@ -285,7 +284,7 @@ def validate_requirement_7():
         if result.recommended_price > 0:
             print(f"  ✓ Pricing API working - generated ${result.recommended_price:,.2f}")
         else:
-            print(f"  ✗ Pricing API failed to generate valid price")
+            print("  ✗ Pricing API failed to generate valid price")
             return False
         return True
     except Exception as e:

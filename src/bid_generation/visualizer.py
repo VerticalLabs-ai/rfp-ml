@@ -1,12 +1,14 @@
-import matplotlib.pyplot as plt
-import matplotlib.dates as mdates
-import pandas as pd
-import os
 import logging
-from typing import List, Dict, Any, Optional
-from datetime import datetime, timedelta
+import os
+from typing import Any
+
+import matplotlib.dates as mdates
+import matplotlib.pyplot as plt
 import networkx as nx
+import pandas as pd
+
 from src.config.paths import PathConfig
+
 
 class Visualizer:
     """
@@ -18,7 +20,7 @@ class Visualizer:
         self.output_dir = output_dir or str(PathConfig.BID_DOCUMENTS_DIR / "assets")
         os.makedirs(self.output_dir, exist_ok=True)
 
-    def generate_gantt_chart(self, tasks: List[Dict[str, Any]], filename: str = "gantt_chart.png") -> Optional[str]:
+    def generate_gantt_chart(self, tasks: list[dict[str, Any]], filename: str = "gantt_chart.png") -> str | None:
         """
         Generate a Gantt chart from a list of tasks.
         Task format: {"task": "Name", "start": "YYYY-MM-DD", "end": "YYYY-MM-DD"}
@@ -32,9 +34,9 @@ class Visualizer:
         df['duration'] = (df['end'] - df['start']).dt.days
 
         fig, ax = plt.subplots(figsize=(10, 6))
-        
+
         # Plot bars
-        for i, task in df.iterrows():
+        for _i, task in df.iterrows():
             start_date = mdates.date2num(task['start'])
             ax.barh(task['task'], task['duration'], left=start_date, height=0.5, align='center', color='#3b82f6')
 
@@ -49,11 +51,11 @@ class Visualizer:
         filepath = os.path.join(self.output_dir, filename)
         plt.savefig(filepath, dpi=300)
         plt.close()
-        
+
         self.logger.info(f"Generated Gantt chart: {filepath}")
         return filepath
 
-    def generate_org_chart(self, staff: List[Dict[str, Any]], filename: str = "org_chart.png") -> Optional[str]:
+    def generate_org_chart(self, staff: list[dict[str, Any]], filename: str = "org_chart.png") -> str | None:
         """
         Generate a simple hierarchical Org chart.
         Staff format: {"name": "Name", "role": "Role", "reports_to": "ManagerRole"}
@@ -63,24 +65,24 @@ class Visualizer:
 
         G = nx.DiGraph()
         labels = {}
-        
+
         for person in staff:
             label = f"{person['role']}\n{person['name']}"
             G.add_node(person['role'], label=label)
             labels[person['role']] = label
-            
+
             if person.get('reports_to'):
                 G.add_edge(person['reports_to'], person['role'])
 
         pos = self._hierarchy_pos(G)
-        
+
         plt.figure(figsize=(12, 8))
         nx.draw(G, pos, with_labels=False, node_size=5000, node_color="#e2e8f0", node_shape="s", edge_color="#64748b")
         nx.draw_networkx_labels(G, pos, labels, font_size=8)
-        
+
         plt.title("Project Organization")
         plt.axis('off')
-        
+
         filepath = os.path.join(self.output_dir, filename)
         plt.savefig(filepath, dpi=300)
         plt.close()
@@ -119,13 +121,13 @@ class Visualizer:
                 pos[root] = (xcenter, vert_loc)
             children = list(G.neighbors(root))
             if not isinstance(G, nx.DiGraph) and parent is not None:
-                children.remove(parent)  
+                children.remove(parent)
             if len(children) != 0:
-                dx = width/len(children) 
+                dx = width/len(children)
                 nextx = xcenter - width/2 - dx/2
                 for child in children:
                     nextx += dx
-                    pos = _hierarchy_pos_recursive(G,child, width=dx, vert_gap=vert_gap, 
+                    pos = _hierarchy_pos_recursive(G,child, width=dx, vert_gap=vert_gap,
                                         vert_loc=vert_loc-vert_gap, xcenter=nextx,
                                         pos=pos, parent=root)
             return pos

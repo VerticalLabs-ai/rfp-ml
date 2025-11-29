@@ -2,11 +2,12 @@
 """
 Integrated test for RAG + Compliance Matrix + Pricing Engine pipeline.
 """
-import sys
 import os
-import json
+import sys
 import time
+
 import pandas as pd
+
 # Add src to path
 sys.path.insert(0, '/app/government_rfp_bid_1927/src')
 def test_integrated_pipeline():
@@ -18,12 +19,12 @@ def test_integrated_pipeline():
         # Import all components
         print("1. Loading all pipeline components...")
         # Load RAG engine with proper method
-        from rag.rag_engine import RAGEngine
         # Create minimal RAG interface for integration
         class RAGInterface:
             def __init__(self):
                 try:
                     import pickle
+
                     import faiss
                     from sentence_transformers import SentenceTransformer
                     embeddings_dir = '/app/government_rfp_bid_1927/data/embeddings'
@@ -91,7 +92,7 @@ def test_integrated_pipeline():
             pipeline_start = time.time()
             try:
                 # Step 1: Generate Compliance Matrix
-                print(f"\n🔍 Step 1: Extracting requirements and generating compliance matrix...")
+                print("\n🔍 Step 1: Extracting requirements and generating compliance matrix...")
                 compliance_start = time.time()
                 compliance_matrix = compliance_generator.generate_compliance_matrix(rfp_data)
                 extracted_requirements = compliance_matrix['requirements_and_responses']
@@ -100,7 +101,7 @@ def test_integrated_pipeline():
                 print(f"   Requirements extracted: {len(extracted_requirements)}")
                 print(f"   Compliance rate: {compliance_matrix['compliance_summary']['compliance_rate']:.1%}")
                 # Step 2: Generate Pricing
-                print(f"\n💰 Step 2: Generating competitive pricing...")
+                print("\n💰 Step 2: Generating competitive pricing...")
                 pricing_start = time.time()
                 # Compare multiple pricing strategies
                 pricing_strategies = pricing_engine.compare_strategies(rfp_data, extracted_requirements)
@@ -108,13 +109,13 @@ def test_integrated_pipeline():
                 print(f"✅ Pricing analysis completed in {pricing_time:.2f}s")
                 print(f"   Strategies analyzed: {len(pricing_strategies)}")
                 # Find recommended strategy
-                best_strategy = max(pricing_strategies.items(), 
+                best_strategy = max(pricing_strategies.items(),
                                   key=lambda x: x[1].confidence_score)
                 print(f"   Recommended strategy: {best_strategy[0]}")
                 print(f"   Recommended price: ${best_strategy[1].total_price:,.2f}")
                 print(f"   Margin: {best_strategy[1].margin_percentage:.1f}%")
                 # Step 3: Export integrated results
-                print(f"\n📊 Step 3: Exporting integrated analysis...")
+                print("\n📊 Step 3: Exporting integrated analysis...")
                 # Export compliance matrix
                 compliance_path = compliance_generator.export_compliance_matrix(
                     compliance_matrix, "json"
@@ -149,7 +150,7 @@ def test_integrated_pipeline():
                 print(f"❌ Pipeline failed for RFP {i}: {e}")
                 continue
         # Final summary
-        print(f"\n" + "="*80)
+        print("\n" + "="*80)
         print("INTEGRATED PIPELINE SUMMARY")
         print("="*80)
         if results:
@@ -160,13 +161,13 @@ def test_integrated_pipeline():
             avg_margin = sum(r['recommended_margin'] for r in results) / len(results)
             avg_confidence = sum(r['confidence_score'] for r in results) / len(results)
             print(f"✅ Successfully processed: {successful_rfps}/{len(test_rfps)} RFPs")
-            print(f"📊 Performance Metrics:")
+            print("📊 Performance Metrics:")
             print(f"   Average processing time: {avg_processing_time:.2f}s")
             print(f"   Average requirements extracted: {avg_requirements:.1f}")
             print(f"   Average compliance rate: {avg_compliance_rate:.1%}")
             print(f"   Average recommended margin: {avg_margin:.1f}%")
             print(f"   Average confidence score: {avg_confidence:.1%}")
-            print(f"\n📋 Individual Results:")
+            print("\n📋 Individual Results:")
             for result in results:
                 print(f"   RFP {result['rfp_id']}: {result['requirements_count']} reqs, "
                       f"{result['compliance_rate']:.0%} compliance, "
@@ -180,7 +181,7 @@ def test_integrated_pipeline():
                 'margin_compliance': avg_margin >= 15,  # Minimum 15% margin
                 'full_pipeline': successful_rfps == len(test_rfps)
             }
-            print(f"\n🎯 VALIDATION RESULTS:")
+            print("\n🎯 VALIDATION RESULTS:")
             passed_checks = 0
             for check, passed in validation_checks.items():
                 status = "✅ PASS" if passed else "❌ FAIL"

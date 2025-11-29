@@ -1,7 +1,9 @@
 import sys
-import os
+
 sys.path.append('/app/government_rfp_bid_1927/src')
 from rag.rag_engine import OptimizedRAGEngine
+
+
 def test_rag_basic():
     """Basic test of RAG functionality"""
     print("=== RAG System Basic Test ===\n")
@@ -14,7 +16,7 @@ def test_rag_basic():
         return False
     # Get stats
     stats = rag.get_index_stats()
-    print(f"Index loaded successfully!")
+    print("Index loaded successfully!")
     print(f"Total vectors: {stats.get('total_vectors', 0):,}")
     print(f"Categories: {list(stats.get('category_distribution', {}).keys())}")
     # Test sample queries

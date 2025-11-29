@@ -2,14 +2,16 @@
 Generate sample pricing outputs for water, construction, and delivery RFPs
 Demonstrates pricing engine capabilities with real-world scenarios
 """
-import sys
-import os
 import json
+import os
+import sys
 import time
-from typing import Dict, Any
+
 # Add project root to path
 sys.path.append('/app/government_rfp_bid_1927')
 from src.pricing.pricing_engine import PricingEngine
+
+
 def generate_sector_samples():
     """Generate comprehensive pricing samples for all sectors"""
     print("💰 PRICING ENGINE SAMPLE OUTPUTS DEMONSTRATION")
@@ -50,7 +52,7 @@ def generate_sector_samples():
         },
         {
             "title": "Government Building Construction Services",
-            "sector": "construction", 
+            "sector": "construction",
             "description": """
             36-month contract for comprehensive building construction and maintenance
             services for government facilities. Includes new construction, renovation,
@@ -73,7 +75,7 @@ def generate_sector_samples():
             }
         },
         {
-            "title": "Multi-State Logistics and Delivery Services", 
+            "title": "Multi-State Logistics and Delivery Services",
             "sector": "delivery",
             "description": """
             18-month contract for logistics and delivery services across tri-state region.
@@ -105,15 +107,15 @@ def generate_sector_samples():
         print(f"📄 SAMPLE {i}: {scenario['title']}")
         print(f"{'='*50}")
         print(f"🏷️ Sector: {scenario['sector'].upper().replace('_', ' ')}")
-        print(f"📝 Description:")
+        print("📝 Description:")
         print(scenario['description'].strip())
         # Generate pricing with timing
-        print(f"\\n💰 Generating Pricing Analysis...")
+        print("\\n💰 Generating Pricing Analysis...")
         start_time = time.time()
         try:
             pricing_result = pricing_engine.generate_competitive_bid(
                 scenario['sector'],
-                scenario['rfp_requirements'], 
+                scenario['rfp_requirements'],
                 scenario['contract_characteristics']
             )
             generation_time = time.time() - start_time
@@ -142,7 +144,7 @@ def generate_sector_samples():
             print(f"   🚦 Recommendation: {go_no_go['recommendation'].upper()}")
             print(f"   📋 Reason: {go_no_go['reason']}")
             # Pricing justification
-            print(f"\\n📝 Pricing Justification:")
+            print("\\n📝 Pricing Justification:")
             justification = pricing_result['pricing_justification']
             # Wrap text for better display
             words = justification.split()
@@ -158,12 +160,12 @@ def generate_sector_samples():
             for line in lines:
                 print(f"   {line}")
             # Business rule validation
-            print(f"\\n✅ Business Rule Validation:")
+            print("\\n✅ Business Rule Validation:")
             print(f"   • Margin compliance: {'✅ PASS' if margin_val['margin_compliant'] else '❌ FAIL'}")
-            print(f"   • Cost estimation: ✅ PASS")
-            print(f"   • Historical benchmarking: ✅ PASS")
-            print(f"   • Competitive positioning: ✅ PASS")
-            print(f"   • Risk adjustment: ✅ PASS")
+            print("   • Cost estimation: ✅ PASS")
+            print("   • Historical benchmarking: ✅ PASS")
+            print("   • Competitive positioning: ✅ PASS")
+            print("   • Risk adjustment: ✅ PASS")
             sample_results[f"sample_{i}"] = pricing_result
         except Exception as e:
             print(f"   ❌ Pricing generation failed: {e}")
@@ -193,11 +195,11 @@ def generate_sector_samples():
     with open(samples_path, 'w') as f:
         json.dump(sample_data, f, indent=2, default=str)
     print(f"\\n📄 Sample outputs saved to: {samples_path}")
-    print(f"\\n🎯 Sector Coverage Demonstrated:")
-    print(f"   • Bottled Water: ✅ Validated with real-world scenarios")
-    print(f"   • Construction: ✅ Validated with complex project requirements") 
-    print(f"   • Delivery/Logistics: ✅ Validated with multi-state operations")
-    print(f"\\n🚀 Pricing Engine ready for production bid generation!")
+    print("\\n🎯 Sector Coverage Demonstrated:")
+    print("   • Bottled Water: ✅ Validated with real-world scenarios")
+    print("   • Construction: ✅ Validated with complex project requirements")
+    print("   • Delivery/Logistics: ✅ Validated with multi-state operations")
+    print("\\n🚀 Pricing Engine ready for production bid generation!")
     return len(sample_results) == len(sample_scenarios)
 if __name__ == "__main__":
     success = generate_sector_samples()

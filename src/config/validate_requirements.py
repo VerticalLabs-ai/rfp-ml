@@ -37,7 +37,7 @@ def validate_requirement_2():
     try:
         # Check if dotenv is available
         try:
-            from dotenv import load_dotenv
+            import dotenv  # noqa: F401
 
             print("  ✓ python-dotenv available for environment variable loading")
         except ImportError:

@@ -1,7 +1,10 @@
-import pandas as pd
-import os
 import json
+import os
 from datetime import datetime
+
+import pandas as pd
+
+
 def validate_downloaded_files():
     """Validate downloaded CSV files and examine their structure"""
     raw_data_path = "/app/government_rfp_bid_1927/data/raw"
@@ -21,7 +24,7 @@ def validate_downloaded_files():
             # Try to get row count (approximation for large files)
             try:
                 if file_size_mb > 100:  # For large files, estimate
-                    with open(file_path, 'r') as f:
+                    with open(file_path) as f:
                         # Count lines in first 1MB
                         chunk = f.read(1024*1024)
                         lines_in_chunk = chunk.count('\n')
@@ -44,7 +47,7 @@ def validate_downloaded_files():
             }
             print(f"  ✓ Columns: {total_columns}")
             print(f"  ✓ Rows: {row_count}")
-            print(f"  ✓ Sample loaded successfully")
+            print("  ✓ Sample loaded successfully")
         except Exception as e:
             validation_results[csv_file] = {
                 'status': 'ERROR',
@@ -93,7 +96,7 @@ def analyze_rfp_data_structure(validation_results):
     return field_matches, all_columns
 def check_target_categories(validation_results):
     """Check for data related to target NIGP/NAICS categories"""
-    print(f"\n=== TARGET CATEGORY ANALYSIS ===\n")
+    print("\n=== TARGET CATEGORY ANALYSIS ===\n")
     target_nigp = ['065']  # Water/beverages
     target_naics = ['312112', '236', '237', '484', '492']  # Beverages, construction, delivery
     category_findings = {}
@@ -118,7 +121,7 @@ def check_target_categories(validation_results):
             if found_categories:
                 print(f"  ✓ Found target categories in sample: {set(found_categories)}")
             else:
-                print(f"  ○ No target categories found in sample (may exist in full dataset)")
+                print("  ○ No target categories found in sample (may exist in full dataset)")
             category_findings[file] = {
                 'nigp_columns': nigp_cols,
                 'naics_columns': naics_cols,
@@ -140,7 +143,7 @@ def save_validation_report(validation_results, field_matches, category_findings,
         'category_analysis': category_findings,
         'next_steps': [
             "Load full datasets and apply filtering for target categories",
-            "Standardize schema across all datasets", 
+            "Standardize schema across all datasets",
             "Extract and clean key fields (dates, values, categories)",
             "Perform comprehensive EDA on filtered data",
             "Create master processed dataset"
@@ -196,10 +199,10 @@ def main():
     category_findings = check_target_categories(validation_results)
     # Save comprehensive report
     report_path, summary_path = save_validation_report(validation_results, field_matches, category_findings, base_path)
-    print(f"\n=== VALIDATION COMPLETE ===")
+    print("\n=== VALIDATION COMPLETE ===")
     print(f"✓ {len([r for r in validation_results.values() if r['status'] == 'SUCCESS'])}/{len(validation_results)} files validated successfully")
     print(f"✓ Total data size: {sum([r['file_size_mb'] for r in validation_results.values()]):.1f}MB")
-    print(f"✓ Analysis reports saved")
-    print(f"\nReady to proceed with data loading and processing!")
+    print("✓ Analysis reports saved")
+    print("\nReady to proceed with data loading and processing!")
 if __name__ == "__main__":
     main()

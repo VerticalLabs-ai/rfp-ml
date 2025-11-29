@@ -3,7 +3,6 @@ import os
 import shutil
 import sys
 from pathlib import Path
-from typing import Any, Dict, List
 
 from fastapi import APIRouter, File, HTTPException, UploadFile
 from pydantic import BaseModel, field_validator
@@ -12,6 +11,7 @@ from pydantic import BaseModel, field_validator
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "../../../")))
 
 from app.core.config import settings
+
 from src.bid_generation.style_manager import style_manager
 from src.config.enhanced_bid_llm import EnhancedBidLLMManager
 
@@ -57,31 +57,31 @@ async def upload_style_reference(file: UploadFile = File(...)):
     """
     allowed_extensions = [".txt", ".md"]
     ext = os.path.splitext(file.filename)[1].lower()
-    
+
     if ext not in allowed_extensions:
         raise HTTPException(status_code=400, detail=f"Unsupported file type. Allowed: {allowed_extensions}")
-        
+
     try:
         # Save temp file
         temp_dir = Path(settings.DATA_DIR) / "temp_uploads"
         os.makedirs(temp_dir, exist_ok=True)
         temp_path = temp_dir / file.filename
-        
+
         with open(temp_path, "wb") as buffer:
             shutil.copyfileobj(file.file, buffer)
-            
+
         # Read text
-        with open(temp_path, "r", encoding="utf-8", errors="ignore") as f:
+        with open(temp_path, encoding="utf-8", errors="ignore") as f:
             text = f.read()
-            
+
         # Ingest
         style_manager.ingest_file(text, file.filename)
-        
+
         # Cleanup
         os.remove(temp_path)
-        
+
         return {"message": f"Successfully ingested {file.filename}", "chars_processed": len(text)}
-        
+
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Processing failed: {str(e)}")
 

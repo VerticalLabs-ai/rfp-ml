@@ -1,6 +1,8 @@
 import json
 import os
 from datetime import datetime
+
+
 def create_pricing_engine_summary():
     """Create final summary report for pricing engine implementation"""
     print("=== PRICING ENGINE IMPLEMENTATION SUMMARY ===")
@@ -21,7 +23,7 @@ def create_pricing_engine_summary():
     # Load cost baselines content
     cost_baselines = {}
     if os.path.exists(baselines_path):
-        with open(baselines_path, 'r') as f:
+        with open(baselines_path) as f:
             cost_baselines = json.load(f)
     # Historical pricing analysis
     historical_analysis_path = "/app/government_rfp_bid_1927/data/pricing/historical_pricing_analysis.json"
@@ -45,7 +47,7 @@ def create_pricing_engine_summary():
     validation_report_path = "/app/government_rfp_bid_1927/analysis/pricing_validation_report.json"
     validation_results = {}
     if os.path.exists(validation_report_path):
-        with open(validation_report_path, 'r') as f:
+        with open(validation_report_path) as f:
             validation_results = json.load(f)
     # Create comprehensive summary
     summary = {
@@ -107,19 +109,19 @@ def create_pricing_engine_summary():
     # Print key results
     print(f"Status: {summary['pricing_system_status']}")
     print(f"Critical Files: {summary['critical_files_status']}")
-    print(f"\nCost Baselines Coverage:")
+    print("\nCost Baselines Coverage:")
     for category in summary.get("cost_baselines_coverage", []):
         print(f"  ✓ {category}")
-    print(f"\nArtifacts Status:")
+    print("\nArtifacts Status:")
     for artifact, status in artifacts_status.items():
         indicator = "✓" if status['exists'] else "✗"
         size_kb = status['size'] / 1024 if status['size'] > 0 else 0
         print(f"  {indicator} {artifact}: {size_kb:.1f}KB")
     if "performance_assessment" in summary:
-        print(f"\nPerformance Assessment:")
+        print("\nPerformance Assessment:")
         for metric, result in summary["performance_assessment"].items():
             print(f"  {metric}: {result}")
-    print(f"\nFeatures Implemented:")
+    print("\nFeatures Implemented:")
     for feature, status in summary["features_implemented"].items():
         print(f"  {status} {feature}")
     print(f"\nDetailed report saved: {summary_path}")

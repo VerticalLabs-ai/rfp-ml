@@ -1,15 +1,16 @@
 import sys
-import os
-import json
+
 sys.path.append('/app/government_rfp_bid_1927/src')
 from rag.rag_engine import search_rfps
+
+
 def test_sample_queries():
     """Test RAG system with representative queries"""
     print("=== RAG System Sample Query Testing ===\n")
     # Representative queries for each sector
     queries = [
         ("bottled water delivery for office buildings", "bottled_water"),
-        ("construction project management services", "construction"), 
+        ("construction project management services", "construction"),
         ("courier and delivery services", "delivery"),
         ("facilities maintenance and repair", None)  # General query
     ]
