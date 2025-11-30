@@ -18,7 +18,7 @@ services:
   backend:
     build:
       context: .
-      dockerfile: Dockerfile.backend
+      dockerfile: backend.Dockerfile
     container_name: rfp_backend
     ports:
       - "8000:8000"
@@ -35,6 +35,12 @@ services:
     working_dir: /app/api
     command: ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000", "--reload"]
     restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
     networks:
       - rfp_network
 
@@ -46,7 +52,8 @@ services:
     ports:
       - "80:80"
     depends_on:
-      - backend
+      backend:
+        condition: service_healthy
     restart: unless-stopped
     networks:
       - rfp_network

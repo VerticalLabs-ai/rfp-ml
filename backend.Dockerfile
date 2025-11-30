@@ -13,7 +13,8 @@ ENV PYTHONDONTWRITEBYTECODE=1 \
 RUN apt-get update && apt-get install -y --no-install-recommends \
     build-essential \
     curl \
-    && rm -rf /var/lib/apt/lists/*
+    && rm -rf /var/lib/apt/lists/* \
+    && curl --version
 
 # Install uv for faster dependency management
 RUN pip install uv

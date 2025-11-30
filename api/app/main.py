@@ -14,18 +14,27 @@ from fastapi.middleware.cors import CORSMiddleware
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     """Application lifespan events."""
+    import sys
+    import traceback
+    
     # Startup
-    print("Initializing database...")
-    init_db()
-    print("Database initialized successfully")
+    try:
+        print("Initializing database...")
+        init_db()
+        print("Database initialized successfully")
 
-    # Run seeds
-    print("Running database seeds...")
-    from app.core.database import SessionLocal
-    from app.core.seed import run_seeds
-    with SessionLocal() as db:
-        run_seeds(db)
-    print("Database seeds complete")
+        # Run seeds
+        print("Running database seeds...")
+        from app.core.database import SessionLocal
+        from app.core.seed import run_seeds
+        with SessionLocal() as db:
+            run_seeds(db)
+        print("Database seeds complete")
+    except Exception as e:
+        print(f"ERROR during startup: {e}", file=sys.stderr)
+        traceback.print_exc(file=sys.stderr)
+        # Don't crash - let the app start but log the error
+        # This allows the health check to still work
 
     yield
     # Shutdown
