@@ -198,45 +198,32 @@ class RFPService:
         return rfp
 
     def get_statistics(self) -> dict[str, Any]:
-        """Get RFP statistics."""
-        total = self.db.query(RFPOpportunity).count()
-        in_pipeline = (
-            self.db.query(RFPOpportunity)
-            .filter(
-                RFPOpportunity.current_stage.notin_(
-                    [PipelineStage.REJECTED, PipelineStage.SUBMITTED]
-                )
+        """Get RFP statistics using optimized GROUP BY query."""
+        from sqlalchemy import func
+
+        # Single query with GROUP BY instead of 6 separate COUNT queries
+        stage_counts = dict(
+            self.db.query(
+                RFPOpportunity.current_stage,
+                func.count(RFPOpportunity.id)
             )
-            .count()
+            .group_by(RFPOpportunity.current_stage)
+            .all()
         )
 
-        approved = (
-            self.db.query(RFPOpportunity)
-            .filter(RFPOpportunity.current_stage == PipelineStage.APPROVED)
-            .count()
-        )
+        # Calculate derived statistics from the grouped counts
+        total = sum(stage_counts.values())
 
-        rejected = (
-            self.db.query(RFPOpportunity)
-            .filter(RFPOpportunity.current_stage == PipelineStage.REJECTED)
-            .count()
-        )
-
-        submitted = (
-            self.db.query(RFPOpportunity)
-            .filter(RFPOpportunity.current_stage == PipelineStage.SUBMITTED)
-            .count()
-        )
+        approved = stage_counts.get(PipelineStage.APPROVED, 0)
+        rejected = stage_counts.get(PipelineStage.REJECTED, 0)
+        submitted = stage_counts.get(PipelineStage.SUBMITTED, 0)
 
         pending_review = (
-            self.db.query(RFPOpportunity)
-            .filter(
-                RFPOpportunity.current_stage.in_(
-                    [PipelineStage.REVIEW, PipelineStage.DECISION_PENDING]
-                )
-            )
-            .count()
+            stage_counts.get(PipelineStage.REVIEW, 0)
+            + stage_counts.get(PipelineStage.DECISION_PENDING, 0)
         )
+
+        in_pipeline = total - rejected - submitted
 
         return {
             "total_discovered": total,

@@ -56,7 +56,7 @@ class ForecastingService:
     def predict_upcoming_opportunities(self, df: pd.DataFrame, confidence_threshold: float = 0.7) -> list[dict[str, Any]]:
         """
         Identify recurring opportunities and predict their next release date.
-        
+
         Algorithm:
         1. Group by Agency and Title (exact match for MVP, fuzzy later).
         2. Calculate time deltas between postings.

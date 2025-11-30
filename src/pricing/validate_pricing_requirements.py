@@ -1,6 +1,7 @@
 """
 Validation script to verify AI Pricing Engine meets all specified requirements
 """
+import sys
 
 from src.config.paths import PathConfig
 from src.pricing.pricing_engine import (
@@ -277,7 +278,7 @@ def validate_requirement_7():
         print("  ✓ calculate_bid_price() function available")
         print("  ✓ validate_pricing_compliance() function available")
         # Test API usage
-        engine = create_pricing_engine()
+        _engine = create_pricing_engine()
         print("  ✓ Engine creation API working")
         # Test pricing API
         result = calculate_bid_price("Test pricing API")

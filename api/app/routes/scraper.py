@@ -185,6 +185,14 @@ async def scrape_rfp(
 
         db.commit()
 
+        # Broadcast RFP created to connected clients
+        from app.websockets.websocket_router import broadcast_rfp_update
+        await broadcast_rfp_update(rfp_id, "rfp_scraped", {
+            "title": scraped_rfp.title,
+            "documents_count": len(scraped_rfp.documents),
+            "qa_count": len(scraped_rfp.qa_items)
+        })
+
         return ScrapeResponse(
             rfp_id=rfp_id,
             status="success",

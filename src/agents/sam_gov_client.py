@@ -15,7 +15,7 @@ class SAMGovClient:
     def __init__(self, api_key: str | None = None):
         """
         Initialize the SAM.gov client.
-        
+
         Args:
             api_key: SAM.gov API key. If not provided, tries to read from SAM_GOV_API_KEY env var.
         """
@@ -26,7 +26,7 @@ class SAMGovClient:
     def search_entities(self, naics_code: str | None = None, keywords: str | None = None, limit: int = 10) -> list[dict]:
         """
         Search for entities in SAM.gov using the Entity Management API.
-        
+
         Args:
             naics_code: 6-digit NAICS code to filter by.
             keywords: Keywords to search in legal business name or other fields (if supported).
@@ -86,7 +86,7 @@ class SAMGovClient:
             try:
                 core_data = ent.get("coreData", {})
                 assertions = ent.get("assertions", {})
-                reps_certs = ent.get("repsAndCerts", {})
+                _reps_certs = ent.get("repsAndCerts", {})
 
                 # Extract fields
                 uei = core_data.get("ueiSAM", "")

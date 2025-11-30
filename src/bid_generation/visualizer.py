@@ -63,22 +63,22 @@ class Visualizer:
         if not staff:
             return None
 
-        G = nx.DiGraph()
+        graph = nx.DiGraph()
         labels = {}
 
         for person in staff:
             label = f"{person['role']}\n{person['name']}"
-            G.add_node(person['role'], label=label)
+            graph.add_node(person['role'], label=label)
             labels[person['role']] = label
 
             if person.get('reports_to'):
-                G.add_edge(person['reports_to'], person['role'])
+                graph.add_edge(person['reports_to'], person['role'])
 
-        pos = self._hierarchy_pos(G)
+        pos = self._hierarchy_pos(graph)
 
         plt.figure(figsize=(12, 8))
-        nx.draw(G, pos, with_labels=False, node_size=5000, node_color="#e2e8f0", node_shape="s", edge_color="#64748b")
-        nx.draw_networkx_labels(G, pos, labels, font_size=8)
+        nx.draw(graph, pos, with_labels=False, node_size=5000, node_color="#e2e8f0", node_shape="s", edge_color="#64748b")
+        nx.draw_networkx_labels(graph, pos, labels, font_size=8)
 
         plt.title("Project Organization")
         plt.axis('off')
@@ -90,46 +90,46 @@ class Visualizer:
         self.logger.info(f"Generated Org chart: {filepath}")
         return filepath
 
-    def _hierarchy_pos(self, G, root=None, width=1., vert_gap = 0.2, vert_loc = 0, xcenter = 0.5):
+    def _hierarchy_pos(self, graph, root=None, width=1., vert_gap = 0.2, vert_loc = 0, xcenter = 0.5):
         """
         If there is a cycle that is reachable from root, then result will not be a hierarchy.
-        G: the graph (must be a tree)
-        root: the root node of current branch 
+        graph: the graph (must be a tree)
+        root: the root node of current branch
         width: horizontal space allocated for this branch - avoids overlap with other branches
         vert_gap: gap between levels of hierarchy
         vert_loc: vertical location of root
         xcenter: horizontal location of root
         """
-        if not nx.is_tree(G):
+        if not nx.is_tree(graph):
              # Fallback layout if not a tree
-             return nx.spring_layout(G)
+             return nx.spring_layout(graph)
 
         if root is None:
-            if isinstance(G, nx.DiGraph):
-                roots = [n for n in G.nodes() if G.in_degree(n) == 0]
+            if isinstance(graph, nx.DiGraph):
+                roots = [n for n in graph.nodes() if graph.in_degree(n) == 0]
                 if roots:
-                    return self._hierarchy_pos(G, roots[0], width, vert_gap, vert_loc, xcenter)
+                    return self._hierarchy_pos(graph, roots[0], width, vert_gap, vert_loc, xcenter)
                 else:
-                    return nx.spring_layout(G) # Cyclic or empty
+                    return nx.spring_layout(graph) # Cyclic or empty
             else:
-                return nx.spring_layout(G)
+                return nx.spring_layout(graph)
 
-        def _hierarchy_pos_recursive(G, root, width=1., vert_gap = 0.2, vert_loc = 0, xcenter = 0.5, pos = None, parent = None):
+        def _hierarchy_pos_recursive(graph, root, width=1., vert_gap = 0.2, vert_loc = 0, xcenter = 0.5, pos = None, parent = None):
             if pos is None:
                 pos = {root:(xcenter,vert_loc)}
             else:
                 pos[root] = (xcenter, vert_loc)
-            children = list(G.neighbors(root))
-            if not isinstance(G, nx.DiGraph) and parent is not None:
+            children = list(graph.neighbors(root))
+            if not isinstance(graph, nx.DiGraph) and parent is not None:
                 children.remove(parent)
             if len(children) != 0:
                 dx = width/len(children)
                 nextx = xcenter - width/2 - dx/2
                 for child in children:
                     nextx += dx
-                    pos = _hierarchy_pos_recursive(G,child, width=dx, vert_gap=vert_gap,
+                    pos = _hierarchy_pos_recursive(graph,child, width=dx, vert_gap=vert_gap,
                                         vert_loc=vert_loc-vert_gap, xcenter=nextx,
                                         pos=pos, parent=root)
             return pos
 
-        return _hierarchy_pos_recursive(G, root, width, vert_gap, vert_loc, xcenter)
+        return _hierarchy_pos_recursive(graph, root, width, vert_gap, vert_loc, xcenter)

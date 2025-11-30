@@ -268,7 +268,7 @@ class LLMInterface:
 
 class LLMManager:
     """
-    Facade for LLM interaction to maintain backward compatibility 
+    Facade for LLM interaction to maintain backward compatibility
     and simplify usage for agents.
     """
     def __init__(self):

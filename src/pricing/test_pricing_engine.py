@@ -218,7 +218,7 @@ def test_pricing_performance():
         for description in test_descriptions:
             start_time = time.time()
             try:
-                result = engine.generate_pricing(rfp_description=description)
+                _result = engine.generate_pricing(rfp_description=description)
                 calc_time = time.time() - start_time
                 total_time += calc_time
                 successful_calculations += 1

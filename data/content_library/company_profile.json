@@ -1,62 +1,78 @@
 {
-  "company_name": "Advanced Solutions Group LLC",
-  "established": "2015",
-  "headquarters": "Washington, DC",
-  "employees": "150+",
+  "company_name": "IBYTE Enterprises, LLC",
+  "legal_name": "IBYTE Enterprises, LLC",
+  "established": "2020",
+  "headquarters": "Austin, TX",
+  "address": "1801 E 51st St. Ste 365-359, Austin, TX 78723",
+  "employees": "2",
+  "registration_state": "Texas",
+  "website": "https://www.ibyteent.com",
+  "primary_contact": {
+    "name": "Valorie A Rodriguez",
+    "title": "Owner",
+    "email": "vrodriguez@ibyteent.com",
+    "office_phone": "512-800-3890",
+    "mobile_phone": "737-600-5105",
+    "fax": "956-461-1033"
+  },
+  "identifiers": {
+    "duns_number": "132971889",
+    "sam_uei": "LF25E13Q29E6",
+    "ein": "994146395",
+    "texas_tax_id": "3-20960-4238-0",
+    "city_of_austin_vendor_id": "V00000997058"
+  },
   "certifications": [
-    "GSA Schedule Contract Holder",
-    "SBA 8(a) Certified",
-    "ISO 9001:2015 Quality Management",
-    "ISO 27001:2013 Information Security"
+    "Small Business",
+    "Woman Owned Small Business (WOSB)",
+    "PMP Certificate #3889480"
+  ],
+  "socio_economic_programs": [
+    "Small Business",
+    "Woman Owned"
+  ],
+  "insurance": {
+    "agency": "Trulove Agency, LLC",
+    "agent": "Adam Trulove"
+  },
+  "nigp_codes": [
+    {"code": "390-91", "description": "Bottled Water (Commodity/Finished Product)"},
+    {"code": "914-00", "description": "Construction Services, Trade (New Construction)"},
+    {"code": "914-57", "description": "Metal Work"},
+    {"code": "915-96", "description": "Webpage Design and/or Management Services"},
+    {"code": "962-94", "description": "Water Services, Bottled and Bulk Delivery (Tanker Services)"},
+    {"code": "961-13", "description": "Bottled Water Service (Including Dispenser Rental and Delivery)"},
+    {"code": "962-25", "description": "Courier/Delivery Services (Including Air Courier Services)"},
+    {"code": "990-33", "description": "Disaster Preparedness/Emergency Planning Services"}
+  ],
+  "naics_codes": [
+    {"code": "236220", "description": "Commercial and Institutional Building Construction"},
+    {"code": "312112", "description": "Bottled Water Manufacturing"},
+    {"code": "454390", "description": "Other Direct Selling Establishments (incl. bottled water home delivery)"},
+    {"code": "541430", "description": "Graphic Design Services"},
+    {"code": "541511", "description": "Custom Computer Programming Services"},
+    {"code": "541512", "description": "Computer Systems Design Services"},
+    {"code": "541519", "description": "Other Computer Related Services"}
   ],
   "core_competencies": [
-    "Government Contract Management",
-    "Supply Chain Solutions",
-    "Facility Services Management",
-    "Technology Integration",
-    "Compliance and Quality Assurance"
-  ],
-  "past_performance": [
-    {
-      "client": "General Services Administration",
-      "project": "Multi-State Facility Services Contract",
-      "value": "$2.5M",
-      "duration": "3 years",
-      "performance_rating": "Exceptional"
-    },
-    {
-      "client": "Department of Veterans Affairs",
-      "project": "Medical Equipment Maintenance Services",
-      "value": "$1.8M",
-      "duration": "2 years",
-      "performance_rating": "Outstanding"
-    },
-    {
-      "client": "Department of Defense",
-      "project": "Logistics and Supply Chain Management",
-      "value": "$4.2M",
-      "duration": "5 years",
-      "performance_rating": "Excellent"
-    }
+    "Bottled Water Services & Delivery",
+    "Disaster Preparedness & Emergency Water Supply",
+    "Commercial Construction",
+    "Web Design & Development",
+    "Computer Systems Design",
+    "Custom Software Development",
+    "Courier & Delivery Services"
   ],
   "key_personnel": [
     {
-      "name": "Sarah Johnson",
-      "title": "Project Manager",
-      "experience": "12 years government contracting",
-      "certifications": [
-        "PMP",
-        "CPSM"
-      ]
+      "name": "Valorie A Rodriguez",
+      "title": "Owner / Project Manager",
+      "certifications": ["PMP #3889480"]
     },
     {
-      "name": "Michael Chen",
-      "title": "Technical Lead",
-      "experience": "15 years systems integration",
-      "certifications": [
-        "CISSP",
-        "AWS Solutions Architect"
-      ]
+      "name": "Olga",
+      "title": "Operations"
     }
-  ]
+  ],
+  "past_performance": []
 }

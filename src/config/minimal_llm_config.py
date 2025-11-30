@@ -81,7 +81,7 @@ class MinimalLLMManager:
                 timeout=self.config.bid_generation_params.timeout
             )
             # Test with a simple call
-            response = self.openai_client.chat.completions.create(
+            _response = self.openai_client.chat.completions.create(
                 model=self.config.openai_model_gpt35,
                 messages=[{"role": "user", "content": "Test"}],
                 max_tokens=5

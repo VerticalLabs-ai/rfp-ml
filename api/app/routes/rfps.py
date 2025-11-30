@@ -8,6 +8,14 @@ from typing import Any, Dict, List
 from uuid import uuid4
 
 from app.core.database import get_db
+from app.dependencies import (
+    DBDep,
+    RFPDep,
+    RFPServiceDep,
+    get_rfp_or_404,
+    rfp_to_dict,
+    rfp_to_processing_dict,
+)
 from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Query
 from pydantic import BaseModel, field_validator
 from sqlalchemy.orm import Session
@@ -173,24 +181,14 @@ async def get_rfp_stats(db: Session = Depends(get_db)):
 
 
 @router.get("/{rfp_id}", response_model=RFPResponse)
-async def get_rfp(rfp_id: str, db: Session = Depends(get_db)):
+async def get_rfp(rfp: RFPDep):
     """Get RFP details by ID."""
-    service = RFPService(db)
-    rfp = service.get_rfp_by_id(rfp_id)
-    if not rfp:
-        raise HTTPException(status_code=404, detail="RFP not found")
     return rfp
 
 
 @router.get("/{rfp_id}/competitors")
-async def get_competitors(rfp_id: str, db: Session = Depends(get_db)):
+async def get_competitors(rfp: RFPDep):
     """Get competitor analysis for an RFP."""
-    service = RFPService(db)
-    rfp = service.get_rfp_by_id(rfp_id)
-    if not rfp:
-        raise HTTPException(status_code=404, detail="RFP not found")
-
-    # Perform analysis
     competitor_service = get_competitor_service()
     incumbents = competitor_service.identify_potential_incumbents(
         description=rfp.description or "",
@@ -207,32 +205,41 @@ async def get_competitors(rfp_id: str, db: Session = Depends(get_db)):
     }
 
 
-@router.post("/{rfp_id}/pricing/scenarios")
-async def run_pricing_scenarios(
-    rfp_id: str,
-    params: ScenarioInput,
-    db: Session = Depends(get_db)
+@router.get("/{rfp_id}/partners")
+async def get_teaming_partners(
+    rfp: RFPDep,
+    limit: int = Query(default=10, ge=1, le=50),
+    db: DBDep = None
 ):
+    """Get teaming partner recommendations for an RFP."""
+    from src.agents.teaming_service import TeamingPartnerService
+
+    try:
+        teaming_service = TeamingPartnerService(db)
+        partners = teaming_service.find_partners(rfp.rfp_id, limit=limit)
+        return {
+            "rfp_id": rfp.rfp_id,
+            "partners": partners,
+            "total_found": len(partners)
+        }
+    except Exception as e:
+        logger.warning(f"Teaming partner search failed: {e}")
+        # Return empty results gracefully if SAM.gov API not configured
+        return {
+            "rfp_id": rfp.rfp_id,
+            "partners": [],
+            "total_found": 0,
+            "message": "Partner search unavailable - SAM.gov API key may not be configured"
+        }
+
+
+@router.post("/{rfp_id}/pricing/scenarios")
+async def run_pricing_scenarios(rfp: RFPDep, params: ScenarioInput):
     """Run pricing 'War Gaming' scenarios."""
-    service = RFPService(db)
-    rfp = service.get_rfp_by_id(rfp_id)
-
-    if not rfp:
-        raise HTTPException(status_code=404, detail="RFP not found")
-
-    # Convert RFP to dict
-    rfp_data = {
-        "rfp_id": rfp.rfp_id,
-        "title": rfp.title,
-        "agency": rfp.agency,
-        "description": rfp.description,
-        "naics_code": rfp.naics_code,
-        "category": rfp.category
-    }
-
     if not processor.pricing_engine:
         raise HTTPException(status_code=503, detail="Pricing Engine not initialized")
 
+    rfp_data = rfp_to_processing_dict(rfp)
     custom_params = ScenarioParams(
         labor_cost_multiplier=params.labor_cost_multiplier,
         material_cost_multiplier=params.material_cost_multiplier,
@@ -240,69 +247,30 @@ async def run_pricing_scenarios(
         desired_margin=params.desired_margin
     )
 
-    results = processor.pricing_engine.run_war_gaming(rfp_data, custom_params)
-
-    return results
+    return processor.pricing_engine.run_war_gaming(rfp_data, custom_params)
 
 
 @router.get("/{rfp_id}/pricing/subcontractors")
-async def get_subcontractor_opportunities(
-    rfp_id: str,
-    db: Session = Depends(get_db)
-):
+async def get_subcontractor_opportunities(rfp: RFPDep):
     """Identify potential subcontracting opportunities."""
-    service = RFPService(db)
-    rfp = service.get_rfp_by_id(rfp_id)
-
-    if not rfp:
-        raise HTTPException(status_code=404, detail="RFP not found")
-
     if not processor.pricing_engine:
         raise HTTPException(status_code=503, detail="Pricing Engine not initialized")
 
-    # Convert RFP to dict
-    rfp_data = {
-        "rfp_id": rfp.rfp_id,
-        "title": rfp.title,
-        "agency": rfp.agency,
-        "description": rfp.description,
-        "naics_code": rfp.naics_code,
-        "category": rfp.category
-    }
-
-    opportunities = processor.pricing_engine.identify_subcontractors(rfp_data)
-
-    return opportunities
+    rfp_data = rfp_to_processing_dict(rfp)
+    return processor.pricing_engine.identify_subcontractors(rfp_data)
 
 
 @router.get("/{rfp_id}/pricing/ptw")
 async def get_price_to_win(
-    rfp_id: str,
-    target_prob: float = Query(default=0.7, ge=0.05, le=0.95),
-    db: Session = Depends(get_db)
+    rfp: RFPDep,
+    target_prob: float = Query(default=0.7, ge=0.05, le=0.95)
 ):
     """Calculate Price-to-Win (PTW) analysis."""
-    service = RFPService(db)
-    rfp = service.get_rfp_by_id(rfp_id)
-
-    if not rfp:
-        raise HTTPException(status_code=404, detail="RFP not found")
-
     if not processor.pricing_engine:
         raise HTTPException(status_code=503, detail="Pricing Engine not initialized")
 
-    rfp_data = {
-        "rfp_id": rfp.rfp_id,
-        "title": rfp.title,
-        "agency": rfp.agency,
-        "description": rfp.description,
-        "naics_code": rfp.naics_code,
-        "category": rfp.category
-    }
-
-    result = processor.pricing_engine.calculate_price_to_win(rfp_data, target_prob)
-
-    return result
+    rfp_data = rfp_to_processing_dict(rfp)
+    return processor.pricing_engine.calculate_price_to_win(rfp_data, target_prob)
 
 
 @router.post("", response_model=RFPResponse)
@@ -331,27 +299,42 @@ async def update_rfp(
 async def update_triage_decision(
     rfp_id: str,
     decision: TriageDecision,
-    db: Session = Depends(get_db)
+    service: RFPServiceDep
 ):
     """Update triage decision for an RFP."""
-    service = RFPService(db)
+    from app.websockets.websocket_router import broadcast_rfp_update
+
     rfp = service.update_triage_decision(rfp_id, decision.decision, decision.notes)
     if not rfp:
         raise HTTPException(status_code=404, detail="RFP not found")
+
+    # Broadcast update to connected clients
+    await broadcast_rfp_update(rfp_id, "triage_updated", {
+        "decision": decision.decision,
+        "current_stage": rfp.current_stage.value if hasattr(rfp.current_stage, 'value') else str(rfp.current_stage)
+    })
+
     return rfp
 
 
 @router.post("/{rfp_id}/advance-stage")
 async def advance_pipeline_stage(
     rfp_id: str,
-    notes: str | None = None,
-    db: Session = Depends(get_db)
+    service: RFPServiceDep,
+    notes: str | None = None
 ):
     """Advance RFP to next pipeline stage."""
-    service = RFPService(db)
+    from app.websockets.websocket_router import broadcast_rfp_update
+
     rfp = service.advance_stage(rfp_id, notes)
     if not rfp:
         raise HTTPException(status_code=404, detail="RFP not found")
+
+    # Broadcast stage change to connected clients
+    await broadcast_rfp_update(rfp_id, "stage_advanced", {
+        "current_stage": rfp.current_stage.value if hasattr(rfp.current_stage, 'value') else str(rfp.current_stage)
+    })
+
     return {"message": "Stage advanced successfully", "current_stage": rfp.current_stage}
 
 
@@ -432,41 +415,39 @@ async def process_manual_rfp(
 
 
 @router.post("/{rfp_id}/generate-bid")
-async def generate_bid_document(
-    rfp_id: str,
-    db: Session = Depends(get_db)
-):
+async def generate_bid_document(rfp: RFPDep):
     """
     Generate a complete bid document for an RFP.
     Includes proposal content, compliance matrix, and pricing breakdown.
     """
-    service = RFPService(db)
-    rfp = service.get_rfp_by_id(rfp_id)
+    from app.websockets.websocket_router import broadcast_rfp_update
 
-    if not rfp:
-        raise HTTPException(status_code=404, detail="RFP not found")
+    # Broadcast that bid generation has started
+    await broadcast_rfp_update(rfp.rfp_id, "bid_generation_started", {
+        "title": rfp.title
+    })
 
     # Convert RFP to dict for processing
-    rfp_data = {
-        "rfp_id": rfp.rfp_id,
-        "title": rfp.title,
-        "agency": rfp.agency,
-        "solicitation_number": rfp.solicitation_number,
-        "description": rfp.description,
-        "category": rfp.category,
-        "naics_code": rfp.naics_code,
-        "response_deadline": rfp.response_deadline.isoformat() if rfp.response_deadline else None
-    }
+    rfp_data = rfp_to_processing_dict(rfp)
 
     # Generate bid document
     bid_document = await processor.generate_bid_document(rfp_data)
 
     if "error" in bid_document:
+        await broadcast_rfp_update(rfp.rfp_id, "bid_generation_failed", {
+            "error": bid_document["error"]
+        })
         raise HTTPException(status_code=500, detail=f"Bid generation failed: {bid_document['error']}")
+
+    # Broadcast successful generation
+    await broadcast_rfp_update(rfp.rfp_id, "bid_generated", {
+        "bid_id": bid_document["bid_id"],
+        "sections": list(bid_document["content"]["sections"].keys()) if bid_document.get("content", {}).get("sections") else []
+    })
 
     return {
         "bid_id": bid_document["bid_id"],
-        "rfp_id": rfp_id,
+        "rfp_id": rfp.rfp_id,
         "generated_at": bid_document["metadata"]["generated_at"],
         "preview": {
             "markdown": bid_document["content"]["markdown"][:500] + "...",
@@ -517,13 +498,8 @@ async def download_bid_document(bid_id: str, format: str):
 
 
 @router.get("/{rfp_id}/checklist", response_model=PostAwardChecklistResponse)
-async def get_post_award_checklist(rfp_id: str, db: Session = Depends(get_db)):
+async def get_post_award_checklist(rfp: RFPDep, db: DBDep):
     """Get the post-award compliance checklist for a specific RFP."""
-    service = RFPService(db)
-    rfp = service.get_rfp_by_id(rfp_id)
-    if not rfp:
-        raise HTTPException(status_code=404, detail="RFP not found")
-
     checklist = db.query(PostAwardChecklist).filter(PostAwardChecklist.rfp_id == rfp.id).first()
     if not checklist:
         raise HTTPException(status_code=404, detail="Post-award checklist not found for this RFP")
@@ -569,47 +545,40 @@ async def submit_decision_feedback(
 @router.post("/{rfp_id}/async/ingest")
 async def trigger_async_ingestion(
     rfp_id: str,
-    file_paths: List[str]
+    file_paths: List[str],
+    background_tasks: BackgroundTasks = None
 ):
     """Trigger background RAG ingestion."""
-    from src.tasks import ingest_documents_task
-    task = ingest_documents_task.delay(file_paths)
-    return {"task_id": task.id, "status": "processing"}
+    from app.services.background_tasks import ingest_documents_task
+
+    task_id = str(uuid4())
+    background_tasks.add_task(ingest_documents_task, task_id, file_paths)
+    return {"task_id": task_id, "status": "processing"}
 
 
 @router.post("/{rfp_id}/async/generate-bid")
 async def trigger_async_bid_generation(
-    rfp_id: str,
-    db: Session = Depends(get_db)
+    rfp: RFPDep,
+    background_tasks: BackgroundTasks
 ):
     """Trigger background bid generation."""
-    service = RFPService(db)
-    rfp = service.get_rfp_by_id(rfp_id)
-    if not rfp:
-        raise HTTPException(status_code=404, detail="RFP not found")
+    from app.services.background_tasks import generate_bid_task
 
-    rfp_data = {
-        "rfp_id": rfp.rfp_id,
-        "title": rfp.title,
-        "agency": rfp.agency,
-        "description": rfp.description
-    }
-
-    from src.tasks import generate_bid_task
-    task = generate_bid_task.delay(rfp_data)
-    return {"task_id": task.id, "status": "processing"}
+    rfp_data = rfp_to_processing_dict(rfp)
+    task_id = str(uuid4())
+    background_tasks.add_task(generate_bid_task, task_id, rfp_data)
+    return {"task_id": task_id, "status": "processing"}
 
 
 @router.get("/tasks/{task_id}")
-async def get_task_status(task_id: str):
-    """Get status of a Celery task."""
-    from celery.result import AsyncResult
+async def get_background_task_status(task_id: str):
+    """Get status of a background task."""
+    from app.services.background_tasks import get_task_status
 
-    from src.celery_app import celery_app
-
-    result = AsyncResult(task_id, app=celery_app)
+    status = get_task_status(task_id)
+    if not status:
+        raise HTTPException(status_code=404, detail="Task not found")
     return {
         "task_id": task_id,
-        "status": result.status,
-        "result": result.result if result.ready() else None
+        **status
     }

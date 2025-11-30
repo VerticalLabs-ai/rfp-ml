@@ -17,12 +17,12 @@ class DataSourcePlugin(ABC):
     def search(self, days_back: int = 30, limit: int = 50, **kwargs) -> list[dict[str, Any]]:
         """
         Search for opportunities from this source.
-        
+
         Args:
             days_back: Number of days to look back for opportunities.
             limit: Maximum number of results to return.
             **kwargs: Additional source-specific arguments.
-            
+
         Returns:
             List of dictionaries representing opportunities.
         """

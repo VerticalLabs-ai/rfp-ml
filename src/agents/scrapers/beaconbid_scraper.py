@@ -51,6 +51,7 @@ class BeaconBidScraper(BaseScraper):
         document_storage_path: str = "data/rfp_documents",
         browserbase_project_id: str | None = None,
         browserbase_api_key: str | None = None,
+        model_api_key: str | None = None,
     ):
         """
         Initialize BeaconBid scraper.
@@ -59,6 +60,7 @@ class BeaconBidScraper(BaseScraper):
             document_storage_path: Base path for storing downloaded documents
             browserbase_project_id: Browserbase project ID (or from env BROWSERBASE_PROJECT_ID)
             browserbase_api_key: Browserbase API key (or from env BROWSERBASE_API_KEY)
+            model_api_key: LLM API key for Stagehand (or from env OPENAI_API_KEY)
         """
         super().__init__(document_storage_path)
 
@@ -68,9 +70,12 @@ class BeaconBidScraper(BaseScraper):
         self.browserbase_api_key = browserbase_api_key or os.getenv(
             "BROWSERBASE_API_KEY", ""
         )
+        self.model_api_key = model_api_key or os.getenv("OPENAI_API_KEY", "")
 
         if not self.browserbase_api_key:
             logger.warning("Browserbase API key not configured. Scraping will fail.")
+        if not self.model_api_key:
+            logger.warning("Model API key not configured. Stagehand AI features may fail.")
 
     async def _create_stagehand_session(self) -> Any:
         """
@@ -87,6 +92,7 @@ class BeaconBidScraper(BaseScraper):
                 env="BROWSERBASE",
                 api_key=self.browserbase_api_key,
                 project_id=self.browserbase_project_id,
+                model_api_key=self.model_api_key,
                 verbose=1,  # 0=quiet, 1=info, 2=debug
             )
 
@@ -134,20 +140,28 @@ class BeaconBidScraper(BaseScraper):
             # Extract Q&A
             qa_items = await self._extract_qa(stagehand)
 
-            # Build the ScrapedRFP
+            # Build the ScrapedRFP (handle both snake_case and camelCase keys)
+            def get_field(data: dict, snake_key: str, camel_key: str | None = None):
+                """Get field value with fallback to camelCase key."""
+                if camel_key is None:
+                    # Convert snake_case to camelCase
+                    parts = snake_key.split("_")
+                    camel_key = parts[0] + "".join(p.capitalize() for p in parts[1:])
+                return data.get(snake_key) or data.get(camel_key)
+
             scraped_rfp = ScrapedRFP(
                 source_url=url,
                 source_platform=self.PLATFORM_NAME,
                 title=rfp_data.get("title", "Untitled RFP"),
-                solicitation_number=rfp_data.get("solicitation_number"),
+                solicitation_number=get_field(rfp_data, "solicitation_number"),
                 description=rfp_data.get("description"),
                 agency=rfp_data.get("agency"),
                 office=rfp_data.get("office"),
-                posted_date=self._parse_date(rfp_data.get("posted_date")),
-                response_deadline=self._parse_date(rfp_data.get("response_deadline")),
-                award_amount=self._parse_amount(rfp_data.get("award_amount")),
-                estimated_value=self._parse_amount(rfp_data.get("estimated_value")),
-                naics_code=rfp_data.get("naics_code"),
+                posted_date=self._parse_date(get_field(rfp_data, "posted_date")),
+                response_deadline=self._parse_date(get_field(rfp_data, "response_deadline")),
+                award_amount=self._parse_amount(get_field(rfp_data, "award_amount")),
+                estimated_value=self._parse_amount(get_field(rfp_data, "estimated_value")),
+                naics_code=get_field(rfp_data, "naics_code"),
                 category=rfp_data.get("category"),
                 documents=documents,
                 qa_items=qa_items,
@@ -180,10 +194,12 @@ class BeaconBidScraper(BaseScraper):
             Dict with extracted metadata
         """
         try:
-            # Use Stagehand's extract() for AI-powered data extraction
-            result = await stagehand.extract(
-                {
-                    "instruction": """Extract the RFP (Request for Proposal) information from this page.
+            from stagehand import ExtractOptions
+
+            # Use Stagehand page's extract() for AI-powered data extraction
+            result = await stagehand.page.extract(
+                ExtractOptions(
+                    instruction="""Extract the RFP (Request for Proposal) information from this page.
                 Find and extract:
                 - title: The main title/name of the solicitation
                 - solicitation_number: The official solicitation or RFP number
@@ -196,7 +212,7 @@ class BeaconBidScraper(BaseScraper):
                 - naics_code: Any NAICS code mentioned
                 - category: The category or type of work (e.g., IT Services, Construction)
                 """,
-                    "schema": {
+                    schema_definition={
                         "type": "object",
                         "properties": {
                             "title": {"type": "string"},
@@ -211,11 +227,13 @@ class BeaconBidScraper(BaseScraper):
                             "category": {"type": "string"},
                         },
                     },
-                }
+                )
             )
 
-            logger.info(f"Extracted metadata: {result}")
-            return result if result else {}
+            # Extract data from result
+            data = result.data if hasattr(result, "data") else result
+            logger.info(f"Extracted metadata: {data}")
+            return data if isinstance(data, dict) else {}
 
         except Exception as e:
             logger.error(f"Error extracting metadata: {e}")
@@ -232,45 +250,54 @@ class BeaconBidScraper(BaseScraper):
             List of ScrapedDocument objects (without local paths - not downloaded yet)
         """
         try:
-            # Use Stagehand to find document links
-            result = await stagehand.extract(
-                {
-                    "instruction": """Find all downloadable documents/attachments on this page.
+            from stagehand import ExtractOptions
+
+            # Use Stagehand page to find document links
+            result = await stagehand.page.extract(
+                ExtractOptions(
+                    instruction="""Find all downloadable documents/attachments on this page.
                 For each document, extract:
                 - filename: The name of the file
                 - url: The download URL or link
                 - type: The type of document (solicitation, amendment, attachment, etc.)
                 """,
-                    "schema": {
-                        "type": "array",
-                        "items": {
-                            "type": "object",
-                            "properties": {
-                                "filename": {"type": "string"},
-                                "url": {"type": "string"},
-                                "type": {"type": "string"},
+                    schema_definition={
+                        "type": "object",
+                        "properties": {
+                            "documents": {
+                                "type": "array",
+                                "items": {
+                                    "type": "object",
+                                    "properties": {
+                                        "filename": {"type": "string"},
+                                        "url": {"type": "string"},
+                                        "type": {"type": "string"},
+                                    },
+                                },
                             },
                         },
                     },
-                }
+                )
             )
 
             documents = []
-            if result:
-                for doc in result:
-                    filename = doc.get("filename", "unknown")
-                    file_ext = Path(filename).suffix.lower().lstrip(".")
+            data = result.data if hasattr(result, "data") else result
+            doc_list = data.get("documents", []) if isinstance(data, dict) else []
 
-                    documents.append(
-                        ScrapedDocument(
-                            filename=filename,
-                            source_url=doc.get("url", ""),
-                            file_type=file_ext if file_ext else None,
-                            document_type=self._classify_document_type(
-                                doc.get("type", ""), filename
-                            ),
-                        )
+            for doc in doc_list:
+                filename = doc.get("filename", "unknown")
+                file_ext = Path(filename).suffix.lower().lstrip(".")
+
+                documents.append(
+                    ScrapedDocument(
+                        filename=filename,
+                        source_url=doc.get("url", ""),
+                        file_type=file_ext if file_ext else None,
+                        document_type=self._classify_document_type(
+                            doc.get("type", ""), filename
+                        ),
                     )
+                )
 
             logger.info(f"Found {len(documents)} documents")
             return documents
@@ -290,22 +317,21 @@ class BeaconBidScraper(BaseScraper):
             List of ScrapedQA objects
         """
         try:
+            from stagehand import ExtractOptions
+
             # First, try to navigate to Q&A section if it exists
             try:
-                await stagehand.act(
-                    {
-                        "action": "click",
-                        "instruction": "Click on the Q&A tab or Questions and Answers section if visible",
-                    }
+                await stagehand.page.act(
+                    "Click on the Q&A tab or Questions and Answers section if visible"
                 )
                 await asyncio.sleep(1)  # Wait for content to load
             except Exception:
                 logger.debug("No Q&A tab found, checking current page")
 
             # Extract Q&A content
-            result = await stagehand.extract(
-                {
-                    "instruction": """Find all Questions and Answers (Q&A) on this page.
+            result = await stagehand.page.extract(
+                ExtractOptions(
+                    instruction="""Find all Questions and Answers (Q&A) on this page.
                 For each Q&A entry, extract:
                 - question_number: The question number (Q1, Q2, etc.) if shown
                 - question: The question text
@@ -313,35 +339,52 @@ class BeaconBidScraper(BaseScraper):
                 - asked_date: When the question was asked (if shown)
                 - answered_date: When it was answered (if shown)
                 """,
-                    "schema": {
-                        "type": "array",
-                        "items": {
-                            "type": "object",
-                            "properties": {
-                                "question_number": {"type": "string"},
-                                "question": {"type": "string"},
-                                "answer": {"type": "string"},
-                                "asked_date": {"type": "string"},
-                                "answered_date": {"type": "string"},
+                    schema_definition={
+                        "type": "object",
+                        "properties": {
+                            "qa_items": {
+                                "type": "array",
+                                "items": {
+                                    "type": "object",
+                                    "properties": {
+                                        "question_number": {"type": "string"},
+                                        "question": {"type": "string"},
+                                        "answer": {"type": "string"},
+                                        "asked_date": {"type": "string"},
+                                        "answered_date": {"type": "string"},
+                                    },
+                                },
                             },
                         },
                     },
-                }
+                )
             )
 
             qa_items = []
-            if result:
-                for qa in result:
-                    if qa.get("question"):  # Only add if there's a question
-                        qa_items.append(
-                            ScrapedQA(
-                                question_number=qa.get("question_number"),
-                                question_text=qa.get("question", ""),
-                                answer_text=qa.get("answer"),
-                                asked_date=self._parse_date(qa.get("asked_date")),
-                                answered_date=self._parse_date(qa.get("answered_date")),
-                            )
+            data = result.data if hasattr(result, "data") else result
+            # Handle both camelCase (qaItems) and snake_case (qa_items) keys
+            qa_list = (
+                data.get("qaItems", []) or data.get("qa_items", [])
+                if isinstance(data, dict)
+                else []
+            )
+
+            for qa in qa_list:
+                question = qa.get("question") or qa.get("questionText") or ""
+                if question:  # Only add if there's a question
+                    qa_items.append(
+                        ScrapedQA(
+                            question_number=qa.get("question_number") or qa.get("questionNumber"),
+                            question_text=question,
+                            answer_text=qa.get("answer") or qa.get("answerText"),
+                            asked_date=self._parse_date(
+                                qa.get("asked_date") or qa.get("askedDate")
+                            ),
+                            answered_date=self._parse_date(
+                                qa.get("answered_date") or qa.get("answeredDate")
+                            ),
                         )
+                    )
 
             logger.info(f"Found {len(qa_items)} Q&A items")
             return qa_items
@@ -495,6 +538,14 @@ class BeaconBidScraper(BaseScraper):
         if not date_str:
             return None
 
+        # Clean up the date string - remove timezone abbreviations and extra parts
+        cleaned = date_str.strip()
+        # Remove common timezone abbreviations
+        for tz in [" CST", " EST", " PST", " MST", " CDT", " EDT", " PDT", " MDT", " UTC", " GMT"]:
+            cleaned = cleaned.replace(tz, "")
+        # Remove "at" between date and time
+        cleaned = cleaned.replace(" at ", " ")
+
         # Common date formats
         formats = [
             "%Y-%m-%d",
@@ -504,11 +555,15 @@ class BeaconBidScraper(BaseScraper):
             "%b %d, %Y",
             "%Y-%m-%dT%H:%M:%S",
             "%Y-%m-%d %H:%M:%S",
+            "%B %d, %Y %I:%M:%S %p",  # December 2, 2025 10:00:00 AM
+            "%B %d, %Y %H:%M:%S",  # December 2, 2025 10:00:00
+            "%b %d, %Y %I:%M:%S %p",
+            "%b %d, %Y %H:%M:%S",
         ]
 
         for fmt in formats:
             try:
-                return datetime.strptime(date_str.strip(), fmt)
+                return datetime.strptime(cleaned.strip(), fmt)
             except ValueError:
                 continue
 

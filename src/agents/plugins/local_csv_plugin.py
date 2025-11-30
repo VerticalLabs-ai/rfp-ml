@@ -23,7 +23,7 @@ class LocalCSVPlugin(DataSourcePlugin):
 
     def search(self, days_back: int = 30, limit: int = 50, **kwargs) -> list[dict[str, Any]]:
         """
-        Reads from local CSV. Note: 'days_back' is used to filter if possible, 
+        Reads from local CSV. Note: 'days_back' is used to filter if possible,
         otherwise we return a sample of 'limit'.
         """
         print(f"LocalCSVPlugin: Reading from {self.file_path}...")

@@ -116,10 +116,10 @@ class StyleGuideManager:
         query_embedding = self.model.encode([query])
         faiss.normalize_L2(query_embedding)
 
-        D, I = self.index.search(query_embedding, k * 2) # Retrieve extra for filtering
+        distances, indices = self.index.search(query_embedding, k * 2) # Retrieve extra for filtering
 
         results = []
-        for idx in I[0]:
+        for idx in indices[0]:
             if idx < 0 or idx >= len(self.examples):
                 continue
 

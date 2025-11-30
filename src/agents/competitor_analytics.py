@@ -9,7 +9,7 @@ class CompetitorAnalyticsService:
     """
     Service for analyzing potential competitors for an RFP.
     In a production environment, this would query USASpending.gov or a paid market intelligence API.
-    For this MVP, it simulates competitor identification by analyzing the description text 
+    For this MVP, it simulates competitor identification by analyzing the description text
     and looking up similar past awards in the archive.
     """
 

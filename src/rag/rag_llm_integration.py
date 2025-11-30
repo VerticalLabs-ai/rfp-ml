@@ -113,7 +113,7 @@ Response:"""
                 doc.similarity_score for doc in context.retrieved_documents
             ],
             "source_datasets": list(
-                set(doc.source_dataset for doc in context.retrieved_documents)
+                {doc.source_dataset for doc in context.retrieved_documents}
             ),
             "document_ids": [doc.document_id for doc in context.retrieved_documents],
         }

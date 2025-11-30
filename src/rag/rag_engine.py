@@ -500,7 +500,7 @@ class RAGEngine:
             try:
                 query_embedding = self.embedding_engine.embed_single_text(query)
                 scores, indices = self.vector_index.search(query_embedding, k)
-                for score, idx in zip(scores, indices):
+                for score, idx in zip(scores, indices, strict=False):
                     if score >= self.config.similarity_threshold:
                         result = RetrievalResult(
                             document_id=self.vector_index.document_ids[idx],
@@ -525,7 +525,7 @@ class RAGEngine:
         if self.tfidf_retriever and self.tfidf_retriever.vectorizer is not None:
             try:
                 scores, indices = self.tfidf_retriever.search(query, k)
-                for score, idx in zip(scores, indices):
+                for score, idx in zip(scores, indices, strict=False):
                     if score >= self.config.similarity_threshold:
                         result = RetrievalResult(
                             document_id=self.tfidf_retriever.document_ids[idx],

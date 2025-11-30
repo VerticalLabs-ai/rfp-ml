@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { useNavigate } from 'react-router-dom'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { Link2, Loader2, Building2, CheckCircle2, FileText, MessageSquare } from 'lucide-react'
 import { toast } from 'sonner'
@@ -49,6 +50,7 @@ export function ImportRFPDialog({ trigger, onSuccess }: ImportRFPDialogProps) {
   const [url, setUrl] = useState('')
   const [selectedProfileId, setSelectedProfileId] = useState<string>('')
   const queryClient = useQueryClient()
+  const navigate = useNavigate()
 
   // Fetch company profiles
   const { data: profiles } = useQuery({
@@ -79,6 +81,8 @@ export function ImportRFPDialog({ trigger, onSuccess }: ImportRFPDialogProps) {
       setIsOpen(false)
       setUrl('')
       onSuccess?.(data.rfp_id)
+      // Navigate to the RFP detail page
+      navigate(`/rfps/${data.rfp_id}`)
     },
     onError: (error: Error) => {
       toast.error('Failed to import RFP', {

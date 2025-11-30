@@ -492,6 +492,164 @@ class RFPQandA(Base):
         }
 
 
+class AlertType(str, PyEnum):
+    """Alert type enumeration."""
+    NEW_RFP = "new_rfp"
+    DEADLINE_APPROACHING = "deadline_approaching"
+    STAGE_CHANGE = "stage_change"
+    SCORE_THRESHOLD = "score_threshold"
+    KEYWORD_MATCH = "keyword_match"
+    AGENCY_MATCH = "agency_match"
+    NAICS_MATCH = "naics_match"
+    DOCUMENT_UPDATED = "document_updated"
+    QA_POSTED = "qa_posted"
+    AWARD_ANNOUNCED = "award_announced"
+
+
+class AlertPriority(str, PyEnum):
+    """Alert priority levels."""
+    LOW = "low"
+    MEDIUM = "medium"
+    HIGH = "high"
+    URGENT = "urgent"
+
+
+class NotificationChannel(str, PyEnum):
+    """Notification delivery channels."""
+    IN_APP = "in_app"
+    EMAIL = "email"
+    WEBHOOK = "webhook"
+    SLACK = "slack"
+
+
+class AlertRule(Base):
+    """User-defined alert rules for RFP monitoring (GovGPT Smart Alerts parity)."""
+    __tablename__ = "alert_rules"
+
+    id = Column(Integer, primary_key=True, index=True)
+    name = Column(String, nullable=False)
+    description = Column(Text, nullable=True)
+
+    # Rule configuration
+    alert_type = Column(Enum(AlertType), nullable=False)
+    is_active = Column(Boolean, default=True)
+    priority = Column(Enum(AlertPriority), default=AlertPriority.MEDIUM)
+
+    # Matching criteria (JSON for flexibility)
+    criteria = Column(JSON, default=lambda: {})
+    # Examples:
+    # For KEYWORD_MATCH: {"keywords": ["cybersecurity", "cloud"], "match_title": true, "match_description": true}
+    # For AGENCY_MATCH: {"agencies": ["Department of Defense", "NASA"]}
+    # For NAICS_MATCH: {"naics_codes": ["541512", "541519"]}
+    # For DEADLINE_APPROACHING: {"days_before": 7}
+    # For SCORE_THRESHOLD: {"min_score": 0.75, "score_type": "triage"}
+
+    # Notification settings
+    notification_channels = Column(JSON, default=lambda: ["in_app"])
+    email_recipients = Column(JSON, default=lambda: [])
+    webhook_url = Column(String, nullable=True)
+    slack_channel = Column(String, nullable=True)
+
+    # Throttling
+    cooldown_minutes = Column(Integer, default=60)  # Minimum time between alerts
+    max_alerts_per_day = Column(Integer, default=10)
+
+    # Stats
+    triggered_count = Column(Integer, default=0)
+    last_triggered_at = Column(DateTime, nullable=True)
+
+    # User/tenant
+    created_by = Column(String, nullable=True)
+    company_profile_id = Column(Integer, ForeignKey("company_profiles.id"), nullable=True)
+
+    # Timestamps
+    created_at = Column(DateTime, default=datetime.utcnow)
+    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+
+    # Relationships
+    notifications = relationship("AlertNotification", back_populates="rule")
+    company_profile = relationship("CompanyProfile")
+
+    def to_dict(self):
+        return {
+            "id": self.id,
+            "name": self.name,
+            "description": self.description,
+            "alert_type": self.alert_type.value if self.alert_type else None,
+            "is_active": self.is_active,
+            "priority": self.priority.value if self.priority else None,
+            "criteria": self.criteria,
+            "notification_channels": self.notification_channels,
+            "email_recipients": self.email_recipients,
+            "webhook_url": self.webhook_url,
+            "slack_channel": self.slack_channel,
+            "cooldown_minutes": self.cooldown_minutes,
+            "max_alerts_per_day": self.max_alerts_per_day,
+            "triggered_count": self.triggered_count,
+            "last_triggered_at": self.last_triggered_at.isoformat() if self.last_triggered_at else None,
+            "created_by": self.created_by,
+            "company_profile_id": self.company_profile_id,
+            "created_at": self.created_at.isoformat() if self.created_at else None,
+            "updated_at": self.updated_at.isoformat() if self.updated_at else None,
+        }
+
+
+class AlertNotification(Base):
+    """Individual alert notifications generated from rules."""
+    __tablename__ = "alert_notifications"
+
+    id = Column(Integer, primary_key=True, index=True)
+    rule_id = Column(Integer, ForeignKey("alert_rules.id"), nullable=False)
+    rfp_id = Column(Integer, ForeignKey("rfp_opportunities.id"), nullable=True)
+
+    # Notification content
+    title = Column(String, nullable=False)
+    message = Column(Text, nullable=False)
+    priority = Column(Enum(AlertPriority), default=AlertPriority.MEDIUM)
+
+    # Status
+    is_read = Column(Boolean, default=False)
+    is_dismissed = Column(Boolean, default=False)
+    is_actioned = Column(Boolean, default=False)
+    action_taken = Column(String, nullable=True)
+
+    # Delivery status per channel
+    delivery_status = Column(JSON, default=lambda: {})
+    # Example: {"in_app": "delivered", "email": "sent", "webhook": "failed"}
+
+    # Context data
+    context_data = Column(JSON, default=lambda: {})
+    # Example: {"matched_keywords": ["cloud"], "score_value": 0.87}
+
+    # Timestamps
+    created_at = Column(DateTime, default=datetime.utcnow)
+    read_at = Column(DateTime, nullable=True)
+    dismissed_at = Column(DateTime, nullable=True)
+
+    # Relationships
+    rule = relationship("AlertRule", back_populates="notifications")
+    rfp = relationship("RFPOpportunity")
+
+    def to_dict(self):
+        return {
+            "id": self.id,
+            "rule_id": self.rule_id,
+            "rfp_id": self.rfp_id,
+            "title": self.title,
+            "message": self.message,
+            "priority": self.priority.value if self.priority else None,
+            "is_read": self.is_read,
+            "is_dismissed": self.is_dismissed,
+            "is_actioned": self.is_actioned,
+            "action_taken": self.action_taken,
+            "delivery_status": self.delivery_status,
+            "context_data": self.context_data,
+            "created_at": self.created_at.isoformat() if self.created_at else None,
+            "read_at": self.read_at.isoformat() if self.read_at else None,
+            "dismissed_at": self.dismissed_at.isoformat() if self.dismissed_at else None,
+        }
+
+
 class DashboardMetrics(Base):
     """Cached dashboard metrics for performance."""
     __tablename__ = "dashboard_metrics"

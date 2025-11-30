@@ -437,7 +437,7 @@ class PricingEngine:
             similar_awards = historical_context['similar_awards']
             if similar_awards:
                 award_amounts = [award['award_amount'] for award in similar_awards]
-                similar_median = statistics.median(award_amounts)
+                _similar_median = statistics.median(award_amounts)
                 # Weight by similarity scores
                 weighted_amounts = []
                 for award in similar_awards:

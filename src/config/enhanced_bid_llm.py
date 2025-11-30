@@ -221,11 +221,11 @@ Requirements: {self._format_requirements(requirements)}
 """
         prompts = {
             "executive_summary": f"""
-Write a professional executive summary for a government bid proposal. 
+Write a professional executive summary for a government bid proposal.
 {base_context}
 Create a compelling 3-paragraph executive summary that:
 1. States our understanding and commitment to the project
-2. Highlights our key qualifications and competitive advantages  
+2. Highlights our key qualifications and competitive advantages
 3. Demonstrates confidence in successful project delivery
 Write in a professional, confident tone matching the Style Reference if provided. Maximum {max_words} words.
 Executive Summary:
@@ -397,7 +397,7 @@ Analyze this RFP text and extract key requirements:
 {rfp_text[:1000]}
 List the main requirements in this format:
 - Duration: [contract length]
-- Frequency: [delivery frequency]  
+- Frequency: [delivery frequency]
 - Standards: [quality/compliance standards]
 - Insurance: [insurance requirements]
 - Experience: [experience requirements]

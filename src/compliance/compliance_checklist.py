@@ -61,12 +61,12 @@ class ComplianceChecklistGenerator:
     def generate_from_bid_document(self, rfp_data: dict[str, Any], bid_document_content: dict[str, Any]) -> ComplianceChecklist:
         """
         Generate a compliance checklist from a finalized bid document's content.
-        
+
         Args:
             rfp_data: The original RFP data.
             bid_document_content: The `content` section of the generated bid document,
                                   specifically containing `compliance_matrix` and `technical_approach`.
-        
+
         Returns:
             A ComplianceChecklist object.
         """
@@ -91,7 +91,7 @@ class ComplianceChecklistGenerator:
             ))
 
         # Extract deliverables/milestones from technical approach (mock for now)
-        technical_approach = bid_document_content.get("sections", {}).get("technical_approach", {})
+        _technical_approach = bid_document_content.get("sections", {}).get("technical_approach", {})
 
         # Example: if there's a Gantt chart, extract its tasks
         # For now, manually create a few common post-award tasks

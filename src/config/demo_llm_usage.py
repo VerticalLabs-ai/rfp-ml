@@ -35,8 +35,8 @@ def demo_bid_generation():
     3. Competitive advantages
     """
     system_message = """
-    You are an expert bid writer for a water delivery company. 
-    Your company has 15 years of experience, excellent delivery track record, 
+    You are an expert bid writer for a water delivery company.
+    Your company has 15 years of experience, excellent delivery track record,
     and specializes in municipal contracts. Focus on reliability, compliance, and local presence.
     """
     print("Generating bid content...")

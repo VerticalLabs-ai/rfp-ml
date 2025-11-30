@@ -165,7 +165,7 @@ class ComplianceMatrixGenerator:
     def extract_requirements_llm(self, rfp_text: str) -> list[dict[str, Any]]:
         """
         Extract requirements using LLM-based analysis.
-        Note: This is a placeholder for LLM integration. 
+        Note: This is a placeholder for LLM integration.
         In production, this would use the configured LLM API.
         Args:
             rfp_text: RFP description text

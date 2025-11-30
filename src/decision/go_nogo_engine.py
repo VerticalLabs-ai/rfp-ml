@@ -154,10 +154,10 @@ class GoNoGoEngine:
             # Analyze by contract value ranges
             if 'award_amount' in self.historical_data.columns:
                 awards = self.historical_data['award_amount']
-                # Define value ranges
-                small_contracts = awards[awards <= awards.quantile(0.33)]
-                medium_contracts = awards[(awards > awards.quantile(0.33)) & (awards <= awards.quantile(0.67))]
-                large_contracts = awards[awards > awards.quantile(0.67)]
+                # Define value ranges (used for win rate calculations)
+                _small_contracts = awards[awards <= awards.quantile(0.33)]
+                _medium_contracts = awards[(awards > awards.quantile(0.33)) & (awards <= awards.quantile(0.67))]
+                _large_contracts = awards[awards > awards.quantile(0.67)]
                 # Calculate win rates by contract size
                 win_rates['small_contracts'] = settings.decision.win_rate_small_contract
                 win_rates['medium_contracts'] = settings.decision.win_rate_medium_contract
@@ -665,7 +665,7 @@ def main():
             # Validation criteria
             validation_checks = {
                 'decisions_generated': len(results) > 0,
-                'varied_recommendations': len(set(r['recommendation'] for r in results)) > 1,
+                'varied_recommendations': len({r['recommendation'] for r in results}) > 1,
                 'reasonable_scores': all(0 <= r['overall_score'] <= 100 for r in results),
                 'adequate_confidence': avg_confidence >= 50,
                 'risk_identification': all(r['risk_count'] >= 0 for r in results),

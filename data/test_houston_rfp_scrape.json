@@ -1,0 +1,172 @@
+{
+  "title": "3 Multi-Year Public Facing Regional Websites",
+  "agency": "City of Houston",
+  "solicitation_number": "INF-2025-0412",
+  "description": "The City of Houston Mayor\u2019s Office of Homeland Security and Public Safety is seeking a company to design, develop, and deploy three public-facing regional websites\u2014each serving a specific program\u2014with a secure backend. The system should also support inquiry management, dissemination of public information, search engine exclusion to prevent indexing by crawlers, and emergency communication management across three DHS grant-supported focus areas. The City intends to enter a contract with a qualified firm specializing in website design/ hosting for a term of three (3) years with three (2) one-year options to renew annually, for a maximum five (5) year term. Service Term Year 1: 10/2026 - 9/2027 Year 2: 10/2027 - 9/2028 Year 3: 10/2028 - 9/2029 Year 4: 10/2029 - 9/2030 option year Year 5: 10/2030 - 9/2031 option year",
+  "category": "Support Services, Computer, Includes Computer Warranties; Management Consulting",
+  "naics_code": "",
+  "posted_date": "2025-11-05 00:00:00",
+  "response_deadline": "2025-12-02 10:00:00",
+  "estimated_value": null,
+  "documents": [
+    {
+      "filename": "Informal General Terms.docx",
+      "url": "0-295",
+      "type": "attachment"
+    },
+    {
+      "filename": "_E172233125837_07.pdf",
+      "url": "0-313",
+      "type": "solicitation"
+    },
+    {
+      "filename": "Informal Signature Page.docx",
+      "url": "0-345",
+      "type": "attachment"
+    }
+  ],
+  "qa_items": [
+    {
+      "number": "1",
+      "question": "Will proposals be evaluated based on lowest price technically acceptable (LPTA) or best value trade-off?",
+      "answer": "Price and if the bid satisfies all of the needs"
+    },
+    {
+      "number": "2",
+      "question": "Could you please confirm whether an estimated or approved budget range has been established for this project?",
+      "answer": "We cannot discuss budget"
+    },
+    {
+      "number": "3",
+      "question": "is there currently an incumbent doing this work? can they also bid for this?",
+      "answer": "yes and yes"
+    },
+    {
+      "number": "4",
+      "question": "Do we need to be TX based vendor or can we be out of another state and still bid for this?",
+      "answer": "No to TX and can be registered in another state"
+    },
+    {
+      "number": "5",
+      "question": "Is there a past award bid tabulation?",
+      "answer": "no"
+    },
+    {
+      "number": "6",
+      "question": "1. Hosting Environment & Security Please confirm if the City requires hosting within AWS GovCloud or Azure Government, or if commercial cloud environments (AWS/Azure) meeting DHS/FEMA cybersecurity standards are acceptable. Should the vendor maintain the cloud environment, or will hosting occur under a City-managed cloud tenancy?",
+      "answer": "Commercial environments are fine, unless there is something very specific within the apps/data that are being hosted that contain CJIS data.\nDHS/FEMA typically just requires specific FedRamp requirements that commercial Cloud environments like Azure and AWS already meet and are in full compliance with. Govcloud is only required if there is CJIS data involved."
+    },
+    {
+      "number": "7",
+      "question": "Does the City prefer a specific technology stack or CMS (e.g., WordPress, Drupal, custom React/Next.js, etc.), or is the vendor free to propose one that meets security and accessibility standards?",
+      "answer": "Must meet HITS approval, otherwise no preference.\nVendors may propose any platform that meets the requirements for Azure AD SSO, DHS/FEMA cybersecurity compliance, Section 508/WCAG 2.1 AA accessibility, and usability by non-technical staff. Open-source CMS (e.g., WordPress, Drupal) or proprietary SaaS platforms are both acceptable."
+    },
+    {
+      "number": "8",
+      "question": "Beyond standard WCAG 2.1 compliance, are there additional accessibility or 508-compliance audits or certifications the City requires post-launch?",
+      "answer": "No (but we will need to confirm this with HITS and MOPD).\nFederal Section 508 and WCAG 2.1 AA conformance are required. Third-party certification is not required; vendor documentation and accessibility testing results will suffice."
+    },
+    {
+      "number": "9",
+      "question": "Will existing domains or subdomains be provided by the City, or should domain registration and DNS management be included in our proposal?",
+      "answer": "yes"
+    },
+    {
+      "number": "10",
+      "question": "Can you confirm whether each of the three public-facing websites will have unique branding, design systems, and content management, or share a single CMS/backend with multi-site support?",
+      "answer": "Yes, unique branding, design systems, and content management between all sites."
+    },
+    {
+      "number": "11",
+      "question": "Will content writing, translation, and media assets (photos, videos, graphics) be provided by the City, or should the vendor include these in scope?",
+      "answer": "We will supply existing content and assets. Vendors may include optional pricing for content editing, photo sourcing, or design enhancement."
+    },
+    {
+      "number": "12",
+      "question": "Are there any existing websites or systems we\u2019ll be replacing or integrating with (for example, prior regional sites or DHS-related portals)?",
+      "answer": "Content will migrate from existing regional program websites currently hosted on a legacy SaaS platform. Vendors should include a content-migration plan. We also intend to integrate one or more of the websites with the region\u2019s M365 platform."
+    },
+    {
+      "number": "13",
+      "question": "Is there a possibility for an extension?",
+      "answer": "yes"
+    },
+    {
+      "number": "14",
+      "question": "Is work going to be done remotely? do resources need to be within US or can be outside US and work? can support be from offshore also?",
+      "answer": "Work may be performed remotely; however, all data hosting, processing, and storage associated with this project must occur within the United States. Vendors and subcontractors must comply with all applicable federal procurement standards under 2 CFR Part 200.\nOffshore development resources may be used only for non-data-handling activities (e.g., design, front-end coding, or quality-assurance testing) and must be fully disclosed in the proposal. The prime vendor remains responsible for ensuring that no data, credentials, or systems are managed, stored, or accessed from outside the United States.\nPreference will be given to U.S.-based personnel and hosting environments consistent with FEMA\u2019s Domestic Preference for Procurement guidance in the Preparedness Grants Manual."
+    },
+    {
+      "number": "15",
+      "question": "9. Service Level Expectations The SLA specifies 24/7 support for critical issues. Should we assume continuous monitoring and emergency response availability, or standard business-hour support with escalation for critical incidents? Would the City prefer a dedicated help desk contact or shared support model?",
+      "answer": "Continuous monitoring is not required. Vendors should provide business-hour support with 24/7 escalation for critical incidents."
+    },
+    {
+      "number": "16",
+      "question": "4. User Base and Scalability Could you provide an estimate of expected concurrent users and total registered users for each website? Are there any regional or departmental access controls (e.g., per-jurisdiction admin roles) we should design for?",
+      "answer": "Could you provide an estimate of expected concurrent users and total registered users for each website? A negligible amount of concurrent users with 4,000-7,000 users depending on the site.\nAre there any regional or departmental access controls (e.g., per-jurisdiction admin roles) we should design for? Yes, access control should allow for group-based permissions. Detail on access control will be provided after the contract is awarded."
+    },
+    {
+      "number": "17",
+      "question": "2. Integration Requirements For Microsoft 365 / Azure AD SSO, is single sign-on required for both public-facing volunteer portals and admin users, or only internal (City) staff? For Esri ArcGIS Online, should the integration include live dashboards and data sync, or only embedded map visualization? Are there any additional third-party systems (e.g., WebEOC, Everbridge, or others) the City anticipates integrating during Phase 1?",
+      "answer": "internal only\nThe solution must support the embedding and secure display of Esri ArcGIS Online maps, dashboards, and applications within each website.\nWhile real-time or two-way data synchronization is not required for initial deployment, the system\u2019s architecture must support secure API-based data exchange with Esri services to allow future integration of live or dynamic data feeds. Vendors should describe how their proposed solution can accommodate that capability without major redevelopment in later phases.\nNone required for Phase 1, but the platform must support API-based extensibility."
+    },
+    {
+      "number": "18",
+      "question": "5. Existing Content and Migration Are there current websites or data repositories from which content, files, or user data must be migrated? If so, can the City provide an overview of the source systems or formats (e.g., SharePoint, Drupal, static HTML)?",
+      "answer": "Are there current websites or data repositories from which content, files, or user data must be migrated? Yes. The existing sites contain content and files that may require migration; however, not all content from each site will be transferred. City staff will first archive and catalog all existing materials. After that process is complete, the City will collaborate with the vendor to determine which content will be migrated into the new system.\nIf so, can the City provide an overview of the source systems or formats (e.g., SharePoint, Drupal, static HTML)? WordPress"
+    },
+    {
+      "number": "19",
+      "question": "3. Training and Volunteer Portal Should the solution include a full learning management capability (e.g., course assignments, grading, and certificate generation) or a simplified registration and attendance tracking system? Does the City require integration with any existing volunteer or training databases?",
+      "answer": "Should the solution include a full learning management capability (e.g., course assignments, grading, and certificate generation) or a simplified registration and attendance tracking system? The current websites do not have a learning management component, and it would not be required for the new sites. Vendors may include optional pricing for enhanced LMS features, but these are not core requirements for this phase of development.\nDoes the City require integration with any existing volunteer or training databases? There are no current integration requirements with external volunteer or training databases for this project. The platform should be designed to support future API-based integration if new systems are adopted regionally.\nFor now, volunteer and training data management will occur within the new platform\u2019s secure environment, with the ability to export reports or datasets as needed."
+    },
+    {
+      "number": "20",
+      "question": "7. Accessibility & Compliance Please confirm whether WCAG 2.1 AA compliance verification requires third-party certification, or will internal documentation suffice. Are there any language translation workflows (manual or automated) the City prefers?",
+      "answer": "Please confirm whether WCAG 2.1 AA compliance verification requires third-party certification, or will internal documentation suffice. Internal documentation.\nAre there any language translation workflows (manual or automated) the City prefers? No preference."
+    },
+    {
+      "number": "21",
+      "question": "6. Design and Branding Should all three websites share a common template with program-specific branding, or are they expected to have distinct design systems? Will the City provide logos, color palettes, and typography guidelines, or should the vendor propose design options?",
+      "answer": "Will the City provide logos, color palettes, and typography guidelines, or should the vendor propose design options? The Houston UASI region will provide existing program and initiative logos, as well as examples of prior design materials for reference. The region does not maintain a formal brand style guide or typography standard. Historically, a color palette derived from the red, white, blue, and gray tones of the Houston UASI logo has been used, though strict adherence is not required.\nVendors should design within a professional, accessible, and consistent visual framework that complements the Houston UASI identity. Proposals may include optional recommendations for color palettes, font pairings, and template design options that support WCAG 2.1 AA and Section 508 accessibility standards."
+    },
+    {
+      "number": "22",
+      "question": "10. Pricing Structure Should pricing be presented as a fixed total cost (for design, build, deployment, and Year 1 support) with separate optional years, or should the proposal include a rate card and time-and-material pricing for ongoing services? Should optional services (e.g., cafeteria-style templates, analytics enablement) be priced separately?",
+      "answer": "Should pricing be presented as a fixed total cost (for design, build, deployment, and Year 1 support) with separate optional years, or should the proposal include a rate card and time-and-material pricing for ongoing services? Rate card/ time and materials.\nShould optional services (e.g., cafeteria-style templates, analytics enablement) be priced separately? Yes"
+    },
+    {
+      "number": "23",
+      "question": "8. Analytics and Reporting The RFP references optional analytics. Does the City prefer integration with Google Analytics / GA4, Microsoft Clarity, or a native reporting dashboard built into the platform?",
+      "answer": "The RFP references optional analytics. Does the City prefer integration with Google Analytics / GA4, Microsoft Clarity, or a native reporting dashboard built into the platform? Google Analytics preferred but not required (other options can substitute but should be named in the response)."
+    },
+    {
+      "number": "24",
+      "question": "Will the RFP still be posted?",
+      "answer": "until the bid has closed"
+    },
+    {
+      "number": "25",
+      "question": "Could you share the approximate monthly unique visitors expected for the new website?",
+      "answer": "Could you provide an estimate of expected concurrent users and total registered users for each website? A negligible amount of concurrent users with 4,000-7,000 users depending on the site."
+    },
+    {
+      "number": "26",
+      "question": "Will HASLC consider proposals from firms utilizing remote or hybrid teams, provided that project management, communication, and support are maintained within U.S. working hours?",
+      "answer": "Work may be performed remotely; however, all data hosting, processing, and storage associated with this project must occur within the United States. Vendors and subcontractors must comply with all applicable federal procurement standards under 2 CFR Part 200.\nOffshore development resources may be used only for non-data-handling activities (e.g., design, front-end coding, or quality-assurance testing) and must be fully disclosed in the proposal. The prime vendor remains responsible for ensuring that no data, credentials, or systems are managed, stored, or accessed from outside the United States.\nPreference will be given to U.S.-based personnel and hosting environments consistent with FEMA\u2019s Domestic Preference for Procurement guidance in the Preparedness Grants Manual."
+    }
+  ],
+  "raw_data": {
+    "title": "3 Multi-Year Public Facing Regional Websites",
+    "solicitationNumber": "INF-2025-0412",
+    "agency": "City of Houston",
+    "office": "Mayor's Office",
+    "description": "The City of Houston Mayor\u2019s Office of Homeland Security and Public Safety is seeking a company to design, develop, and deploy three public-facing regional websites\u2014each serving a specific program\u2014with a secure backend. The system should also support inquiry management, dissemination of public information, search engine exclusion to prevent indexing by crawlers, and emergency communication management across three DHS grant-supported focus areas. The City intends to enter a contract with a qualified firm specializing in website design/ hosting for a term of three (3) years with three (2) one-year options to renew annually, for a maximum five (5) year term. Service Term Year 1: 10/2026 - 9/2027 Year 2: 10/2027 - 9/2028 Year 3: 10/2028 - 9/2029 Year 4: 10/2029 - 9/2030 option year Year 5: 10/2030 - 9/2031 option year",
+    "postedDate": "11/5/2025",
+    "responseDeadline": "December 2, 2025 at 10:00:00 AM CST",
+    "awardAmount": "",
+    "naicsCode": "",
+    "category": "Support Services, Computer, Includes Computer Warranties; Management Consulting"
+  }
+}

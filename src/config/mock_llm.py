@@ -18,10 +18,10 @@ class MockLLMClient:
         # Generate different responses based on prompt content
         if "executive summary" in prompt.lower():
             response_text = """
-            AquaFresh Delivery Services brings 15 years of proven experience in beverage distribution 
-            to serve your bottled water delivery needs. Our commitment to reliable delivery, 
-            competitive pricing, and excellent customer service ensures your city facilities 
-            receive consistent, high-quality water supply. We guarantee FDA-compliant products, 
+            AquaFresh Delivery Services brings 15 years of proven experience in beverage distribution
+            to serve your bottled water delivery needs. Our commitment to reliable delivery,
+            competitive pricing, and excellent customer service ensures your city facilities
+            receive consistent, high-quality water supply. We guarantee FDA-compliant products,
             timely delivery schedules, and comprehensive insurance coverage for your peace of mind.
             """
         elif "extract" in prompt.lower() or "requirements" in prompt.lower():
@@ -37,10 +37,10 @@ class MockLLMClient:
             """
         elif "pricing" in prompt.lower():
             response_text = """
-            Based on the requirements for 500 cases per week at $3.50 cost per case, 
-            we propose a competitive bid price of $4.90 per case (40% margin). 
-            This totals $127,400 annually for 26,000 cases. Our pricing reflects 
-            industry-standard rates while ensuring quality service and reliable delivery. 
+            Based on the requirements for 500 cases per week at $3.50 cost per case,
+            we propose a competitive bid price of $4.90 per case (40% margin).
+            This totals $127,400 annually for 26,000 cases. Our pricing reflects
+            industry-standard rates while ensuring quality service and reliable delivery.
             This competitive rate is 8% below market average of $5.30 per case.
             """
         elif "hello" in prompt.lower() or "connection" in prompt.lower():

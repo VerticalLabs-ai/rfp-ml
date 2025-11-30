@@ -15,6 +15,7 @@ import SettingsPage from './pages/Settings'
 import ProjectKickoffPage from './pages/ProjectKickoff'
 import TeamingPartnersPage from './pages/TeamingPartners'
 import CompanyProfiles from './pages/CompanyProfiles'
+import RFPDetail from './pages/RFPDetail'
 
 // Components
 import Layout from './components/Layout'
@@ -39,6 +40,7 @@ function App() {
             <Route path="/" element={<Navigate to="/dashboard" replace />} />
             <Route path="/dashboard" element={<Dashboard />} />
             <Route path="/discovery" element={<RFPDiscovery />} />
+            <Route path="/rfps/:rfpId" element={<RFPDetail />} />
             <Route path="/discovery/live" element={<LiveDiscovery />} />
             <Route path="/forecasts" element={<FutureOpportunities />} />
             <Route path="/rfps/:rfpId/pricing" element={<PricingSimulator />} />

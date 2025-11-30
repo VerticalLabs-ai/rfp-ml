@@ -1,30 +1,28 @@
-# Stage 1: Build
-FROM node:20-alpine as builder
+FROM node:20-alpine AS builder
 
 WORKDIR /app
 
 # Copy package files
-COPY frontend/package.json frontend/package-lock.json ./
+COPY frontend/package*.json ./
 
-# Install dependencies (use ci for reproducible builds)
-RUN npm ci
+# Install dependencies (use npm install for flexibility with lock file)
+RUN npm install --legacy-peer-deps
 
 # Copy source code
-COPY frontend/ .
+COPY frontend/ ./
 
-# Build the app
+# Build the application
 RUN npm run build
 
-# Stage 2: Serve
+# Production stage with nginx
 FROM nginx:alpine
 
-# Copy build artifacts from builder stage
+# Copy built assets from builder
 COPY --from=builder /app/dist /usr/share/nginx/html
 
-# Copy custom Nginx config
-COPY nginx.conf /etc/nginx/conf.d/default.conf
+# Copy nginx configuration
+COPY frontend/nginx.conf /etc/nginx/conf.d/default.conf
 
-# Expose port 80
 EXPOSE 80
 
 CMD ["nginx", "-g", "daemon off;"]

@@ -1,35 +1,19 @@
-version: '3.8'
-
 services:
-  redis:
-    image: redis:7-alpine
-    ports:
-      - "6379:6379"
-    networks:
-      - rfp_network
-    healthcheck:
-      test: ["CMD", "redis-cli", "ping"]
-      interval: 5s
-      timeout: 3s
-      retries: 5
+  # Redis is optional now - only needed if you want caching
+  # redis:
+  #   image: redis:7-alpine
+  #   ports:
+  #     - "6379:6379"
+  #   networks:
+  #     - rfp_network
+  #   healthcheck:
+  #     test: ["CMD", "redis-cli", "ping"]
+  #     interval: 5s
+  #     timeout: 3s
+  #     retries: 5
 
-  worker:
-    build:
-      context: .
-      dockerfile: Dockerfile.backend
-    command: celery -A src.celery_app worker --loglevel=info
-    volumes:
-      - ./src:/app/src
-      - ./data:/app/data
-      - ./api:/app/api
-    environment:
-      - REDIS_URL=redis://redis:6379/0
-      - PYTHONPATH=/app
-    depends_on:
-      - redis
-      - backend
-    networks:
-      - rfp_network
+  # Note: Celery worker removed - now using FastAPI BackgroundTasks
+  # No external dependencies required for async task processing
 
   backend:
     build:
@@ -47,10 +31,9 @@ services:
       - ./scripts:/app/scripts
       - ./tests:/app/tests
     environment:
-      - PYTHONPATH=/app
-      - REDIS_URL=redis://redis:6379/0
-    depends_on:
-      - redis
+      - PYTHONPATH=/app:/app/api
+    working_dir: /app/api
+    command: ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000", "--reload"]
     restart: unless-stopped
     networks:
       - rfp_network
