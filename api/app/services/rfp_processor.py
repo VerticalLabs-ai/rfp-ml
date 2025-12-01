@@ -132,7 +132,9 @@ class RFPProcessor:
         rfp_data: Dict[str, Any],
         generation_mode: str = "template",
         enable_thinking: bool = True,
-        thinking_budget: int = 10000
+        thinking_budget: int = 10000,
+        qa_items: list[Dict[str, Any]] | None = None,
+        compliance_signals: Dict[str, Any] | None = None,
     ) -> Dict[str, Any]:
         """
         Generate a complete bid document for an RFP.
@@ -142,6 +144,8 @@ class RFPProcessor:
             generation_mode: Generation mode (template, claude_standard, claude_enhanced, claude_premium)
             enable_thinking: Enable Claude's extended thinking mode
             thinking_budget: Token budget for thinking
+            qa_items: Q&A items from the RFP (for compliance context)
+            compliance_signals: Detected compliance signals (FEMA, federal funding, etc.)
 
         Returns:
             Generated bid document with content in multiple formats
@@ -152,11 +156,13 @@ class RFPProcessor:
                 if generation_mode != "template":
                     self._ensure_claude_generator(generation_mode, enable_thinking, thinking_budget)
 
-                # Use full bid generator with options
+                # Use full bid generator with options and compliance context
                 bid_document = self.bid_generator.generate_bid_document(
                     rfp_data,
                     generation_mode=generation_mode,
-                    enable_thinking=enable_thinking
+                    enable_thinking=enable_thinking,
+                    qa_items=qa_items,
+                    compliance_signals=compliance_signals,
                 )
             else:
                 # Mock bid generation

@@ -317,6 +317,8 @@ class ClaudeLLMManager:
         compliance_data: dict[str, Any] | None = None,
         pricing_data: dict[str, Any] | None = None,
         rag_context: str | None = None,
+        compliance_signals: dict[str, Any] | None = None,
+        qa_items: list[dict[str, Any]] | None = None,
         use_opus: bool = False,
         enable_thinking: bool = True,
     ) -> dict[str, Any]:
@@ -330,6 +332,8 @@ class ClaudeLLMManager:
             compliance_data: Optional compliance matrix data
             pricing_data: Optional pricing data
             rag_context: Optional RAG context for historical reference
+            compliance_signals: Optional compliance signals (FEMA, federal requirements)
+            qa_items: Optional Q&A items from the RFP
             use_opus: Use Opus for premium generation
             enable_thinking: Enable extended thinking mode
 
@@ -347,11 +351,12 @@ class ClaudeLLMManager:
         # Build comprehensive prompt
         prompt = self._build_section_prompt(
             section_type, rfp_data, company_profile,
-            compliance_data, pricing_data, rag_context
+            compliance_data, pricing_data, rag_context,
+            compliance_signals, qa_items
         )
 
-        # Build system message
-        system_message = self._get_proposal_system_message(section_type)
+        # Build system message with compliance awareness
+        system_message = self._get_proposal_system_message(section_type, compliance_signals)
 
         # Generate content
         result = self.generate_completion(
@@ -365,6 +370,9 @@ class ClaudeLLMManager:
         if result["status"] == "success":
             result["section_type"] = section_type
             result["word_count"] = len(result["content"].split()) if result["content"] else 0
+            result["fema_domestic_preference_applied"] = bool(
+                compliance_signals and compliance_signals.get("fema_domestic_preference")
+            )
 
         return result
 
@@ -376,6 +384,8 @@ class ClaudeLLMManager:
         compliance_data: dict[str, Any] | None,
         pricing_data: dict[str, Any] | None,
         rag_context: str | None,
+        compliance_signals: dict[str, Any] | None = None,
+        qa_items: list[dict[str, Any]] | None = None,
     ) -> str:
         """Build comprehensive prompt for section generation"""
 
@@ -417,6 +427,16 @@ class ClaudeLLMManager:
                 if isinstance(perf, dict):
                     company_context += f"- {perf.get('client', 'Client')}: {perf.get('project', 'Project')}\n"
 
+        # Add Q&A context if available
+        qa_context = ""
+        if qa_items:
+            qa_context = "\n## Key Q&A from RFP\n"
+            for qa in qa_items[:5]:  # Limit to 5 most relevant Q&A
+                q = qa.get('question_text', '')[:200]
+                a = qa.get('answer_text', '')[:300]
+                if q and a:
+                    qa_context += f"**Q:** {q}\n**A:** {a}\n\n"
+
         # Add compliance context if available
         compliance_context = ""
         if compliance_data:
@@ -452,6 +472,14 @@ class ClaudeLLMManager:
 {rag_context[:1500]}
 """
 
+        # Build FEMA Domestic Preference instructions if applicable
+        fema_instructions = ""
+        if compliance_signals and compliance_signals.get("fema_domestic_preference"):
+            fema_instructions = self._get_fema_domestic_preference_instructions(
+                section_type,
+                compliance_signals.get("domestic_preference_text", "")
+            )
+
         # Section-specific instructions
         section_instructions = self._get_section_instructions(section_type)
 
@@ -460,6 +488,8 @@ class ClaudeLLMManager:
 {rfp_context}
 
 {company_context}
+
+{qa_context}
 
 {compliance_context}
 
@@ -472,6 +502,8 @@ class ClaudeLLMManager:
 # Task: Generate {section_type.replace('_', ' ').title()} Section
 
 {section_instructions}
+
+{fema_instructions}
 
 ## Requirements:
 1. Write in a professional, confident tone appropriate for government contracting
@@ -486,6 +518,39 @@ class ClaudeLLMManager:
 Generate the {section_type.replace('_', ' ')} section now:
 """
         return prompt
+
+    def _get_fema_domestic_preference_instructions(
+        self,
+        section_type: str,
+        domestic_preference_text: str
+    ) -> str:
+        """Get FEMA domestic preference instructions for the section."""
+        # Only add domestic preference subsection to relevant sections
+        relevant_sections = ["technical_approach", "management_approach", "company_qualifications"]
+
+        if section_type not in relevant_sections:
+            return ""
+
+        return f"""
+## FEMA Domestic Preference Requirement (IMPORTANT)
+
+This RFP is subject to FEMA domestic preference requirements. The RFP states:
+"{domestic_preference_text}"
+
+You MUST include a subsection titled "Domestic Preference and Hosting" that addresses:
+
+1. **U.S.-Based Personnel**: State that primary project personnel (project management, technical lead, core engineering, customer support) are based in the United States. Reference U.S. time zones or cities.
+
+2. **U.S.-Based Hosting**: Commit that all production hosting, application infrastructure, and primary data storage will be located in data centers physically within the United States, using U.S. cloud regions only.
+
+3. **FEMA Compliance**: Affirm willingness to comply with FEMA domestic preference requirements consistent with 2 C.F.R. § 200.322, including incorporating a domestic preference clause in the final contract.
+
+Guidelines for this subsection:
+- Use concrete statements (e.g., "will host exclusively in U.S. regions", "our primary team is U.S.-based")
+- Keep language professional and tailored to city/county/state style (not federal legalese)
+- Do NOT over-promise; use "primary" or "to the greatest extent practicable" when appropriate
+- Integrate naturally with security, data protection, and uptime commitments
+"""
 
     def _get_section_instructions(self, section_type: str) -> str:
         """Get specific instructions for each section type"""
@@ -562,9 +627,13 @@ Generate a comprehensive {section_type.replace('_', ' ')} section that:
         }
         return word_counts.get(section_type, 800)
 
-    def _get_proposal_system_message(self, section_type: str) -> str:
+    def _get_proposal_system_message(
+        self,
+        section_type: str,
+        compliance_signals: dict[str, Any] | None = None
+    ) -> str:
         """Get system message for proposal generation"""
-        return f"""You are an expert government contracting proposal writer with extensive experience winning federal, state, and local government contracts. You specialize in writing compelling, compliant, and comprehensive {section_type.replace('_', ' ')} sections.
+        base_message = f"""You are an expert government contracting proposal writer with extensive experience winning federal, state, and local government contracts. You specialize in writing compelling, compliant, and comprehensive {section_type.replace('_', ' ')} sections.
 
 Your writing style:
 - Professional and authoritative
@@ -582,6 +651,37 @@ Key principles:
 6. Focus on value and outcomes
 
 You write proposals that WIN contracts."""
+
+        # Add compliance-specific guidance
+        if compliance_signals:
+            if compliance_signals.get("fema_domestic_preference"):
+                base_message += """
+
+IMPORTANT - FEMA Domestic Preference:
+This RFP is subject to FEMA domestic preference requirements under 2 C.F.R. § 200.322.
+When writing the Technical Approach, Management Approach, or Company Qualifications sections,
+you MUST include a "Domestic Preference and Hosting" subsection that addresses:
+- U.S.-based primary personnel (reference U.S. time zones/cities)
+- U.S.-based hosting and data storage (U.S. cloud regions only)
+- Compliance with FEMA domestic preference requirements
+
+Keep this language professional, concise, and tailored to city/county/state style."""
+
+            if compliance_signals.get("section_508_compliance"):
+                base_message += """
+
+ACCESSIBILITY REQUIREMENT:
+This RFP requires Section 508 compliance. Ensure accessibility considerations
+are addressed in technical approach and deliverables."""
+
+            if compliance_signals.get("security_clearance_required"):
+                base_message += """
+
+SECURITY REQUIREMENT:
+This RFP may require security clearances. Address security qualifications
+appropriately in relevant sections."""
+
+        return base_message
 
     def validate_setup(self) -> dict[str, Any]:
         """Validate Claude LLM setup"""

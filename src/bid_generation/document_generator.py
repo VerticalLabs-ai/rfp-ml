@@ -277,12 +277,19 @@ class BidDocumentGenerator:
                 "justification": getattr(pricing_result, 'justification', ''),
             }
 
-        # Prepare compliance data
+        # Prepare compliance data including compliance signals
         compliance_data = None
         if compliance_matrix:
             compliance_data = compliance_matrix
         elif compliance_summary:
             compliance_data = {"compliance_summary": compliance_summary}
+
+        # Add compliance signals if available
+        if hasattr(self, '_current_compliance_signals') and self._current_compliance_signals:
+            if compliance_data:
+                compliance_data["compliance_signals"] = self._current_compliance_signals
+            else:
+                compliance_data = {"compliance_signals": self._current_compliance_signals}
 
         try:
             result = self.enhanced_generator.generate_enhanced_section(
@@ -291,6 +298,8 @@ class BidDocumentGenerator:
                 company_profile=self.content_library.get('company_profile', {}),
                 compliance_data=compliance_data,
                 pricing_data=pricing_data,
+                qa_items=getattr(self, '_current_qa_items', None),
+                compliance_signals=getattr(self, '_current_compliance_signals', None),
             )
 
             if result.get("status") == "success" and result.get("content"):
@@ -614,6 +623,8 @@ class BidDocumentGenerator:
                     company_profile=self.content_library.get('company_profile', {}),
                     compliance_data=compliance_matrix,
                     pricing_data=pricing_data,
+                    qa_items=getattr(self, '_current_qa_items', None),
+                    compliance_signals=getattr(self, '_current_compliance_signals', None),
                 )
 
                 if result.get("status") == "success" and result.get("content"):
@@ -671,6 +682,8 @@ class BidDocumentGenerator:
                     rfp_data=rfp_data,
                     company_profile=self.content_library.get('company_profile', {}),
                     compliance_data=compliance_matrix,
+                    qa_items=getattr(self, '_current_qa_items', None),
+                    compliance_signals=getattr(self, '_current_compliance_signals', None),
                 )
 
                 if result.get("status") == "success" and result.get("content"):
@@ -726,6 +739,8 @@ class BidDocumentGenerator:
         rfp_data: dict[str, Any],
         generation_mode: ProposalGenerationMode | str | None = None,
         enable_thinking: bool | None = None,
+        qa_items: list[dict[str, Any]] | None = None,
+        compliance_signals: dict[str, Any] | None = None,
     ) -> dict[str, Any]:
         """
         Generate complete bid document integrating all pipeline components.
@@ -738,12 +753,18 @@ class BidDocumentGenerator:
                 - "claude_enhanced": Claude Sonnet with thinking (recommended)
                 - "claude_premium": Claude Opus with thinking (highest quality)
             enable_thinking: Override thinking mode setting
+            qa_items: Q&A items from the RFP for context
+            compliance_signals: Detected compliance signals (FEMA domestic preference, etc.)
 
         Returns:
             Complete bid document dictionary
         """
         self.logger.info(f"Generating bid document for: {rfp_data.get('title', 'Unknown RFP')}")
         generation_start = time.time()
+
+        # Log compliance signals if detected
+        if compliance_signals and compliance_signals.get('detected_signals'):
+            self.logger.info(f"Compliance signals detected: {compliance_signals.get('detected_signals')}")
 
         # Handle mode override
         if generation_mode:
@@ -762,6 +783,10 @@ class BidDocumentGenerator:
                 if enable_thinking is not None:
                     self.proposal_options.enable_thinking = enable_thinking
                 self._initialize_enhanced_generator()
+
+        # Store compliance context for use in section generation
+        self._current_qa_items = qa_items
+        self._current_compliance_signals = compliance_signals
 
         # Step 1: Generate compliance matrix
         compliance_matrix = None

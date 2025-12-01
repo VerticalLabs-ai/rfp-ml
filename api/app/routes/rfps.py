@@ -471,6 +471,7 @@ async def process_manual_rfp(
 @router.post("/{rfp_id}/generate-bid")
 async def generate_bid_document(
     rfp: RFPDep,
+    db: Session = Depends(get_db),
     options: BidGenerationOptions | None = None
 ):
     """
@@ -485,9 +486,13 @@ async def generate_bid_document(
 
     Args:
         rfp: The RFP to generate a bid for
+        db: Database session
         options: Generation options including mode and thinking settings
     """
+    from app.models.database import RFPQandA
     from app.websockets.websocket_router import broadcast_rfp_update
+
+    from src.bid_generation.compliance_signals import create_compliance_detector
 
     # Default options if not provided
     if options is None:
@@ -503,12 +508,40 @@ async def generate_bid_document(
     # Convert RFP to dict for processing
     rfp_data = rfp_to_processing_dict(rfp)
 
-    # Generate bid document with options
+    # Fetch Q&A items from database
+    qa_records = db.query(RFPQandA).filter(RFPQandA.rfp_id == rfp.id).all()
+    qa_items = [
+        {
+            "question_text": qa.question_text,
+            "answer_text": qa.answer_text,
+            "category": qa.category,
+            "posted_date": qa.posted_date.isoformat() if qa.posted_date else None,
+        }
+        for qa in qa_records
+    ] if qa_records else None
+
+    # Detect compliance signals from RFP data and Q&A
+    compliance_signals = None
+    if options.generation_mode != "template":
+        try:
+            detector = create_compliance_detector()
+            signals = detector.detect_signals(rfp_data, qa_items)
+            compliance_signals = detector.to_dict(signals)
+
+            # Log detected signals for visibility
+            if signals.detected_signals:
+                logger.info(f"Detected compliance signals for {rfp.rfp_id}: {signals.detected_signals}")
+        except Exception as e:
+            logger.warning(f"Failed to detect compliance signals: {e}")
+
+    # Generate bid document with options and compliance context
     bid_document = await processor.generate_bid_document(
         rfp_data,
         generation_mode=options.generation_mode,
         enable_thinking=options.enable_thinking,
-        thinking_budget=options.thinking_budget
+        thinking_budget=options.thinking_budget,
+        qa_items=qa_items,
+        compliance_signals=compliance_signals,
     )
 
     if "error" in bid_document:
