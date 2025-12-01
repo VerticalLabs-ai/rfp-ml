@@ -272,25 +272,38 @@ class VectorIndex:
         return scores[0].tolist(), indices[0].tolist()
 
     def save_index(self, filepath: str):
-        """Save index and metadata to disk"""
+        """Save index and metadata to disk with atomic writes to prevent corruption"""
         if self.index is None:
             raise RuntimeError("No index to save")
         # Save FAISS index
         faiss.write_index(self.index, f"{filepath}.faiss")
-        # Save metadata
+        # Save metadata with atomic write (write to temp, then rename)
         metadata_dict = {
             "document_ids": self.document_ids,
             "metadata": self.metadata,
             "embedding_dim": self.embedding_dim,
+            "index_size": self.index.ntotal,
             "config": {
                 "embedding_model": self.config.embedding_model,
                 "chunk_size": self.config.chunk_size,
                 "index_type": self.config.index_type,
             },
         }
-        with open(f"{filepath}_metadata.json", "w") as f:
-            json.dump(metadata_dict, f, indent=2)
-        self.logger.info(f"Index saved to {filepath}")
+        metadata_path = f"{filepath}_metadata.json"
+        temp_path = f"{filepath}_metadata.json.tmp"
+        try:
+            with open(temp_path, "w") as f:
+                json.dump(metadata_dict, f, indent=2)
+                f.flush()
+                os.fsync(f.fileno())  # Ensure data is on disk
+            # Atomic rename
+            os.replace(temp_path, metadata_path)
+            self.logger.info(f"Index saved to {filepath} ({self.index.ntotal} vectors)")
+        except Exception as e:
+            # Clean up temp file on error
+            if os.path.exists(temp_path):
+                os.remove(temp_path)
+            raise e
 
     def load_index(self, filepath: str):
         """Load index and metadata from disk"""
@@ -298,13 +311,21 @@ class VectorIndex:
             raise RuntimeError("FAISS not available")
         # Load FAISS index
         self.index = faiss.read_index(f"{filepath}.faiss")
-        # Load metadata
-        with open(f"{filepath}_metadata.json") as f:
-            metadata_dict = json.load(f)
-        self.document_ids = metadata_dict["document_ids"]
-        self.metadata = metadata_dict["metadata"]
-        self.embedding_dim = metadata_dict["embedding_dim"]
-        self.logger.info(f"Index loaded from {filepath}")
+        self.embedding_dim = self.index.d  # Get dimension from FAISS index
+
+        # Load metadata (optional - gracefully handle corruption)
+        metadata_path = f"{filepath}_metadata.json"
+        try:
+            with open(metadata_path) as f:
+                metadata_dict = json.load(f)
+            self.document_ids = metadata_dict.get("document_ids", [])
+            self.metadata = metadata_dict.get("metadata", [])
+            self.logger.info(f"Index loaded from {filepath} with {len(self.document_ids)} documents")
+        except (json.JSONDecodeError, FileNotFoundError) as e:
+            # Metadata corrupted or missing - FAISS index still usable
+            self.logger.warning(f"Metadata load failed ({e}), FAISS index loaded without metadata")
+            self.document_ids = []
+            self.metadata = []
 
 
 class TFIDFRetriever:
@@ -564,6 +585,111 @@ class RAGEngine:
             context_text=context_text,
         )
 
+    def add_documents(
+        self,
+        documents: list[str],
+        document_ids: list[str],
+        metadata: list[dict],
+        save: bool = True,
+    ) -> int:
+        """
+        Add new documents to the existing index incrementally.
+
+        Args:
+            documents: List of document texts to add
+            document_ids: Unique IDs for each document
+            metadata: Metadata dict for each document
+            save: Whether to save the updated index to disk
+
+        Returns:
+            Number of documents added
+        """
+        if not self.is_built:
+            raise RuntimeError("Index must be built first. Call build_index().")
+
+        if not documents:
+            return 0
+
+        # Generate embeddings for new documents
+        if self.embedding_engine.model_available and self.vector_index.index is not None:
+            try:
+                self.logger.info(f"Adding {len(documents)} documents to index...")
+                new_embeddings = self.embedding_engine.embed_texts(documents)
+
+                # Add to FAISS index
+                self.vector_index.index.add(new_embeddings)
+                self.vector_index.document_ids.extend(document_ids)
+                self.vector_index.metadata.extend(metadata)
+
+                self.logger.info(f"Added {len(documents)} documents. Total: {self.vector_index.index.ntotal}")
+            except Exception as e:
+                self.logger.error(f"Failed to add to vector index: {e}")
+                raise
+
+        # Update TF-IDF index if available
+        if self.tfidf_retriever:
+            self.tfidf_retriever.documents.extend(documents)
+            self.tfidf_retriever.document_ids.extend(document_ids)
+            self.tfidf_retriever.metadata.extend(metadata)
+            # Rebuild TF-IDF (it's fast)
+            if self.tfidf_retriever.vectorizer:
+                self.tfidf_retriever.tfidf_matrix = self.tfidf_retriever.vectorizer.fit_transform(
+                    self.tfidf_retriever.documents
+                )
+
+        # Save updated index
+        if save:
+            index_path = os.path.join(self.config.embeddings_dir, "rag_index")
+            self.vector_index.save_index(index_path)
+            if self.tfidf_retriever:
+                tfidf_data = {
+                    "documents": self.tfidf_retriever.documents,
+                    "document_ids": self.tfidf_retriever.document_ids,
+                    "metadata": self.tfidf_retriever.metadata,
+                    "vectorizer": self.tfidf_retriever.vectorizer,
+                    "tfidf_matrix": self.tfidf_retriever.tfidf_matrix,
+                }
+                with open(f"{index_path}_tfidf.pkl", "wb") as f:
+                    pickle.dump(tfidf_data, f)
+
+        return len(documents)
+
+    def get_index_info(self) -> dict[str, Any]:
+        """Get detailed information about the current index state"""
+        index_path = os.path.join(self.config.embeddings_dir, "rag_index")
+        faiss_path = f"{index_path}.faiss"
+        metadata_path = f"{index_path}_metadata.json"
+        tfidf_path = f"{index_path}_tfidf.pkl"
+
+        info = {
+            "is_built": self.is_built,
+            "index_path": index_path,
+            "files": {
+                "faiss_exists": os.path.exists(faiss_path),
+                "faiss_size_mb": round(os.path.getsize(faiss_path) / (1024 * 1024), 2) if os.path.exists(faiss_path) else 0,
+                "metadata_exists": os.path.exists(metadata_path),
+                "metadata_valid": False,
+                "tfidf_exists": os.path.exists(tfidf_path),
+                "tfidf_size_mb": round(os.path.getsize(tfidf_path) / (1024 * 1024), 2) if os.path.exists(tfidf_path) else 0,
+            },
+            "vectors": {
+                "total": self.vector_index.index.ntotal if self.vector_index.index else 0,
+                "dimension": self.vector_index.embedding_dim or 0,
+                "documents_with_metadata": len(self.vector_index.document_ids),
+            },
+        }
+
+        # Check if metadata is valid
+        if os.path.exists(metadata_path):
+            try:
+                with open(metadata_path) as f:
+                    json.load(f)
+                info["files"]["metadata_valid"] = True
+            except json.JSONDecodeError:
+                info["files"]["metadata_valid"] = False
+
+        return info
+
     def get_statistics(self) -> dict[str, Any]:
         """Get RAG engine statistics"""
         stats = {
@@ -577,6 +703,7 @@ class RAGEngine:
                 if self.vector_index.document_ids
                 else 0
             ),
+            "total_vectors": self.vector_index.index.ntotal if self.vector_index.index else 0,
             "embedding_dimension": self.vector_index.embedding_dim,
             "config": {
                 "chunk_size": self.config.chunk_size,

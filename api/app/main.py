@@ -5,7 +5,7 @@ from contextlib import asynccontextmanager
 
 from app.core.config import settings
 from app.core.database import init_db
-from app.routes import alerts, chat, copilot, discovery, generation, jobs, pipeline, predictions, profiles, rfps, scraper, streaming, submissions
+from app.routes import alerts, chat, copilot, discovery, generation, jobs, pipeline, predictions, profiles, rag, rfps, scraper, streaming, submissions
 from app.websockets import websocket_router
 from app.websockets import channels as websocket_channels
 from fastapi import FastAPI
@@ -71,6 +71,7 @@ app.include_router(copilot.router, prefix=f"{settings.API_V1_STR}/copilot", tags
 app.include_router(alerts.router, prefix=f"{settings.API_V1_STR}/alerts", tags=["alerts"])
 app.include_router(streaming.router, prefix=f"{settings.API_V1_STR}/streaming", tags=["streaming"])
 app.include_router(jobs.router, prefix=f"{settings.API_V1_STR}/jobs", tags=["jobs"])
+app.include_router(rag.router, prefix=f"{settings.API_V1_STR}/rag", tags=["rag"])
 app.include_router(websocket_router.router, prefix="/ws", tags=["websocket"])
 app.include_router(websocket_channels.router, prefix="/ws/channels", tags=["websocket-channels"])
 

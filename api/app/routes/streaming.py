@@ -91,6 +91,11 @@ async def stream_section_generation(
         "company_qualifications",
         "management_approach",
         "pricing_narrative",
+        "past_performance",
+        "staffing_plan",
+        "quality_assurance",
+        "risk_mitigation",
+        "compliance_matrix",
     ]
 
     if section_type not in valid_sections:
@@ -223,6 +228,11 @@ async def get_streaming_status() -> dict:
             "company_qualifications",
             "management_approach",
             "pricing_narrative",
+            "past_performance",
+            "staffing_plan",
+            "quality_assurance",
+            "risk_mitigation",
+            "compliance_matrix",
         ],
         "supported_events": [
             "start",

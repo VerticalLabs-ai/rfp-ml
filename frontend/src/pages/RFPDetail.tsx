@@ -18,7 +18,8 @@ import {
   FileOutput,
   Copy,
   Check,
-  DollarSign
+  DollarSign,
+  Wand2
 } from 'lucide-react'
 import { toast } from 'sonner'
 import { format, formatDistanceToNow } from 'date-fns'
@@ -408,6 +409,13 @@ export default function RFPDetail() {
               <Sparkles className="h-4 w-4 mr-2" />
             )}
             Generate Proposal
+          </Button>
+          <Button
+            variant="outline"
+            onClick={() => navigate(`/rfps/${rfpId}/copilot`)}
+          >
+            <Wand2 className="h-4 w-4 mr-2" />
+            AI Copilot
           </Button>
         </div>
       </div>

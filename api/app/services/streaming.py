@@ -62,7 +62,12 @@ class StreamingService:
             try:
                 from src.rag.rag_engine import RAGEngine
                 self._rag_engine = RAGEngine()
-                logger.info("RAG engine initialized for streaming")
+                # Load existing index if available (doesn't rebuild, just loads)
+                try:
+                    self._rag_engine.build_index(force_rebuild=False)
+                    logger.info(f"RAG engine initialized, is_built={self._rag_engine.is_built}")
+                except Exception as load_err:
+                    logger.warning(f"RAG index not loaded: {load_err}")
             except Exception as e:
                 logger.error(f"Failed to initialize RAG engine: {e}")
         return self._rag_engine
@@ -409,6 +414,41 @@ Generate the {section_type.replace('_', ' ')} section now:
 - Demonstrates cost efficiency
 - Highlights cost control measures
 - Shows sustainable delivery""",
+
+            "past_performance": """Generate a past performance section that:
+- Details 3-5 relevant contract examples
+- Highlights successful outcomes and metrics
+- Demonstrates experience with similar scope/size
+- Shows consistent track record of on-time, on-budget delivery
+- Includes client references where appropriate""",
+
+            "staffing_plan": """Generate a staffing plan that:
+- Identifies key personnel and their roles
+- Describes qualifications and experience of team members
+- Shows organizational structure and reporting relationships
+- Demonstrates capability to scale as needed
+- Addresses succession planning and knowledge transfer""",
+
+            "quality_assurance": """Generate a quality assurance section that:
+- Describes QA/QC processes and procedures
+- Details inspection and testing methods
+- Outlines quality metrics and reporting
+- Shows continuous improvement approach
+- Demonstrates ISO or industry certifications""",
+
+            "risk_mitigation": """Generate a risk mitigation section that:
+- Identifies potential risks (technical, schedule, cost, performance)
+- Assesses probability and impact of each risk
+- Describes specific mitigation strategies
+- Outlines contingency plans
+- Shows proactive risk management approach""",
+
+            "compliance_matrix": """Generate a compliance matrix that:
+- Maps all RFP requirements to proposed solutions
+- Demonstrates full compliance with mandatory requirements
+- Explains approach for each requirement
+- Identifies any exceptions or deviations
+- Cross-references to detailed proposal sections""",
         }
         return instructions.get(section_type, f"""
 Generate a comprehensive {section_type.replace('_', ' ')} section that:

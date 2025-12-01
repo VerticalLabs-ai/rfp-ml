@@ -1,6 +1,7 @@
 import { Link, useLocation } from 'react-router-dom'
 import { LayoutDashboard, Search, GitBranch, CheckSquare, Send, Zap, TrendingUp, Settings, Building2 } from 'lucide-react'
 import { WebSocketStatus } from '@/components/WebSocketStatus'
+import { RAGStatus } from '@/components/RAGStatus'
 import { useWebSocket } from '@/hooks/useWebSocket'
 
 interface LayoutProps {
@@ -50,7 +51,8 @@ export default function Layout({ children }: LayoutProps) {
                 </p>
               </div>
             </div>
-            <div className="flex items-center space-x-4">
+            <div className="flex items-center space-x-2">
+              <RAGStatus />
               <WebSocketStatus isConnected={isConnected} onReconnect={reconnect} />
             </div>
           </div>

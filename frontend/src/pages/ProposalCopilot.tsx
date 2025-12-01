@@ -286,7 +286,7 @@ export default function ProposalCopilot() {
       <header className="border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60 px-4 py-3">
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-4">
-            <Button variant="ghost" size="sm" onClick={() => navigate(`/rfp/${rfpId}`)}>
+            <Button variant="ghost" size="sm" onClick={() => navigate(`/rfps/${rfpId}`)}>
               <ArrowLeft className="h-4 w-4" />
             </Button>
             <div>

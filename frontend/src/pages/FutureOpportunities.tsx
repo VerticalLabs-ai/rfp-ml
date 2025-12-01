@@ -1,12 +1,14 @@
 
 import { useQuery } from '@tanstack/react-query'
 import { api } from '../services/api'
-import { Calendar, TrendingUp, AlertCircle } from 'lucide-react'
+import { Calendar, TrendingUp, AlertCircle, BarChart3 } from 'lucide-react'
 
 export function FutureOpportunities() {
-  const { data: predictions, isLoading, error } = useQuery({
+  const { data: predictions, isLoading, error, isError } = useQuery({
     queryKey: ['predictions'],
-    queryFn: () => api.getPredictions(0.5) // Get all above 50% confidence
+    queryFn: () => api.getPredictions(0.5), // Get all above 50% confidence
+    retry: 1, // Only retry once
+    staleTime: 5 * 60 * 1000, // 5 minutes
   })
 
   if (isLoading) {
@@ -14,15 +16,47 @@ export function FutureOpportunities() {
       <div className="p-8 text-center">
         <div className="animate-spin h-8 w-8 border-4 border-blue-500 border-t-transparent rounded-full mx-auto mb-4"></div>
         <p className="text-slate-500">Analyzing historical data patterns...</p>
+        <p className="text-xs text-slate-400 mt-2">This may take a moment on first load...</p>
       </div>
     )
   }
 
-  if (error) {
+  if (isError || error) {
+    // Check if it's a "no data" error vs a real error
+    const errorMessage = error instanceof Error ? error.message : String(error)
+    const isNoData = errorMessage.includes('404') || errorMessage.includes('not found')
+
+    if (isNoData) {
+      return (
+        <div className="space-y-6">
+          <div className="flex items-center justify-between">
+            <div>
+              <h1 className="text-2xl font-bold text-slate-900 dark:text-white flex items-center gap-2">
+                <TrendingUp className="h-6 w-6 text-blue-500" />
+                Future Opportunities
+              </h1>
+              <p className="text-slate-500 dark:text-slate-400 mt-1">
+                AI-forecasted recurring contracts expected in the next 12 months.
+              </p>
+            </div>
+          </div>
+
+          <div className="text-center py-16 bg-slate-50 dark:bg-slate-800/50 rounded-xl border border-dashed border-slate-300">
+            <BarChart3 className="mx-auto h-12 w-12 text-slate-400 mb-4" />
+            <h3 className="text-lg font-medium text-slate-700 dark:text-slate-300 mb-2">No Historical Data Available</h3>
+            <p className="text-slate-500 max-w-md mx-auto">
+              Upload historical RFP data (FY2023 or FY2025 archived opportunities) to enable AI-powered opportunity forecasting.
+            </p>
+          </div>
+        </div>
+      )
+    }
+
     return (
       <div className="p-8 text-center text-red-500">
         <AlertCircle className="mx-auto h-12 w-12 mb-2" />
         <p>Failed to load predictions. Please ensure historical data is available.</p>
+        <p className="text-sm mt-2 text-slate-500">{errorMessage}</p>
       </div>
     )
   }
