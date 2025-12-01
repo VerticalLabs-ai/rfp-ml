@@ -228,7 +228,7 @@ export function useStreaming(options: UseStreamingOptions) {
                     }))
                     break
 
-                  case 'error':
+                  case 'error': {
                     const errorMsg = data.error || 'Unknown error'
                     setState((prev) => ({
                       ...prev,
@@ -237,6 +237,7 @@ export function useStreaming(options: UseStreamingOptions) {
                     }))
                     onError?.(errorMsg)
                     break
+                  }
 
                   case 'complete':
                     setState((prev) => ({

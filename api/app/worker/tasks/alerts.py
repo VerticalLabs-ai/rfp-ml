@@ -213,7 +213,8 @@ def _matches_rule(rule, rfp) -> bool:
 
 def _build_notification_title(rule, rfp) -> str:
     """Build notification title."""
-    return f"{rule.name}: {rfp.title[:50]}"
+    title = rfp.title or "Untitled RFP"
+    return f"{rule.name}: {title[:50]}"
 
 
 def _build_notification_message(rule, rfp) -> str:

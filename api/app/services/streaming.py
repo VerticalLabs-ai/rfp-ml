@@ -42,14 +42,14 @@ class StreamingService:
         pass
 
     def _get_anthropic_client(self):
-        """Get or create Anthropic client."""
+        """Get or create async Anthropic client for non-blocking I/O."""
         if self._client is None:
             try:
                 import anthropic
                 api_key = os.getenv("ANTHROPIC_API_KEY")
                 if api_key:
-                    self._client = anthropic.Anthropic(api_key=api_key)
-                    logger.info("Anthropic client initialized for streaming")
+                    self._client = anthropic.AsyncAnthropic(api_key=api_key)
+                    logger.info("Async Anthropic client initialized for streaming")
                 else:
                     logger.warning("ANTHROPIC_API_KEY not set")
             except ImportError:
@@ -125,9 +125,9 @@ class StreamingService:
                 "thinking_enabled": enable_thinking
             })
 
-            # Stream response
-            with client.messages.stream(**api_params) as stream:
-                for event in stream:
+            # Stream response using async client for non-blocking I/O
+            async with client.messages.stream(**api_params) as stream:
+                async for event in stream:
                     if hasattr(event, 'type'):
                         if event.type == 'content_block_start':
                             if hasattr(event, 'content_block'):
@@ -421,6 +421,11 @@ Generate a comprehensive {section_type.replace('_', ' ')} section that:
     def _format_sse_event(self, event_type: str, data: dict) -> str:
         """Format data as SSE event."""
         return f"event: {event_type}\ndata: {json.dumps(data)}\n\n"
+
+    def is_rag_available(self) -> bool:
+        """Check if RAG engine is available and built. Public API method."""
+        rag_engine = self._get_rag_engine()
+        return rag_engine is not None and getattr(rag_engine, 'is_built', False)
 
     def create_sse_response(
         self,

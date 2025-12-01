@@ -107,6 +107,15 @@ const AsyncButton = React.forwardRef<HTMLButtonElement, AsyncButtonProps>(
 
       // Handle async click
       if (onAsyncClick) {
+        // Guard against concurrent operations
+        if (state === 'loading') {
+          return
+        }
+
+        // Clear any pending timeout from previous click to prevent race condition
+        if (timeoutRef.current) {
+          clearTimeout(timeoutRef.current)
+        }
         setState('loading')
 
         try {

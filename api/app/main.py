@@ -5,7 +5,7 @@ from contextlib import asynccontextmanager
 
 from app.core.config import settings
 from app.core.database import init_db
-from app.routes import alerts, chat, generation, jobs, pipeline, predictions, profiles, rfps, scraper, streaming, submissions
+from app.routes import alerts, chat, copilot, discovery, generation, jobs, pipeline, predictions, profiles, rfps, scraper, streaming, submissions
 from app.websockets import websocket_router
 from app.websockets import channels as websocket_channels
 from fastapi import FastAPI
@@ -59,6 +59,7 @@ app.add_middleware(
 
 # Include routers
 app.include_router(rfps.router, prefix=f"{settings.API_V1_STR}/rfps", tags=["rfps"])
+app.include_router(discovery.router, prefix=f"{settings.API_V1_STR}/discovery", tags=["discovery"])
 app.include_router(pipeline.router, prefix=f"{settings.API_V1_STR}/pipeline", tags=["pipeline"])
 app.include_router(submissions.router, prefix=f"{settings.API_V1_STR}/submissions", tags=["submissions"])
 app.include_router(predictions.router, prefix=f"{settings.API_V1_STR}/predictions", tags=["predictions"])
@@ -66,6 +67,7 @@ app.include_router(generation.router, prefix=f"{settings.API_V1_STR}/generation"
 app.include_router(profiles.router, prefix=f"{settings.API_V1_STR}/profiles", tags=["profiles"])
 app.include_router(scraper.router, prefix=f"{settings.API_V1_STR}/scraper", tags=["scraper"])
 app.include_router(chat.router, prefix=f"{settings.API_V1_STR}/chat", tags=["chat"])
+app.include_router(copilot.router, prefix=f"{settings.API_V1_STR}/copilot", tags=["copilot"])
 app.include_router(alerts.router, prefix=f"{settings.API_V1_STR}/alerts", tags=["alerts"])
 app.include_router(streaming.router, prefix=f"{settings.API_V1_STR}/streaming", tags=["streaming"])
 app.include_router(jobs.router, prefix=f"{settings.API_V1_STR}/jobs", tags=["jobs"])

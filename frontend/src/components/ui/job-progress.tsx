@@ -88,7 +88,7 @@ function JobProgress({
 
   const endpoint = apiEndpoint || `/api/v1/jobs/${jobId}`
 
-  const { data: status, isLoading, error } = useQuery<JobStatusResponse>({
+  const { data: status, error: queryError } = useQuery<JobStatusResponse>({
     queryKey: ['job', jobId],
     queryFn: async () => {
       const response = await fetch(endpoint)
@@ -126,10 +126,19 @@ function JobProgress({
     erroredRef.current = false
   }, [jobId])
 
+  // Surface network/fetch errors alongside job status
   const progress = status?.progress ?? 0
   const jobStatus = status?.status ?? 'pending'
+  const displayError = queryError
+    ? (queryError instanceof Error ? queryError.message : String(queryError))
+    : status?.error
 
-  const statusConfig = {
+  const statusConfig: Record<JobStatus, {
+    icon: typeof Clock
+    text: string
+    color: string
+    iconClass?: string
+  }> = {
     pending: {
       icon: Clock,
       text: 'Pending...',
@@ -189,9 +198,9 @@ function JobProgress({
           <span className={config.color}>{config.text}</span>
           <span>{progress}% complete</span>
         </div>
-        {jobStatus === 'failed' && status?.error && (
+        {(jobStatus === 'failed' || displayError) && (
           <p className="text-xs text-destructive">
-            Error: {status.error}
+            Error: {displayError || 'Job failed'}
           </p>
         )}
       </CardContent>

@@ -1,3 +1,4 @@
+import * as React from 'react'
 import { useCallback, useState } from 'react'
 import { useStreaming, StreamEvent } from './useStreaming'
 
@@ -137,11 +138,11 @@ export function useStreamingChat(options: UseStreamingChatOptions) {
     [onError]
   )
 
-  // We need a stable URL for useStreaming, but we'll update params on each send
-  const [streamUrl, setStreamUrl] = useState('')
+  // URL ref to avoid race condition with state updates
+  const streamUrlRef = React.useRef('')
 
   const streaming = useStreaming({
-    url: streamUrl,
+    url: streamUrlRef.current,
     onEvent: handleEvent,
     onText: handleText,
     onComplete: handleComplete,
@@ -178,11 +179,11 @@ export function useStreamingChat(options: UseStreamingChatOptions) {
       setCurrentResponse('')
       setCurrentCitations([])
 
-      // Update URL and start streaming
+      // Build URL and start streaming directly to avoid race condition
       const url = getStreamUrl(message.trim())
-      setStreamUrl(url)
+      streamUrlRef.current = url
 
-      // Start streaming (the hook will use the updated URL)
+      // Start streaming with URL as parameter to ensure correct URL is used
       await streaming.startStreaming()
     },
     [streaming, getStreamUrl]

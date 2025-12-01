@@ -9,7 +9,7 @@ Provides Server-Sent Events (SSE) endpoints for:
 import logging
 from typing import Annotated
 
-from app.dependencies import DBDep, RFPDep
+from app.dependencies import DBDep
 from app.services.streaming import get_streaming_service
 from fastapi import APIRouter, HTTPException, Query
 from fastapi.responses import StreamingResponse
@@ -209,8 +209,7 @@ async def get_streaming_status() -> dict:
     rag_available = False
 
     try:
-        rag_engine = streaming_service._get_rag_engine()
-        rag_available = rag_engine is not None and getattr(rag_engine, 'is_built', False)
+        rag_available = streaming_service.is_rag_available()
     except Exception:
         pass
 

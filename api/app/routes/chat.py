@@ -3,13 +3,19 @@ Conversational RFP Chat API endpoints.
 
 Provides a GovGPT-style AI chatbot that answers questions about specific RFPs
 using RAG (Retrieval-Augmented Generation) for accurate, cited responses.
+
+Features:
+- Session persistence for conversation history
+- RAG-powered context retrieval
+- Streaming support via SSE
 """
 import logging
-from datetime import datetime
+import uuid
+from datetime import datetime, timezone
 from typing import Any
 
-from app.dependencies import RFPDep
-from fastapi import APIRouter, HTTPException
+from app.dependencies import DBDep, RFPDep
+from fastapi import APIRouter, HTTPException, Query
 from pydantic import BaseModel, Field
 
 logger = logging.getLogger(__name__)
@@ -26,11 +32,28 @@ class ChatMessage(BaseModel):
 class ChatRequest(BaseModel):
     """Request body for chat endpoint."""
     message: str = Field(..., min_length=1, max_length=2000, description="User's question")
+    session_id: str | None = Field(None, description="Session ID for persistence")
     history: list[ChatMessage] = Field(
         default_factory=list,
         max_length=20,
-        description="Previous conversation messages"
+        description="Previous conversation messages (used if no session_id)"
     )
+
+
+class SessionResponse(BaseModel):
+    """Response for session operations."""
+    session_id: str
+    rfp_id: str
+    title: str | None
+    message_count: int
+    created_at: str
+    last_message_at: str | None
+
+
+class SessionListResponse(BaseModel):
+    """Response for listing sessions."""
+    sessions: list[SessionResponse]
+    total: int
 
 
 class Citation(BaseModel):
@@ -48,6 +71,7 @@ class ChatResponse(BaseModel):
     confidence: float
     rfp_id: str
     processing_time_ms: int
+    session_id: str | None = None
 
 
 # Suggested questions based on common RFP queries
@@ -120,17 +144,46 @@ def extract_citations(
 
 
 @router.post("/{rfp_id}/chat", response_model=ChatResponse)
-async def chat_with_rfp(rfp: RFPDep, request: ChatRequest):
+async def chat_with_rfp(rfp: RFPDep, request: ChatRequest, db: DBDep):
     """
     Chat with an RFP using AI-powered Q&A.
 
     Uses RAG to retrieve relevant document sections and generate
     accurate, cited responses about the RFP.
+
+    If session_id is provided, loads history from the session and
+    persists messages to it. Otherwise, uses the history from the request.
     """
     import time
+    from app.models.database import ChatSession, ChatMessage as DBChatMessage
+
     start_time = time.time()
+    session = None
+    history = request.history
 
     try:
+        # Load session if session_id is provided
+        if request.session_id:
+            session = db.query(ChatSession).filter(
+                ChatSession.session_id == request.session_id,
+                ChatSession.rfp_id == rfp.id,
+                ChatSession.is_active == True,
+            ).first()
+
+            if session:
+                # Load history from session (last 10 messages for context)
+                db_messages = session.messages[-10:]
+                history = [
+                    ChatMessage(
+                        role=m.role,
+                        content=m.content,
+                        timestamp=m.created_at.isoformat() if m.created_at else None,
+                    )
+                    for m in db_messages
+                ]
+            else:
+                logger.warning(f"Session {request.session_id} not found, using request history")
+
         # Import RAG and LLM components
         from src.rag.rag_engine import RAGEngine
         from src.config.llm_adapter import create_llm_interface
@@ -159,55 +212,85 @@ async def chat_with_rfp(rfp: RFPDep, request: ChatRequest):
 
         if not rag_context.retrieved_documents:
             # Fallback response if no documents found
-            return ChatResponse(
-                answer="I couldn't find specific information about that in the available documents. "
-                       "Try rephrasing your question or asking about a different aspect of the RFP.",
-                citations=[],
-                confidence=0.0,
-                rfp_id=rfp.rfp_id,
-                processing_time_ms=int((time.time() - start_time) * 1000)
+            answer = (
+                "I couldn't find specific information about that in the available documents. "
+                "Try rephrasing your question or asking about a different aspect of the RFP."
+            )
+            citations_list: list[Citation] = []
+            confidence = 0.0
+        else:
+            # Build prompt with context
+            prompt = build_chat_prompt(
+                question=request.message,
+                context=rag_context.context_text,
+                history=history,
+                rfp_title=rfp.title,
+                rfp_agency=rfp.agency
             )
 
-        # Build prompt with context
-        prompt = build_chat_prompt(
-            question=request.message,
-            context=rag_context.context_text,
-            history=request.history,
-            rfp_title=rfp.title,
-            rfp_agency=rfp.agency
-        )
+            # Generate response using LLM
+            try:
+                llm_result = llm.generate_text(prompt, use_case="chat")
+                answer = llm_result.get("content", llm_result.get("text", ""))
 
-        # Generate response using LLM
-        try:
-            llm_result = llm.generate_text(prompt, use_case="chat")
-            answer = llm_result.get("content", llm_result.get("text", ""))
+                # Calculate confidence based on retrieval scores
+                avg_score = sum(
+                    doc.similarity_score for doc in rag_context.retrieved_documents
+                ) / len(rag_context.retrieved_documents)
+                confidence = min(avg_score * 1.2, 1.0)  # Scale up slightly, cap at 1.0
 
-            # Calculate confidence based on retrieval scores
-            avg_score = sum(
-                doc.similarity_score for doc in rag_context.retrieved_documents
-            ) / len(rag_context.retrieved_documents)
-            confidence = min(avg_score * 1.2, 1.0)  # Scale up slightly, cap at 1.0
+            except Exception as e:
+                logger.warning(f"LLM generation failed: {e}, using fallback")
+                # Fallback: Summarize retrieved content
+                answer = "Based on the available documents:\n\n"
+                for i, doc in enumerate(rag_context.retrieved_documents[:3], 1):
+                    content = doc.content[:300] if len(doc.content) > 300 else doc.content
+                    answer += f"{i}. {content}\n\n"
+                confidence = 0.5
 
-        except Exception as e:
-            logger.warning(f"LLM generation failed: {e}, using fallback")
-            # Fallback: Summarize retrieved content
-            answer = "Based on the available documents:\n\n"
-            for i, doc in enumerate(rag_context.retrieved_documents[:3], 1):
-                content = doc.content[:300] if len(doc.content) > 300 else doc.content
-                answer += f"{i}. {content}\n\n"
-            confidence = 0.5
-
-        # Extract citations
-        citations = extract_citations(rag_context.retrieved_documents)
+            # Extract citations
+            citations_list = extract_citations(rag_context.retrieved_documents)
 
         processing_time = int((time.time() - start_time) * 1000)
 
+        # Persist messages to session if one was provided/found
+        if session:
+            try:
+                # Save user message
+                user_msg = DBChatMessage(
+                    session_id=session.id,
+                    role="user",
+                    content=request.message,
+                )
+                db.add(user_msg)
+
+                # Save assistant message with citations
+                assistant_msg = DBChatMessage(
+                    session_id=session.id,
+                    role="assistant",
+                    content=answer,
+                    citations=[c.model_dump() for c in citations_list],
+                    confidence=round(confidence, 2),
+                )
+                db.add(assistant_msg)
+
+                # Update session metadata
+                session.message_count += 2
+                session.last_message_at = datetime.now(timezone.utc)
+                session.updated_at = datetime.now(timezone.utc)
+
+                db.commit()
+            except Exception:
+                db.rollback()
+                logger.exception(f"Failed to persist chat messages for session {session.session_id}")
+
         return ChatResponse(
             answer=answer,
-            citations=citations,
+            citations=citations_list,
             confidence=round(confidence, 2),
             rfp_id=rfp.rfp_id,
-            processing_time_ms=processing_time
+            processing_time_ms=processing_time,
+            session_id=session.session_id if session else None,
         )
 
     except HTTPException:
@@ -251,6 +334,127 @@ async def get_chat_suggestions(rfp: RFPDep):
         "rfp_id": rfp.rfp_id,
         "suggestions": all_suggestions[:10]
     }
+
+
+@router.post("/{rfp_id}/sessions")
+async def create_chat_session(
+    rfp: RFPDep,
+    db: DBDep,
+    title: str | None = None,
+) -> SessionResponse:
+    """
+    Create a new chat session for an RFP.
+
+    Sessions persist conversation history for continued discussions.
+    """
+    from app.models.database import ChatSession
+
+    session_id = str(uuid.uuid4())
+
+    session = ChatSession(
+        session_id=session_id,
+        rfp_id=rfp.id,
+        title=title or f"Chat about {rfp.title[:50]}",
+    )
+    db.add(session)
+    db.commit()
+    db.refresh(session)
+
+    return SessionResponse(
+        session_id=session.session_id,
+        rfp_id=rfp.rfp_id,
+        title=session.title,
+        message_count=0,
+        created_at=session.created_at.isoformat(),
+        last_message_at=None,
+    )
+
+
+@router.get("/{rfp_id}/sessions")
+async def list_chat_sessions(
+    rfp: RFPDep,
+    db: DBDep,
+    skip: int = Query(0, ge=0),
+    limit: int = Query(20, ge=1, le=100),
+) -> SessionListResponse:
+    """
+    List all chat sessions for an RFP.
+    """
+    from app.models.database import ChatSession
+
+    query = db.query(ChatSession).filter(
+        ChatSession.rfp_id == rfp.id,
+        ChatSession.is_active == True
+    ).order_by(ChatSession.updated_at.desc())
+
+    total = query.count()
+    sessions = query.offset(skip).limit(limit).all()
+
+    return SessionListResponse(
+        sessions=[
+            SessionResponse(
+                session_id=s.session_id,
+                rfp_id=rfp.rfp_id,
+                title=s.title,
+                message_count=s.message_count,
+                created_at=s.created_at.isoformat(),
+                last_message_at=s.last_message_at.isoformat() if s.last_message_at else None,
+            )
+            for s in sessions
+        ],
+        total=total,
+    )
+
+
+@router.get("/{rfp_id}/sessions/{session_id}")
+async def get_chat_session(
+    rfp: RFPDep,
+    session_id: str,
+    db: DBDep,
+):
+    """
+    Get a chat session with all its messages.
+    """
+    from app.models.database import ChatSession
+
+    session = db.query(ChatSession).filter(
+        ChatSession.session_id == session_id,
+        ChatSession.rfp_id == rfp.id,
+    ).first()
+
+    if not session:
+        raise HTTPException(status_code=404, detail="Session not found")
+
+    return {
+        **session.to_dict(),
+        "rfp_id": rfp.rfp_id,
+        "messages": [m.to_dict() for m in session.messages],
+    }
+
+
+@router.delete("/{rfp_id}/sessions/{session_id}")
+async def delete_chat_session(
+    rfp: RFPDep,
+    session_id: str,
+    db: DBDep,
+):
+    """
+    Delete (deactivate) a chat session.
+    """
+    from app.models.database import ChatSession
+
+    session = db.query(ChatSession).filter(
+        ChatSession.session_id == session_id,
+        ChatSession.rfp_id == rfp.id,
+    ).first()
+
+    if not session:
+        raise HTTPException(status_code=404, detail="Session not found")
+
+    session.is_active = False
+    db.commit()
+
+    return {"status": "deleted", "session_id": session_id}
 
 
 @router.get("/{rfp_id}/chat/status")

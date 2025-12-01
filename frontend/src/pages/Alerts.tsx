@@ -18,6 +18,8 @@ import {
   ExternalLink,
   RefreshCw,
   Loader2,
+  Mail,
+  Smartphone,
 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
@@ -42,6 +44,7 @@ import {
   SelectValue,
 } from '@/components/ui/select'
 import { Textarea } from '@/components/ui/textarea'
+import { Checkbox } from '@/components/ui/checkbox'
 import { api } from '@/lib/api'
 import { cn } from '@/lib/utils'
 
@@ -54,6 +57,7 @@ interface AlertRule {
   priority: string
   criteria: Record<string, unknown>
   notification_channels: string[]
+  email_recipients: string[] | null
   triggered_count: number
   last_triggered_at: string | null
   created_at: string
@@ -107,7 +111,8 @@ export default function AlertsPage() {
     alert_type: 'keyword_match',
     priority: 'medium',
     criteria: {} as Record<string, unknown>,
-    notification_channels: ['in_app'],
+    notification_channels: ['in_app'] as string[],
+    email_recipients: '' as string,
   })
 
   // Fetch notifications
@@ -143,7 +148,15 @@ export default function AlertsPage() {
 
   // Create rule mutation
   const createRule = useMutation({
-    mutationFn: (data: typeof newRule) => api.post('/alerts/rules', data),
+    mutationFn: (data: {
+      name: string
+      description: string
+      alert_type: string
+      priority: string
+      criteria: Record<string, unknown>
+      notification_channels: string[]
+      email_recipients: string[]
+    }) => api.post('/alerts/rules', data),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['alerts', 'rules'] })
       setIsCreateDialogOpen(false)
@@ -154,6 +167,7 @@ export default function AlertsPage() {
         priority: 'medium',
         criteria: {},
         notification_channels: ['in_app'],
+        email_recipients: '',
       })
     },
   })
@@ -225,7 +239,39 @@ export default function AlertsPage() {
   }
 
   const handleCreateRule = () => {
-    createRule.mutate(newRule)
+    // Validate email recipients if email channel is selected
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
+    let validEmails: string[] = []
+
+    if (newRule.notification_channels.includes('email') && newRule.email_recipients) {
+      const emails = newRule.email_recipients.split(',').map((e: string) => e.trim().toLowerCase()).filter(Boolean)
+      const invalidEmails = emails.filter((email) => !emailRegex.test(email))
+
+      if (invalidEmails.length > 0) {
+        alert(`Invalid email address(es): ${invalidEmails.join(', ')}`)
+        return
+      }
+      validEmails = emails
+    }
+
+    const ruleData = {
+      ...newRule,
+      email_recipients: validEmails,
+    }
+    createRule.mutate(ruleData)
+  }
+
+  const toggleNotificationChannel = (channel: string) => {
+    setNewRule((prev) => {
+      // Prevent removing the last channel - at least one must be selected
+      if (prev.notification_channels.includes(channel) && prev.notification_channels.length === 1) {
+        return prev
+      }
+      const channels = prev.notification_channels.includes(channel)
+        ? prev.notification_channels.filter((c) => c !== channel)
+        : [...prev.notification_channels, channel]
+      return { ...prev, notification_channels: channels }
+    })
   }
 
   return (
@@ -541,6 +587,60 @@ export default function AlertsPage() {
                       />
                     </div>
                   )}
+
+                  {/* Notification Channels */}
+                  <div className="space-y-3 pt-4 border-t">
+                    <Label>Notification Channels</Label>
+                    <div className="flex flex-col gap-3">
+                      <div className="flex items-center space-x-2">
+                        <Checkbox
+                          id="channel-in_app"
+                          checked={newRule.notification_channels.includes('in_app')}
+                          onCheckedChange={() => toggleNotificationChannel('in_app')}
+                        />
+                        <label
+                          htmlFor="channel-in_app"
+                          className="flex items-center gap-2 text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70"
+                        >
+                          <Smartphone className="h-4 w-4" />
+                          In-App Notifications
+                        </label>
+                      </div>
+                      <div className="flex items-center space-x-2">
+                        <Checkbox
+                          id="channel-email"
+                          checked={newRule.notification_channels.includes('email')}
+                          onCheckedChange={() => toggleNotificationChannel('email')}
+                        />
+                        <label
+                          htmlFor="channel-email"
+                          className="flex items-center gap-2 text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70"
+                        >
+                          <Mail className="h-4 w-4" />
+                          Email Notifications
+                        </label>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Email Recipients (shown only when email channel selected) */}
+                  {newRule.notification_channels.includes('email') && (
+                    <div className="space-y-2">
+                      <Label htmlFor="email_recipients">Email Recipients</Label>
+                      <Input
+                        id="email_recipients"
+                        type="text"
+                        placeholder="email1@example.com, email2@example.com"
+                        value={newRule.email_recipients}
+                        onChange={(e) =>
+                          setNewRule({ ...newRule, email_recipients: e.target.value })
+                        }
+                      />
+                      <p className="text-xs text-muted-foreground">
+                        Separate multiple emails with commas
+                      </p>
+                    </div>
+                  )}
                 </div>
 
                 <DialogFooter>
@@ -608,7 +708,18 @@ export default function AlertsPage() {
                             Last: {new Date(rule.last_triggered_at).toLocaleDateString()}
                           </span>
                         )}
-                        <span>Channels: {rule.notification_channels.join(', ')}</span>
+                        <span className="flex items-center gap-1">
+                          Channels:
+                          {rule.notification_channels.includes('in_app') && (
+                            <span title="In-App"><Smartphone className="h-3 w-3" /></span>
+                          )}
+                          {rule.notification_channels.includes('email') && (
+                            <span title="Email"><Mail className="h-3 w-3" /></span>
+                          )}
+                          {rule.email_recipients && rule.email_recipients.length > 0 && (
+                            <span className="text-xs">({rule.email_recipients.length} recipients)</span>
+                          )}
+                        </span>
                       </div>
                       <div className="flex items-center gap-1">
                         <Button

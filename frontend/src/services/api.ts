@@ -1,7 +1,7 @@
 import axios, { AxiosError, InternalAxiosRequestConfig } from 'axios'
 import { toast } from 'sonner'
 
-const apiClient = axios.create({
+export const apiClient = axios.create({
   baseURL: '/api/v1',
   headers: {
     'Content-Type': 'application/json'
@@ -160,11 +160,18 @@ export const api = {
   }) =>
     apiClient.post(`/rfps/${rfpId}/generate-bid`, options || {}).then(res => res.data),
 
-  getBidDocument: (bidId: string) =>
-    apiClient.get(`/rfps/bids/${bidId}`).then(res => res.data),
+  getBidDocument: (rfpId: string) =>
+    apiClient.get(`/rfps/${rfpId}/bid-document`).then(res => res.data),
 
   downloadBid: (bidId: string, format: 'markdown' | 'html' | 'json') =>
     apiClient.get(`/rfps/bids/${bidId}/download/${format}`, { responseType: 'blob' }).then(res => res.data),
+
+  // Copilot endpoints
+  saveBidDraft: (rfpId: string, data: { sections: Record<string, string> }) =>
+    apiClient.post(`/copilot/${rfpId}/draft`, data).then(res => res.data),
+
+  checkCompliance: (rfpId: string, sections: Record<string, { content: string }>) =>
+    apiClient.post(`/copilot/${rfpId}/compliance-check`, { sections }).then(res => res.data),
 
   // Pricing Table endpoints
   generatePricingTable: (rfpId: string, options?: {

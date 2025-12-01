@@ -752,3 +752,81 @@ class SamEntity(Base):
             "updated_at": self.updated_at.isoformat() if self.updated_at else None
         }
 
+
+class ChatSession(Base):
+    """Chat session for RFP Q&A conversations."""
+    __tablename__ = "chat_sessions"
+
+    id = Column(Integer, primary_key=True, index=True)
+    session_id = Column(String, unique=True, index=True, nullable=False)
+    rfp_id = Column(Integer, ForeignKey("rfp_opportunities.id"), nullable=False)
+
+    # Session metadata
+    title = Column(String, nullable=True)  # Auto-generated from first message
+    summary = Column(Text, nullable=True)  # AI-generated summary
+
+    # Status
+    is_active = Column(Boolean, default=True)
+    message_count = Column(Integer, default=0)
+
+    # Timestamps
+    created_at = Column(DateTime, default=datetime.utcnow)
+    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+    last_message_at = Column(DateTime, nullable=True)
+
+    # Relationships
+    rfp = relationship("RFPOpportunity")
+    messages = relationship("ChatMessage", back_populates="session", cascade="all, delete-orphan")
+
+    def to_dict(self):
+        return {
+            "id": self.id,
+            "session_id": self.session_id,
+            "rfp_id": self.rfp_id,
+            "title": self.title,
+            "summary": self.summary,
+            "is_active": self.is_active,
+            "message_count": self.message_count,
+            "created_at": self.created_at.isoformat() if self.created_at else None,
+            "updated_at": self.updated_at.isoformat() if self.updated_at else None,
+            "last_message_at": self.last_message_at.isoformat() if self.last_message_at else None,
+        }
+
+
+class ChatMessage(Base):
+    """Individual chat message in a session."""
+    __tablename__ = "chat_messages"
+
+    id = Column(Integer, primary_key=True, index=True)
+    session_id = Column(Integer, ForeignKey("chat_sessions.id"), nullable=False)
+
+    # Message content
+    role = Column(String, nullable=False)  # "user" or "assistant"
+    content = Column(Text, nullable=False)
+
+    # RAG context (for assistant messages)
+    citations = Column(JSON, default=lambda: [])
+    confidence = Column(Float, nullable=True)
+    rag_context = Column(JSON, nullable=True)  # Store retrieved context for debugging
+
+    # Processing metadata
+    processing_time_ms = Column(Integer, nullable=True)
+    model_used = Column(String, nullable=True)
+
+    # Timestamps
+    created_at = Column(DateTime, default=datetime.utcnow)
+
+    # Relationships
+    session = relationship("ChatSession", back_populates="messages")
+
+    def to_dict(self):
+        return {
+            "id": self.id,
+            "session_id": self.session_id,
+            "role": self.role,
+            "content": self.content,
+            "citations": self.citations,
+            "confidence": self.confidence,
+            "processing_time_ms": self.processing_time_ms,
+            "created_at": self.created_at.isoformat() if self.created_at else None,
+        }

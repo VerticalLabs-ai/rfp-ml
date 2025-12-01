@@ -8,13 +8,27 @@ Provides endpoints for:
 """
 import logging
 from datetime import datetime
-from typing import Optional
+from typing import Annotated, Optional
 
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel, Field
 
 logger = logging.getLogger(__name__)
 router = APIRouter()
+
+
+def require_celery_jobs():
+    """Dependency that ensures Celery jobs are enabled."""
+    from api.app.core.feature_flags import FeatureFlag, feature_flags
+
+    if not feature_flags.is_enabled(FeatureFlag.CELERY_JOBS):
+        raise HTTPException(
+            status_code=501,
+            detail="Background jobs not enabled. Configure REDIS_URL to enable."
+        )
+
+
+CeleryDep = Annotated[None, Depends(require_celery_jobs)]
 
 
 class JobResponse(BaseModel):
@@ -43,21 +57,16 @@ class GenerationJobRequest(BaseModel):
 
 
 @router.post("/generate")
-async def start_generation_job(request: GenerationJobRequest) -> JobResponse:
+async def start_generation_job(
+    request: GenerationJobRequest,
+    _: CeleryDep,
+) -> JobResponse:
     """
     Start an async proposal generation job.
 
     Returns job_id for tracking progress.
     """
     try:
-        from api.app.core.feature_flags import FeatureFlag, feature_flags
-
-        if not feature_flags.is_enabled(FeatureFlag.CELERY_JOBS):
-            raise HTTPException(
-                status_code=501,
-                detail="Background jobs not enabled. Configure REDIS_URL to enable."
-            )
-
         from api.app.worker.tasks.generation import (
             generate_full_bid,
             generate_proposal_section,
@@ -100,21 +109,16 @@ async def start_generation_job(request: GenerationJobRequest) -> JobResponse:
 
 
 @router.get("/{job_id}")
-async def get_job_status(job_id: str) -> JobStatus:
+async def get_job_status(
+    job_id: str,
+    _: CeleryDep,
+) -> JobStatus:
     """
     Get the status of a background job.
 
     Returns current progress and result if complete.
     """
     try:
-        from api.app.core.feature_flags import FeatureFlag, feature_flags
-
-        if not feature_flags.is_enabled(FeatureFlag.CELERY_JOBS):
-            raise HTTPException(
-                status_code=501,
-                detail="Background jobs not enabled."
-            )
-
         from api.app.worker.celery_app import celery_app
 
         result = celery_app.AsyncResult(job_id)
@@ -167,21 +171,16 @@ async def get_job_status(job_id: str) -> JobStatus:
 
 
 @router.delete("/{job_id}")
-async def cancel_job(job_id: str) -> dict:
+async def cancel_job(
+    job_id: str,
+    _: CeleryDep,
+) -> dict:
     """
     Cancel a running job.
 
     Note: May not immediately stop in-progress tasks.
     """
     try:
-        from api.app.core.feature_flags import FeatureFlag, feature_flags
-
-        if not feature_flags.is_enabled(FeatureFlag.CELERY_JOBS):
-            raise HTTPException(
-                status_code=501,
-                detail="Background jobs not enabled."
-            )
-
         from api.app.worker.celery_app import celery_app
 
         celery_app.control.revoke(job_id, terminate=True)
@@ -203,21 +202,16 @@ async def cancel_job(job_id: str) -> dict:
 
 
 @router.post("/alerts/evaluate")
-async def trigger_alert_evaluation(rfp_id: Optional[str] = None) -> JobResponse:
+async def trigger_alert_evaluation(
+    rfp_id: Optional[str] = None,
+    _: CeleryDep = None,
+) -> JobResponse:
     """
     Manually trigger alert rule evaluation.
 
     Can be triggered for a specific RFP or all recent RFPs.
     """
     try:
-        from api.app.core.feature_flags import FeatureFlag, feature_flags
-
-        if not feature_flags.is_enabled(FeatureFlag.CELERY_JOBS):
-            raise HTTPException(
-                status_code=501,
-                detail="Background jobs not enabled."
-            )
-
         from api.app.worker.tasks.alerts import evaluate_alert_rules
 
         task = evaluate_alert_rules.delay(rfp_id=rfp_id)
