@@ -726,14 +726,15 @@ def _create_notification(
 
 def _build_notification_title(rule: AlertRule, rfp: RFPOpportunity) -> str:
     """Build notification title based on alert type."""
+    score_display = f"{rfp.triage_score:.0%}" if rfp.triage_score is not None else "N/A"
     titles = {
         AlertType.NEW_RFP: f"New RFP: {rfp.title[:50]}...",
         AlertType.DEADLINE_APPROACHING: f"Deadline Alert: {rfp.title[:40]}...",
         AlertType.STAGE_CHANGE: f"Stage Update: {rfp.current_stage.value}",
-        AlertType.SCORE_THRESHOLD: f"High Score RFP: {rfp.triage_score:.0%}",
+        AlertType.SCORE_THRESHOLD: f"High Score RFP: {score_display}",
         AlertType.KEYWORD_MATCH: f"Keyword Match: {rfp.title[:45]}...",
-        AlertType.AGENCY_MATCH: f"{rfp.agency}: New Opportunity",
-        AlertType.NAICS_MATCH: f"NAICS {rfp.naics_code}: {rfp.title[:35]}...",
+        AlertType.AGENCY_MATCH: f"{rfp.agency or 'Unknown'}: New Opportunity",
+        AlertType.NAICS_MATCH: f"NAICS {rfp.naics_code or 'N/A'}: {rfp.title[:35]}...",
         AlertType.DOCUMENT_UPDATED: f"Document Update: {rfp.title[:40]}...",
         AlertType.QA_POSTED: f"Q&A Posted: {rfp.title[:45]}...",
         AlertType.AWARD_ANNOUNCED: f"Award: {rfp.title[:50]}...",
@@ -748,7 +749,8 @@ def _build_notification_message(rule: AlertRule, rfp: RFPOpportunity) -> str:
         return f"RFP deadline is in {days} days. Agency: {rfp.agency}. Review and take action."
 
     if rule.alert_type == AlertType.SCORE_THRESHOLD:
-        return f"This RFP scored {rfp.triage_score:.0%} on triage. Consider prioritizing this opportunity from {rfp.agency}."
+        score_str = f"{rfp.triage_score:.0%}" if rfp.triage_score is not None else "N/A"
+        return f"This RFP scored {score_str} on triage. Consider prioritizing this opportunity from {rfp.agency or 'unknown agency'}."
 
     if rule.alert_type == AlertType.KEYWORD_MATCH:
         keywords = rule.criteria.get("keywords", [])

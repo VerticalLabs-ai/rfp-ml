@@ -16,8 +16,8 @@ def get_llm_manager(prefer_full: bool = True):
     if prefer_full:
         try:
             # Try the full configuration first
-            from .llm_config import create_llm_manager
-            manager = create_llm_manager()
+            from .llm_config import LLMManager
+            manager = LLMManager()
             logging.info("Using full LLM configuration")
             return manager
         except Exception as e:
