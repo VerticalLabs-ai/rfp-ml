@@ -37,8 +37,23 @@ export default function RFPDiscovery() {
     }
   })
 
+  const deleteMutation = useMutation({
+    mutationFn: (rfpId: string) => api.deleteRFP(rfpId),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['discovered-rfps'] })
+      toast.success('RFP deleted successfully')
+    },
+    onError: () => {
+      toast.error('Failed to delete RFP')
+    }
+  })
+
   const handleTriageDecision = (rfpId: string, decision: string) => {
     triageMutation.mutate({ rfpId, decision })
+  }
+
+  const handleDelete = (rfpId: string) => {
+    deleteMutation.mutate(rfpId)
   }
 
   return (
@@ -82,6 +97,7 @@ export default function RFPDiscovery() {
               key={rfp.id}
               rfp={rfp}
               onTriageDecision={handleTriageDecision}
+              onDelete={handleDelete}
             />
           ))}
           {rfps?.length === 0 && (

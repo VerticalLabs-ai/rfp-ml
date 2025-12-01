@@ -53,14 +53,12 @@ export default function Dashboard() {
             value={stats?.total_discovered || 0}
             icon={Search}
             color="blue"
-            trend={{ value: '+12%', positive: true }}
           />
           <StatsCard
             title="In Pipeline"
             value={stats?.in_pipeline || 0}
             icon={Settings}
             color="purple"
-            trend={{ value: '-5%', positive: false }}
           />
           <StatsCard
             title="Pending Review"
@@ -74,7 +72,6 @@ export default function Dashboard() {
             value={stats?.submitted_count || 0}
             icon={Send}
             color="green"
-            trend={{ value: '+8%', positive: true }}
           />
         </div>
       </div>

@@ -6,27 +6,50 @@ import {
     DialogHeader,
     DialogTitle,
 } from '@/components/ui/dialog'
+import {
+    Select,
+    SelectContent,
+    SelectItem,
+    SelectTrigger,
+    SelectValue,
+} from '@/components/ui/select'
 import { useMutation } from '@tanstack/react-query'
 import { Download, Eye, FileText, Loader2 } from 'lucide-react'
 import { useState } from 'react'
 import toast from 'react-hot-toast'
 import { api } from '../services/api'
 
+type GenerationMode = 'template' | 'claude_standard' | 'claude_enhanced' | 'claude_premium'
+
 interface GenerateBidButtonProps {
     rfpId: string
     rfpTitle: string
+    defaultMode?: GenerationMode
 }
 
-export default function GenerateBidButton({ rfpId, rfpTitle }: GenerateBidButtonProps) {
+const GENERATION_MODES: { value: GenerationMode; label: string; description: string }[] = [
+    { value: 'template', label: '⚡ Fast Draft', description: 'Template-based' },
+    { value: 'claude_standard', label: '🤖 AI Standard', description: 'Claude Sonnet' },
+    { value: 'claude_enhanced', label: '✨ AI Enhanced', description: 'Claude + Thinking' },
+    { value: 'claude_premium', label: '👑 AI Premium', description: 'Claude Opus' }
+]
+
+export default function GenerateBidButton({ rfpId, rfpTitle, defaultMode = 'claude_enhanced' }: GenerateBidButtonProps) {
     const [showPreview, setShowPreview] = useState(false)
     const [bidData, setBidData] = useState<any>(null)
+    const [generationMode, setGenerationMode] = useState<GenerationMode>(defaultMode)
 
     const generateMutation = useMutation({
-        mutationFn: () => api.generateBid(rfpId),
+        mutationFn: () => api.generateBid(rfpId, {
+            generation_mode: generationMode,
+            enable_thinking: generationMode !== 'template' && generationMode !== 'claude_standard',
+            thinking_budget: generationMode === 'claude_premium' ? 20000 : 10000
+        }),
         onSuccess: (data) => {
             setBidData(data)
             setShowPreview(true)
-            toast.success('Bid document generated successfully!')
+            const modeLabel = GENERATION_MODES.find(m => m.value === generationMode)?.label || generationMode
+            toast.success(`Bid generated with ${modeLabel}!`)
         },
         onError: (error: any) => {
             toast.error(error.response?.data?.detail || 'Failed to generate bid')
@@ -52,24 +75,47 @@ export default function GenerateBidButton({ rfpId, rfpTitle }: GenerateBidButton
 
     return (
         <>
-            <Button
-                onClick={() => generateMutation.mutate()}
-                disabled={generateMutation.isPending}
-                size="sm"
-                variant="outline"
-            >
-                {generateMutation.isPending ? (
-                    <>
-                        <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                        Generating...
-                    </>
-                ) : (
-                    <>
-                        <FileText className="w-4 h-4 mr-2" />
-                        Generate Proposal
-                    </>
-                )}
-            </Button>
+            <div className="flex items-center gap-2">
+                <Select
+                    value={generationMode}
+                    onValueChange={(value: GenerationMode) => setGenerationMode(value)}
+                >
+                    <SelectTrigger className="w-36 h-9">
+                        <SelectValue>
+                            {GENERATION_MODES.find(m => m.value === generationMode)?.label}
+                        </SelectValue>
+                    </SelectTrigger>
+                    <SelectContent>
+                        {GENERATION_MODES.map((mode) => (
+                            <SelectItem key={mode.value} value={mode.value}>
+                                <span className="flex flex-col">
+                                    <span>{mode.label}</span>
+                                    <span className="text-xs text-muted-foreground">{mode.description}</span>
+                                </span>
+                            </SelectItem>
+                        ))}
+                    </SelectContent>
+                </Select>
+                <Button
+                    onClick={() => generateMutation.mutate()}
+                    disabled={generateMutation.isPending}
+                    size="sm"
+                    variant={generationMode.includes('claude') ? 'default' : 'outline'}
+                    className={generationMode.includes('claude') ? 'bg-purple-600 hover:bg-purple-700' : ''}
+                >
+                    {generateMutation.isPending ? (
+                        <>
+                            <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                            Generating...
+                        </>
+                    ) : (
+                        <>
+                            <FileText className="w-4 h-4 mr-2" />
+                            Generate
+                        </>
+                    )}
+                </Button>
+            </div>
 
             <Dialog open={showPreview} onOpenChange={setShowPreview}>
                 <DialogContent className="max-w-4xl max-h-[90vh]">

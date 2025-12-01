@@ -7,8 +7,18 @@ import sys
 
 import pandas as pd
 
+
+def get_project_root():
+    """Get project root directory (works locally and in Docker)."""
+    if os.path.exists("/app/data"):
+        return "/app"
+    return os.path.dirname(os.path.abspath(__file__))
+
+
+PROJECT_ROOT = get_project_root()
+
 # Add src to path
-sys.path.insert(0, '/app/government_rfp_bid_1927/src')
+sys.path.insert(0, os.path.join(PROJECT_ROOT, 'src'))
 from compliance.compliance_matrix import ComplianceMatrixGenerator
 from rag.rag_engine import RAGEngine
 
@@ -21,22 +31,25 @@ def test_compliance_with_rag():
     # Initialize RAG engine
     print("1. Loading RAG engine...")
     rag = RAGEngine()
-    if not rag.load_artifacts():
-        print("❌ Failed to load RAG artifacts")
+    try:
+        rag.build_index()  # This loads existing index or builds new one
+        stats = rag.get_stats()
+        print(f"✅ RAG engine loaded with {stats.get('total_documents', 'N/A')} documents")
+    except Exception as e:
+        print(f"❌ Failed to load RAG: {e}")
         return False
-    print(f"✅ RAG engine loaded with {rag.get_stats()['total_documents']:,} documents")
     # Initialize compliance matrix generator with RAG
     print("\n2. Initializing Compliance Matrix Generator...")
     compliance_generator = ComplianceMatrixGenerator(rag_engine=rag)
     print("✅ Compliance Matrix Generator initialized")
     # Load test RFP data
     print("\n3. Loading test RFP data...")
-    df = pd.read_parquet('/app/government_rfp_bid_1927/data/processed/rfp_master_dataset.parquet')
+    df = pd.read_parquet(os.path.join(PROJECT_ROOT, 'data/processed/rfp_master_dataset.parquet'))
     # Select diverse test cases
     test_cases = []
     # Get samples from different categories
     for category in ['construction', 'delivery', 'bottled_water']:
-        category_file = f'/app/government_rfp_bid_1927/data/processed/{category}_rfps.parquet'
+        category_file = os.path.join(PROJECT_ROOT, f'data/processed/{category}_rfps.parquet')
         if os.path.exists(category_file):
             cat_df = pd.read_parquet(category_file)
             if not cat_df.empty and 'description' in cat_df.columns:

@@ -7,8 +7,18 @@ import sys
 
 import pandas as pd
 
+
+def get_project_root():
+    """Get project root directory (works locally and in Docker)."""
+    if os.path.exists("/app/data"):
+        return "/app"
+    return os.path.dirname(os.path.abspath(__file__))
+
+
+PROJECT_ROOT = get_project_root()
+
 # Add src to path
-sys.path.insert(0, '/app/government_rfp_bid_1927/src')
+sys.path.insert(0, os.path.join(PROJECT_ROOT, 'src'))
 from compliance.compliance_matrix import ComplianceMatrixGenerator
 from rag.rag_engine import RAGEngine
 
@@ -124,8 +134,10 @@ def validate_rag_integration():
     try:
         # Load RAG engine
         rag = RAGEngine()
-        if not rag.load_artifacts():
-            print("    ⚠️  RAG artifacts not available, skipping RAG integration test")
+        try:
+            rag.build_index()  # Loads existing index or builds new one
+        except Exception as e:
+            print(f"    ⚠️  RAG not available ({e}), skipping RAG integration test")
             return True  # Don't fail the test if RAG isn't available
         generator = ComplianceMatrixGenerator(rag_engine=rag)
         # Test requirement with RAG context
@@ -220,15 +232,15 @@ def validate_end_to_end_workflow():
     print("\n🔄 Testing End-to-End Workflow...")
     try:
         # Load real RFP data
-        df = pd.read_parquet('/app/government_rfp_bid_1927/data/processed/rfp_master_dataset.parquet')
+        df = pd.read_parquet(os.path.join(PROJECT_ROOT, 'data/processed/rfp_master_dataset.parquet'))
         test_rfp = df[df['description'].notna()].iloc[0].to_dict()
         print(f"    Test RFP: {test_rfp.get('title', 'Unknown')[:50]}...")
         # Initialize with RAG if available
         rag = None
         try:
             rag = RAGEngine()
-            rag.load_artifacts()
-        except:
+            rag.build_index()
+        except Exception:
             pass
         generator = ComplianceMatrixGenerator(rag_engine=rag)
         # Generate compliance matrix

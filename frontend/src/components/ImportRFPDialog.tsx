@@ -101,7 +101,7 @@ export function ImportRFPDialog({ trigger, onSuccess }: ImportRFPDialogProps) {
 
     scrapeMutation.mutate({
       url: url.trim(),
-      company_profile_id: selectedProfileId ? parseInt(selectedProfileId) : undefined,
+      company_profile_id: selectedProfileId && selectedProfileId !== 'none' ? parseInt(selectedProfileId) : undefined,
     })
   }
 
@@ -164,7 +164,7 @@ export function ImportRFPDialog({ trigger, onSuccess }: ImportRFPDialogProps) {
                 <SelectValue placeholder="Select a profile" />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="">None</SelectItem>
+                <SelectItem value="none">None</SelectItem>
                 {profiles?.map((profile) => (
                   <SelectItem key={profile.id} value={profile.id.toString()}>
                     <span className="flex items-center gap-2">

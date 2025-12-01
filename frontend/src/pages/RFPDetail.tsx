@@ -17,7 +17,8 @@ import {
   FileIcon,
   FileOutput,
   Copy,
-  Check
+  Check,
+  DollarSign
 } from 'lucide-react'
 import { toast } from 'sonner'
 import { format, formatDistanceToNow } from 'date-fns'
@@ -35,6 +36,7 @@ import {
   SelectValue,
 } from '@/components/ui/select'
 import { api } from '@/services/api'
+import PricingTable from '@/components/PricingTable'
 
 interface RFPDocument {
   id: number
@@ -63,6 +65,8 @@ interface CompanyProfile {
   is_default: boolean
 }
 
+type GenerationMode = 'template' | 'claude_standard' | 'claude_enhanced' | 'claude_premium'
+
 interface BidDocument {
   bid_id: string
   rfp_id: string
@@ -74,8 +78,38 @@ interface BidDocument {
   metadata: {
     generated_at: string
     processing_mode?: string
+    generation_mode?: string
+    claude_enhanced?: boolean
+    thinking_enabled?: boolean
   }
 }
+
+const GENERATION_MODES: { value: GenerationMode; label: string; description: string; icon: string }[] = [
+  {
+    value: 'template',
+    label: 'Fast Draft',
+    description: 'Quick template-based generation (no AI)',
+    icon: '⚡'
+  },
+  {
+    value: 'claude_standard',
+    label: 'AI Standard',
+    description: 'Claude Sonnet 4.5 without thinking',
+    icon: '🤖'
+  },
+  {
+    value: 'claude_enhanced',
+    label: 'AI Enhanced',
+    description: 'Claude Sonnet 4.5 with extended thinking (recommended)',
+    icon: '✨'
+  },
+  {
+    value: 'claude_premium',
+    label: 'AI Premium',
+    description: 'Claude Opus 4.5 with thinking (highest quality)',
+    icon: '👑'
+  }
+]
 
 const categoryColors: Record<string, string> = {
   technical: 'bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-300',
@@ -114,6 +148,7 @@ export default function RFPDetail() {
   const [generatedBid, setGeneratedBid] = useState<BidDocument | null>(null)
   const [activeTab, setActiveTab] = useState<string>('overview')
   const [copied, setCopied] = useState(false)
+  const [generationMode, setGenerationMode] = useState<GenerationMode>('claude_enhanced')
 
   // Fetch RFP data
   const { data: rfp, isLoading: rfpLoading, error: rfpError } = useQuery({
@@ -178,12 +213,17 @@ export default function RFPDetail() {
 
   // Generate proposal mutation
   const generateMutation = useMutation({
-    mutationFn: () => api.generateBid(rfpId!),
+    mutationFn: () => api.generateBid(rfpId!, {
+      generation_mode: generationMode,
+      enable_thinking: generationMode !== 'template' && generationMode !== 'claude_standard',
+      thinking_budget: generationMode === 'claude_premium' ? 20000 : 10000
+    }),
     onSuccess: (data: BidDocument) => {
       setGeneratedBid(data)
       setActiveTab('proposal')
+      const modeLabel = GENERATION_MODES.find(m => m.value === generationMode)?.label || generationMode
       toast.success('Proposal generated successfully', {
-        description: `Bid ID: ${data.bid_id}`,
+        description: `Generated with ${modeLabel} mode • Bid ID: ${data.bid_id}`,
       })
     },
     onError: (error: Error) => {
@@ -307,7 +347,7 @@ export default function RFPDetail() {
             )}
           </div>
         </div>
-        <div className="flex gap-2">
+        <div className="flex items-center gap-2">
           {rfp.source_url && (
             <Button variant="outline" size="sm" asChild>
               <a href={rfp.source_url} target="_blank" rel="noopener noreferrer">
@@ -329,9 +369,38 @@ export default function RFPDetail() {
             )}
             Refresh
           </Button>
+          {/* Generation Mode Selector */}
+          <Select
+            value={generationMode}
+            onValueChange={(value: GenerationMode) => setGenerationMode(value)}
+          >
+            <SelectTrigger className="w-44">
+              <SelectValue>
+                <span className="flex items-center gap-2">
+                  {GENERATION_MODES.find(m => m.value === generationMode)?.icon}
+                  {GENERATION_MODES.find(m => m.value === generationMode)?.label}
+                </span>
+              </SelectValue>
+            </SelectTrigger>
+            <SelectContent>
+              {GENERATION_MODES.map((mode) => (
+                <SelectItem key={mode.value} value={mode.value}>
+                  <div className="flex flex-col">
+                    <span className="flex items-center gap-2">
+                      {mode.icon} {mode.label}
+                    </span>
+                    <span className="text-xs text-muted-foreground">
+                      {mode.description}
+                    </span>
+                  </div>
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
           <Button
             onClick={() => generateMutation.mutate()}
             disabled={generateMutation.isPending}
+            className={generationMode.includes('claude') ? 'bg-purple-600 hover:bg-purple-700' : ''}
           >
             {generateMutation.isPending ? (
               <Loader2 className="h-4 w-4 mr-2 animate-spin" />
@@ -392,6 +461,10 @@ export default function RFPDetail() {
             {generatedBid && (
               <Badge variant="default" className="ml-1 bg-green-500">Ready</Badge>
             )}
+          </TabsTrigger>
+          <TabsTrigger value="pricing" className="gap-2">
+            <DollarSign className="h-4 w-4" />
+            Pricing
           </TabsTrigger>
         </TabsList>
 
@@ -772,6 +845,8 @@ export default function RFPDetail() {
                   <CardDescription>
                     {generatedBid.metadata.processing_mode === 'mock'
                       ? 'Preview generated in mock mode (ML components not available)'
+                      : generatedBid.metadata.claude_enhanced
+                      ? `Generated with Claude ${generatedBid.metadata.generation_mode?.includes('premium') ? 'Opus 4.5' : 'Sonnet 4.5'}${generatedBid.metadata.thinking_enabled ? ' + Extended Thinking' : ''}`
                       : 'Full AI-generated proposal based on RAG retrieval and compliance analysis'}
                   </CardDescription>
                 </CardHeader>
@@ -829,6 +904,11 @@ export default function RFPDetail() {
               </CardContent>
             </Card>
           )}
+        </TabsContent>
+
+        {/* Pricing Tab */}
+        <TabsContent value="pricing">
+          <PricingTable rfpId={rfpId!} />
         </TabsContent>
       </Tabs>
     </div>

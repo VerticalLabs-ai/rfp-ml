@@ -19,6 +19,15 @@ from sentence_transformers import SentenceTransformer
 # Setup logging
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
 logger = logging.getLogger(__name__)
+def get_project_root():
+    """Get project root directory (works locally and in Docker)."""
+    # Check if running in Docker
+    if os.path.exists("/app/data"):
+        return "/app"
+    # Otherwise use the directory containing this script
+    return os.path.dirname(os.path.abspath(__file__))
+
+
 class RAGEngine:
     """
     Retrieval-Augmented Generation engine for RFP datasets.
@@ -28,9 +37,14 @@ class RAGEngine:
         model_name: str = "all-MiniLM-L6-v2",
         chunk_size: int = 512,
         chunk_overlap: int = 50,
-        embeddings_dir: str = "/app/government_rfp_bid_1927/data/embeddings",
-        processed_data_dir: str = "/app/government_rfp_bid_1927/data/processed"
+        embeddings_dir: str = None,
+        processed_data_dir: str = None
     ):
+        project_root = get_project_root()
+        if embeddings_dir is None:
+            embeddings_dir = os.path.join(project_root, "data", "embeddings")
+        if processed_data_dir is None:
+            processed_data_dir = os.path.join(project_root, "data", "processed")
         self.model_name = model_name
         self.chunk_size = chunk_size
         self.chunk_overlap = chunk_overlap
@@ -322,9 +336,9 @@ def test_rag_system():
             continue
         for result in results:
             print(f"\nRank {result['rank']} (Score: {result['score']:.3f}):")
-            print(f"  Category: {result['metadata']['category']}")
-            print(f"  Title: {result['metadata']['title']}")
-            print(f"  Agency: {result['metadata']['agency']}")
+            print(f"  Category: {result['metadata'].get('category', 'N/A')}")
+            print(f"  Title: {result['metadata'].get('title', 'N/A')}")
+            print(f"  Agency: {result['metadata'].get('agency', 'N/A')}")
             print(f"  Text Preview: {result['text'][:150]}...")
     avg_retrieval_time = total_retrieval_time / len(test_queries)
     print("\n" + "="*80)

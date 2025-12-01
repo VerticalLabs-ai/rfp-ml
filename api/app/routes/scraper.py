@@ -213,32 +213,54 @@ async def _download_and_save_documents(
     scraper, scraped_rfp, rfp_db_id: int, rfp_id: str
 ) -> None:
     """Background task to download documents and save to database."""
+    from app.core.database import SessionLocal
+
     try:
-        downloaded_docs = await scraper.download_documents(scraped_rfp, rfp_id)
-
-        # Get a fresh session since we're in a background task
-        from app.core.database import SessionLocal
-
+        # First, save all document metadata so they appear in the UI
         with SessionLocal() as session:
-            for doc in downloaded_docs:
-                doc_record = RFPDocument(
-                    rfp_id=rfp_db_id,
-                    filename=doc.filename,
-                    file_path=doc.file_path,
-                    file_type=doc.file_type,
-                    file_size=doc.file_size,
-                    document_type=doc.document_type,
-                    source_url=doc.source_url,
-                    downloaded_at=doc.downloaded_at,
-                    checksum=doc.checksum,
-                )
-                session.add(doc_record)
+            for doc in scraped_rfp.documents:
+                # Check if document already exists
+                existing = session.query(RFPDocument).filter(
+                    RFPDocument.rfp_id == rfp_db_id,
+                    RFPDocument.filename == doc.filename
+                ).first()
+
+                if not existing:
+                    doc_record = RFPDocument(
+                        rfp_id=rfp_db_id,
+                        filename=doc.filename,
+                        file_type=doc.file_type,
+                        document_type=doc.document_type,
+                        source_url=doc.source_url,
+                        # file_path, file_size, checksum will be set after download
+                    )
+                    session.add(doc_record)
 
             session.commit()
-            logger.info(f"Saved {len(downloaded_docs)} documents for RFP {rfp_id}")
+            logger.info(f"Saved {len(scraped_rfp.documents)} document records for RFP {rfp_id}")
+
+        # Then attempt to download the files
+        downloaded_docs = await scraper.download_documents(scraped_rfp, rfp_id)
+
+        # Update records with download info
+        with SessionLocal() as session:
+            for doc in downloaded_docs:
+                existing = session.query(RFPDocument).filter(
+                    RFPDocument.rfp_id == rfp_db_id,
+                    RFPDocument.filename == doc.filename
+                ).first()
+
+                if existing:
+                    existing.file_path = doc.file_path
+                    existing.file_size = doc.file_size
+                    existing.checksum = doc.checksum
+                    existing.downloaded_at = doc.downloaded_at
+
+            session.commit()
+            logger.info(f"Updated {len(downloaded_docs)} documents with download info for RFP {rfp_id}")
 
     except Exception as e:
-        logger.error(f"Error downloading documents for RFP {rfp_id}: {e}")
+        logger.error(f"Error processing documents for RFP {rfp_id}: {e}")
 
 
 @router.post("/{rfp_id}/refresh", response_model=RefreshResponse)
@@ -312,9 +334,9 @@ async def refresh_rfp(
         # Check for new documents
         new_doc_count = len(updated_rfp.documents) - existing_doc_count
         if new_doc_count > 0:
-            # Download new documents in background
+            # Download new documents in background (function creates its own db session)
             background_tasks.add_task(
-                _download_and_save_documents, scraper, updated_rfp, rfp.id, rfp_id, db
+                _download_and_save_documents, scraper, updated_rfp, rfp.id, rfp_id
             )
 
         # Check for metadata changes

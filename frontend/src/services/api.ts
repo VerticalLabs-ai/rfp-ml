@@ -6,7 +6,7 @@ const apiClient = axios.create({
   headers: {
     'Content-Type': 'application/json'
   },
-  timeout: 30000 // 30 seconds timeout
+  timeout: 300000 // 5 minutes timeout for long operations (scraping, AI generation)
 })
 
 // Request interceptor
@@ -88,6 +88,9 @@ export const api = {
   updateTriageDecision: (rfpId: string, decision: string) =>
     apiClient.post(`/rfps/${rfpId}/triage`, { decision }).then(res => res.data),
 
+  deleteRFP: (rfpId: string) =>
+    apiClient.delete(`/rfps/${rfpId}`).then(res => res.data),
+
   getRFPStats: () =>
     apiClient.get('/rfps/stats/overview').then(res => res.data),
 
@@ -150,14 +153,38 @@ export const api = {
     apiClient.post('/rfps/process', data).then(res => res.data),
 
   // Bid Generation endpoints
-  generateBid: (rfpId: string) =>
-    apiClient.post(`/rfps/${rfpId}/generate-bid`).then(res => res.data),
+  generateBid: (rfpId: string, options?: {
+    generation_mode?: 'template' | 'claude_standard' | 'claude_enhanced' | 'claude_premium'
+    enable_thinking?: boolean
+    thinking_budget?: number
+  }) =>
+    apiClient.post(`/rfps/${rfpId}/generate-bid`, options || {}).then(res => res.data),
 
   getBidDocument: (bidId: string) =>
     apiClient.get(`/rfps/bids/${bidId}`).then(res => res.data),
 
   downloadBid: (bidId: string, format: 'markdown' | 'html' | 'json') =>
     apiClient.get(`/rfps/bids/${bidId}/download/${format}`, { responseType: 'blob' }).then(res => res.data),
+
+  // Pricing Table endpoints
+  generatePricingTable: (rfpId: string, options?: {
+    num_websites?: number
+    base_years?: number
+    optional_years?: number
+    base_budget_per_site?: number
+  }) =>
+    apiClient.post(`/rfps/${rfpId}/pricing-table`, options || {}).then(res => res.data),
+
+  downloadPricingTableCSV: (rfpId: string, params?: {
+    num_websites?: number
+    base_years?: number
+    optional_years?: number
+    base_budget_per_site?: number
+  }) =>
+    apiClient.get(`/rfps/${rfpId}/pricing-table/csv`, {
+      params,
+      responseType: 'blob'
+    }).then(res => res.data),
 
   // Prediction endpoints
   getPredictions: (confidence: number = 0.7) =>

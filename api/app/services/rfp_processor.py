@@ -127,20 +127,37 @@ class RFPProcessor:
                 "decision_recommendation": "error"
             }
 
-    async def generate_bid_document(self, rfp_data: Dict[str, Any]) -> Dict[str, Any]:
+    async def generate_bid_document(
+        self,
+        rfp_data: Dict[str, Any],
+        generation_mode: str = "template",
+        enable_thinking: bool = True,
+        thinking_budget: int = 10000
+    ) -> Dict[str, Any]:
         """
         Generate a complete bid document for an RFP.
-        
+
         Args:
             rfp_data: RFP details
-            
+            generation_mode: Generation mode (template, claude_standard, claude_enhanced, claude_premium)
+            enable_thinking: Enable Claude's extended thinking mode
+            thinking_budget: Token budget for thinking
+
         Returns:
             Generated bid document with content in multiple formats
         """
         try:
             if self.bid_generator:
-                # Use full bid generator
-                bid_document = self.bid_generator.generate_bid_document(rfp_data)
+                # Check if we need to reinitialize with Claude options
+                if generation_mode != "template":
+                    self._ensure_claude_generator(generation_mode, enable_thinking, thinking_budget)
+
+                # Use full bid generator with options
+                bid_document = self.bid_generator.generate_bid_document(
+                    rfp_data,
+                    generation_mode=generation_mode,
+                    enable_thinking=enable_thinking
+                )
             else:
                 # Mock bid generation
                 bid_document = {
@@ -156,7 +173,9 @@ class RFPProcessor:
                     },
                     "metadata": {
                         "generated_at": datetime.now().isoformat(),
-                        "processing_mode": "mock"
+                        "processing_mode": "mock",
+                        "generation_mode": generation_mode,
+                        "claude_enhanced": False
                     }
                 }
 
@@ -176,6 +195,48 @@ class RFPProcessor:
                 "error": str(e),
                 "bid_id": None
             }
+
+    def _ensure_claude_generator(
+        self,
+        generation_mode: str,
+        enable_thinking: bool,
+        thinking_budget: int
+    ):
+        """
+        Ensure the bid generator is configured for Claude-enhanced generation.
+        Reinitializes if necessary.
+        """
+        try:
+            from src.bid_generation.document_generator import (
+                ProposalGenerationMode,
+                ProposalGenerationOptions,
+            )
+
+            # Map mode string to enum
+            mode_map = {
+                "template": ProposalGenerationMode.TEMPLATE,
+                "claude_standard": ProposalGenerationMode.CLAUDE_STANDARD,
+                "claude_enhanced": ProposalGenerationMode.CLAUDE_ENHANCED,
+                "claude_premium": ProposalGenerationMode.CLAUDE_PREMIUM,
+            }
+            gen_mode = mode_map.get(generation_mode.lower(), ProposalGenerationMode.TEMPLATE)
+
+            # Check if we need to update the generator's options
+            current_mode = getattr(self.bid_generator.proposal_options, 'mode', None)
+            if current_mode != gen_mode:
+                # Update options and reinitialize enhanced generator
+                self.bid_generator.proposal_options = ProposalGenerationOptions(
+                    mode=gen_mode,
+                    enable_thinking=enable_thinking,
+                    thinking_budget=thinking_budget
+                )
+                self.bid_generator._initialize_enhanced_generator()
+                print(f"✅ Bid generator reconfigured for {generation_mode} mode")
+
+        except ImportError as e:
+            print(f"⚠️  Could not configure Claude generation: {e}")
+        except Exception as e:
+            print(f"⚠️  Error configuring Claude generation: {e}")
 
     def get_bid_document(self, bid_id: str) -> Dict | None:
         """Get a generated bid document by ID."""

@@ -11,6 +11,7 @@ import os
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
+from urllib.parse import urljoin, urlparse
 
 import aiofiles
 import aiohttp
@@ -134,8 +135,8 @@ class BeaconBidScraper(BaseScraper):
             # Extract RFP metadata using Stagehand's AI extraction
             rfp_data = await self._extract_rfp_metadata(stagehand)
 
-            # Extract documents
-            documents = await self._extract_documents(stagehand)
+            # Extract documents with base URL for resolving relative links
+            documents = await self._extract_documents(stagehand, url)
 
             # Extract Q&A
             qa_items = await self._extract_qa(stagehand)
@@ -239,12 +240,13 @@ class BeaconBidScraper(BaseScraper):
             logger.error(f"Error extracting metadata: {e}")
             return {}
 
-    async def _extract_documents(self, stagehand: Any) -> list[ScrapedDocument]:
+    async def _extract_documents(self, stagehand: Any, base_url: str) -> list[ScrapedDocument]:
         """
         Extract document links from the RFP page.
 
         Args:
             stagehand: Active Stagehand session
+            base_url: Base URL for resolving relative links
 
         Returns:
             List of ScrapedDocument objects (without local paths - not downloaded yet)
@@ -258,8 +260,10 @@ class BeaconBidScraper(BaseScraper):
                     instruction="""Find all downloadable documents/attachments on this page.
                 For each document, extract:
                 - filename: The name of the file
-                - url: The download URL or link
+                - url: The FULL download URL or href link (must start with http or be a relative path starting with /)
                 - type: The type of document (solicitation, amendment, attachment, etc.)
+
+                IMPORTANT: Extract the actual href attribute value from the download links, not display text.
                 """,
                     schema_definition={
                         "type": "object",
@@ -284,14 +288,24 @@ class BeaconBidScraper(BaseScraper):
             data = result.data if hasattr(result, "data") else result
             doc_list = data.get("documents", []) if isinstance(data, dict) else []
 
+            logger.info(f"Stagehand extracted {len(doc_list)} document entries")
+
             for doc in doc_list:
                 filename = doc.get("filename", "unknown")
                 file_ext = Path(filename).suffix.lower().lstrip(".")
+                raw_url = doc.get("url", "")
 
+                logger.info(f"Processing document: {filename}, raw URL: {raw_url[:100] if raw_url else 'None'}")
+
+                # Resolve and validate the URL
+                resolved_url = self._resolve_document_url(raw_url, base_url)
+
+                # Always add the document so users know it exists, even if URL is invalid
+                # The download will be attempted later and may fail
                 documents.append(
                     ScrapedDocument(
                         filename=filename,
-                        source_url=doc.get("url", ""),
+                        source_url=resolved_url or raw_url,  # Use raw if resolve fails
                         file_type=file_ext if file_ext else None,
                         document_type=self._classify_document_type(
                             doc.get("type", ""), filename
@@ -299,12 +313,59 @@ class BeaconBidScraper(BaseScraper):
                     )
                 )
 
+                if resolved_url:
+                    logger.info(f"Document URL resolved: {raw_url[:50]}... -> {resolved_url[:50]}...")
+                else:
+                    logger.warning(f"Could not resolve document URL for {filename}: {raw_url[:100] if raw_url else 'empty'}")
+
             logger.info(f"Found {len(documents)} documents")
             return documents
 
         except Exception as e:
             logger.error(f"Error extracting documents: {e}")
             return []
+
+    def _resolve_document_url(self, url: str, base_url: str) -> str | None:
+        """
+        Resolve and validate a document URL.
+
+        Args:
+            url: The extracted URL (may be relative or absolute)
+            base_url: The base URL for resolving relative URLs
+
+        Returns:
+            Resolved absolute URL or None if invalid
+        """
+        if not url:
+            return None
+
+        # Clean the URL
+        url = url.strip()
+
+        # Skip invalid/placeholder URLs
+        if url in ["#", "javascript:void(0)", "javascript:;", ""]:
+            return None
+
+        # Skip URLs that are clearly not download links
+        if url.startswith("mailto:") or url.startswith("tel:"):
+            return None
+
+        # Check if it's already an absolute URL
+        parsed = urlparse(url)
+        if parsed.scheme in ("http", "https"):
+            return url
+
+        # Resolve relative URL
+        try:
+            resolved = urljoin(base_url, url)
+            # Validate the resolved URL
+            parsed_resolved = urlparse(resolved)
+            if parsed_resolved.scheme in ("http", "https") and parsed_resolved.netloc:
+                return resolved
+        except Exception as e:
+            logger.warning(f"Failed to resolve URL {url}: {e}")
+
+        return None
 
     async def _extract_qa(self, stagehand: Any) -> list[ScrapedQA]:
         """
@@ -397,10 +458,13 @@ class BeaconBidScraper(BaseScraper):
         self, rfp: ScrapedRFP, rfp_id: str
     ) -> list[ScrapedDocument]:
         """
-        Download all documents for an RFP with retry logic.
+        Download all documents for an RFP using browser-based downloads.
+
+        BeaconBid requires clicking download links in the browser context,
+        as direct URL fetching returns 405 errors.
 
         Args:
-            rfp: ScrapedRFP containing document URLs
+            rfp: ScrapedRFP containing document info
             rfp_id: Unique ID for organizing storage
 
         Returns:
@@ -408,8 +472,22 @@ class BeaconBidScraper(BaseScraper):
         """
         storage_path = self.get_document_storage_path(rfp_id)
         downloaded_docs = []
-        timeout = ClientTimeout(total=self.DOWNLOAD_TIMEOUT_SECONDS)
 
+        if not rfp.documents:
+            logger.info("No documents to download for RFP %s", rfp_id)
+            return downloaded_docs
+
+        # Try browser-based download first (click links)
+        try:
+            downloaded_docs = await self._download_via_browser(rfp, storage_path)
+            if downloaded_docs:
+                logger.info(f"Successfully downloaded {len(downloaded_docs)} documents via browser")
+                return downloaded_docs
+        except Exception as e:
+            logger.warning(f"Browser-based download failed: {e}, falling back to direct download")
+
+        # Fallback to direct URL download
+        timeout = ClientTimeout(total=self.DOWNLOAD_TIMEOUT_SECONDS)
         async with aiohttp.ClientSession(timeout=timeout) as session:
             for doc in rfp.documents:
                 if not doc.source_url:
@@ -424,19 +502,99 @@ class BeaconBidScraper(BaseScraper):
 
         return downloaded_docs
 
+    async def _download_via_browser(
+        self, rfp: ScrapedRFP, storage_path: Path
+    ) -> list[ScrapedDocument]:
+        """
+        Download documents by clicking links in the browser.
+        This handles JavaScript-triggered downloads that don't work with direct HTTP requests.
+        """
+        downloaded_docs = []
+        stagehand = None
+
+        try:
+            stagehand = await self._create_stagehand_session()
+            page = stagehand.page
+
+            # Navigate to the RFP page
+            await page.goto(rfp.source_url)
+            await asyncio.sleep(2)
+
+            # Get the underlying Playwright page for download handling
+            playwright_page = page._impl_obj if hasattr(page, '_impl_obj') else page
+
+            for doc in rfp.documents:
+                try:
+                    logger.info(f"Attempting browser download for: {doc.filename}")
+                    base_filename = doc.filename.split('.')[0]
+
+                    # Set up download handling with Playwright
+                    try:
+                        async with playwright_page.expect_download(timeout=30000) as download_info:
+                            # Use Stagehand to click the download link
+                            await stagehand.page.act(
+                                f"Click the download link or button for '{doc.filename}' or '{base_filename}'"
+                            )
+
+                        # Get the download object
+                        download = await download_info.value
+
+                        # Save to our storage path
+                        safe_filename = self._sanitize_filename(doc.filename)
+                        file_path = storage_path / safe_filename
+                        await download.save_as(str(file_path))
+
+                        # Get file info
+                        file_size = file_path.stat().st_size
+
+                        # Update document info
+                        doc.file_path = str(file_path)
+                        doc.file_size = file_size
+                        doc.checksum = self.compute_file_checksum(str(file_path))
+                        doc.downloaded_at = datetime.now(timezone.utc)
+
+                        downloaded_docs.append(doc)
+                        logger.info(f"Downloaded via browser: {safe_filename} ({file_size} bytes)")
+
+                    except Exception as download_error:
+                        logger.warning(f"Browser download failed for {doc.filename}: {download_error}")
+                        # Continue to next document
+
+                except Exception as e:
+                    logger.warning(f"Failed to download {doc.filename} via browser: {e}")
+
+            return downloaded_docs
+
+        except Exception as e:
+            logger.error(f"Browser download session failed: {e}")
+            raise
+
+        finally:
+            if stagehand:
+                try:
+                    await stagehand.close()
+                except Exception as e:
+                    logger.warning(f"Error closing Stagehand session: {e}")
+
     async def _download_single_document(
         self, session: aiohttp.ClientSession, doc: ScrapedDocument, storage_path: Path
     ) -> ScrapedDocument | None:
         """Download a single document with retry logic."""
         last_error: Exception | None = None
 
+        # Validate URL before attempting download
+        if not doc.source_url or not doc.source_url.startswith(("http://", "https://")):
+            logger.error(f"Invalid document URL: {doc.source_url} for file {doc.filename}")
+            return None
+
         for attempt in range(1, self.DOWNLOAD_MAX_RETRIES + 1):
             try:
                 logger.info(
-                    "Downloading (attempt %d/%d): %s",
+                    "Downloading (attempt %d/%d): %s from %s",
                     attempt,
                     self.DOWNLOAD_MAX_RETRIES,
                     doc.filename,
+                    doc.source_url[:100],  # Log first 100 chars of URL
                 )
                 async with session.get(doc.source_url) as response:
                     if response.status == 200:

@@ -2,23 +2,40 @@ import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent } from '@/components/ui/card'
 import { formatDistance } from 'date-fns'
-import { AlertTriangle, Check, X } from 'lucide-react'
+import { AlertTriangle, Check, Trash2, X } from 'lucide-react'
 import GenerateBidButton from './GenerateBidButton'
 
 interface RFPCardProps {
   rfp: any
   onTriageDecision: (rfpId: string, decision: string) => void
+  onDelete?: (rfpId: string) => void
 }
 
-export default function RFPCard({ rfp, onTriageDecision }: RFPCardProps) {
+export default function RFPCard({ rfp, onTriageDecision, onDelete }: RFPCardProps) {
   return (
     <Card>
       <CardContent className="p-6">
         <div className="flex items-start justify-between">
           <div className="flex-1">
-            <h3 className="text-lg font-medium text-gray-900">
-              {rfp.title}
-            </h3>
+            <div className="flex items-start gap-2">
+              <h3 className="text-lg font-medium text-gray-900">
+                {rfp.title}
+              </h3>
+              {onDelete && (
+                <Button
+                  onClick={() => {
+                    if (confirm(`Delete "${rfp.title}"? This will remove all documents, Q&A, and bids.`)) {
+                      onDelete(rfp.rfp_id)
+                    }
+                  }}
+                  size="sm"
+                  variant="ghost"
+                  className="h-6 w-6 p-0 text-gray-400 hover:text-red-500"
+                >
+                  <Trash2 className="w-4 h-4" />
+                </Button>
+              )}
+            </div>
             <p className="mt-1 text-sm text-gray-500">
               {rfp.agency} • {rfp.office}
             </p>

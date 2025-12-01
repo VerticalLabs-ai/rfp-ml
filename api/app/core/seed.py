@@ -30,15 +30,15 @@ IBYTE_PROFILE = {
         "PMP Certificate #3889480"
     ],
     "naics_codes": [
-        {"code": "236220", "description": "Commercial and Institutional Building Construction"},
-        {"code": "541512", "description": "Computer Systems Design Services"},
-        {"code": "541519", "description": "Other Computer Related Services"},
-        {"code": "541611", "description": "Administrative Management and General Management Consulting Services"},
-        {"code": "541618", "description": "Other Management Consulting Services"},
-        {"code": "518210", "description": "Data Processing, Hosting, and Related Services"},
-        {"code": "541511", "description": "Custom Computer Programming Services"},
-        {"code": "541330", "description": "Engineering Services"},
-        {"code": "541310", "description": "Architectural Services"}
+        "236220",  # Commercial and Institutional Building Construction
+        "541512",  # Computer Systems Design Services
+        "541519",  # Other Computer Related Services
+        "541611",  # Administrative Management and General Management Consulting Services
+        "541618",  # Other Management Consulting Services
+        "518210",  # Data Processing, Hosting, and Related Services
+        "541511",  # Custom Computer Programming Services
+        "541330",  # Engineering Services
+        "541310",  # Architectural Services
     ],
     "core_competencies": [
         "IT Infrastructure & Cloud Services",

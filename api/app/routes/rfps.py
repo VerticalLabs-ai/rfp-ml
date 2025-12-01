@@ -121,6 +121,28 @@ class ManualRFPSubmit(BaseModel):
     category: str | None = "general"
 
 
+class BidGenerationOptions(BaseModel):
+    """Options for bid document generation with Claude 4.5 support."""
+    generation_mode: str = "template"  # template, claude_standard, claude_enhanced, claude_premium
+    enable_thinking: bool = True  # Enable Claude's extended thinking mode
+    thinking_budget: int = 10000  # Token budget for thinking (higher = more thorough)
+
+    @field_validator("generation_mode")
+    @classmethod
+    def validate_mode(cls, v: str) -> str:
+        valid_modes = ["template", "claude_standard", "claude_enhanced", "claude_premium"]
+        if v.lower() not in valid_modes:
+            raise ValueError(f"generation_mode must be one of: {valid_modes}")
+        return v.lower()
+
+    @field_validator("thinking_budget")
+    @classmethod
+    def validate_thinking_budget(cls, v: int) -> int:
+        if v < 1000 or v > 50000:
+            raise ValueError("thinking_budget must be between 1000 and 50000")
+        return v
+
+
 class ChecklistItemResponse(BaseModel):
     id: str
     description: str
@@ -295,6 +317,38 @@ async def update_rfp(
     return rfp
 
 
+@router.delete("/{rfp_id}")
+async def delete_rfp(
+    rfp_id: str,
+    db: Session = Depends(get_db)
+):
+    """
+    Delete an RFP and all related data (documents, Q&A, bids).
+    This allows re-importing the same RFP from scratch.
+    """
+    from app.models.database import BidDocument, RFPDocument, RFPQandA
+
+    # Find the RFP
+    rfp = db.query(RFPOpportunity).filter(RFPOpportunity.rfp_id == rfp_id).first()
+    if not rfp:
+        raise HTTPException(status_code=404, detail="RFP not found")
+
+    rfp_title = rfp.title
+
+    # Delete related records
+    db.query(RFPDocument).filter(RFPDocument.rfp_id == rfp.id).delete()
+    db.query(RFPQandA).filter(RFPQandA.rfp_id == rfp.id).delete()
+    db.query(BidDocument).filter(BidDocument.rfp_id == rfp.id).delete()
+
+    # Delete the RFP itself
+    db.delete(rfp)
+    db.commit()
+
+    logger.info(f"Deleted RFP {rfp_id}: {rfp_title}")
+
+    return {"message": f"RFP '{rfp_title}' deleted successfully", "rfp_id": rfp_id}
+
+
 @router.post("/{rfp_id}/triage", response_model=RFPResponse)
 async def update_triage_decision(
     rfp_id: str,
@@ -415,23 +469,47 @@ async def process_manual_rfp(
 
 
 @router.post("/{rfp_id}/generate-bid")
-async def generate_bid_document(rfp: RFPDep):
+async def generate_bid_document(
+    rfp: RFPDep,
+    options: BidGenerationOptions | None = None
+):
     """
     Generate a complete bid document for an RFP.
     Includes proposal content, compliance matrix, and pricing breakdown.
+
+    Generation Modes:
+    - template: Fast template-based generation (no API calls)
+    - claude_standard: Claude Sonnet 4.5 without extended thinking
+    - claude_enhanced: Claude Sonnet 4.5 with extended thinking (recommended)
+    - claude_premium: Claude Opus 4.5 with extended thinking (highest quality)
+
+    Args:
+        rfp: The RFP to generate a bid for
+        options: Generation options including mode and thinking settings
     """
     from app.websockets.websocket_router import broadcast_rfp_update
 
+    # Default options if not provided
+    if options is None:
+        options = BidGenerationOptions()
+
     # Broadcast that bid generation has started
     await broadcast_rfp_update(rfp.rfp_id, "bid_generation_started", {
-        "title": rfp.title
+        "title": rfp.title,
+        "generation_mode": options.generation_mode,
+        "enable_thinking": options.enable_thinking
     })
 
     # Convert RFP to dict for processing
     rfp_data = rfp_to_processing_dict(rfp)
 
-    # Generate bid document
-    bid_document = await processor.generate_bid_document(rfp_data)
+    # Generate bid document with options
+    bid_document = await processor.generate_bid_document(
+        rfp_data,
+        generation_mode=options.generation_mode,
+        enable_thinking=options.enable_thinking,
+        thinking_budget=options.thinking_budget
+    )
 
     if "error" in bid_document:
         await broadcast_rfp_update(rfp.rfp_id, "bid_generation_failed", {
@@ -442,7 +520,9 @@ async def generate_bid_document(rfp: RFPDep):
     # Broadcast successful generation
     await broadcast_rfp_update(rfp.rfp_id, "bid_generated", {
         "bid_id": bid_document["bid_id"],
-        "sections": list(bid_document["content"]["sections"].keys()) if bid_document.get("content", {}).get("sections") else []
+        "sections": list(bid_document["content"]["sections"].keys()) if bid_document.get("content", {}).get("sections") else [],
+        "generation_mode": options.generation_mode,
+        "claude_enhanced": bid_document["metadata"].get("claude_enhanced", False)
     })
 
     return {
@@ -494,6 +574,119 @@ async def download_bid_document(bid_id: str, format: str):
         filepath,
         media_type=media_types[format],
         filename=os.path.basename(filepath)
+    )
+
+
+class PricingTableOptions(BaseModel):
+    """Options for generating a pricing table."""
+    num_websites: int = 3
+    base_years: int = 3
+    optional_years: int = 2
+    base_budget_per_site: float = 50000.0
+    custom_rates: Dict[str, float] | None = None
+
+
+@router.post("/{rfp_id}/pricing-table")
+async def generate_pricing_table(
+    rfp_id: str,
+    options: PricingTableOptions | None = None,
+    db: Session = Depends(get_db)
+):
+    """
+    Generate a detailed pricing table for the RFP bid.
+    Includes multi-year breakdown with optional years.
+    """
+    from src.bid_generation.pricing_table_generator import create_pricing_table_generator
+
+    # Get RFP
+    rfp = db.query(RFPOpportunity).filter(RFPOpportunity.rfp_id == rfp_id).first()
+    if not rfp:
+        raise HTTPException(status_code=404, detail="RFP not found")
+
+    # Get company profile (use default if none)
+    from app.models.database import CompanyProfile
+    profile = db.query(CompanyProfile).filter(CompanyProfile.is_default == True).first()
+
+    company_profile = {
+        "company_name": profile.company_name if profile else "Your Company",
+    }
+
+    rfp_data = {
+        "rfp_id": rfp.rfp_id,
+        "title": rfp.title,
+        "description": rfp.description,
+        "agency": rfp.agency,
+    }
+
+    # Generate pricing table
+    opts = options or PricingTableOptions()
+    generator = create_pricing_table_generator(custom_rates=opts.custom_rates)
+
+    pricing_table = generator.generate_website_pricing(
+        rfp_data=rfp_data,
+        company_profile=company_profile,
+        num_websites=opts.num_websites,
+        base_years=opts.base_years,
+        optional_years=opts.optional_years,
+        base_budget_per_site=opts.base_budget_per_site,
+    )
+
+    return generator.to_dict(pricing_table)
+
+
+@router.get("/{rfp_id}/pricing-table/csv")
+async def download_pricing_table_csv(
+    rfp_id: str,
+    num_websites: int = 3,
+    base_years: int = 3,
+    optional_years: int = 2,
+    base_budget_per_site: float = 50000.0,
+    db: Session = Depends(get_db)
+):
+    """
+    Download the pricing table as a CSV file.
+    """
+    from fastapi.responses import StreamingResponse
+    from src.bid_generation.pricing_table_generator import create_pricing_table_generator
+
+    # Get RFP
+    rfp = db.query(RFPOpportunity).filter(RFPOpportunity.rfp_id == rfp_id).first()
+    if not rfp:
+        raise HTTPException(status_code=404, detail="RFP not found")
+
+    # Get company profile
+    from app.models.database import CompanyProfile
+    profile = db.query(CompanyProfile).filter(CompanyProfile.is_default == True).first()
+
+    company_profile = {
+        "company_name": profile.company_name if profile else "Your Company",
+    }
+
+    rfp_data = {
+        "rfp_id": rfp.rfp_id,
+        "title": rfp.title,
+    }
+
+    # Generate pricing table
+    generator = create_pricing_table_generator()
+    pricing_table = generator.generate_website_pricing(
+        rfp_data=rfp_data,
+        company_profile=company_profile,
+        num_websites=num_websites,
+        base_years=base_years,
+        optional_years=optional_years,
+        base_budget_per_site=base_budget_per_site,
+    )
+
+    csv_content = generator.to_csv(pricing_table)
+
+    # Return as streaming response
+    return StreamingResponse(
+        iter([csv_content]),
+        media_type="text/csv",
+        headers={
+            "Content-Disposition": f"attachment; filename=pricing_table_{rfp_id}.csv"
+        }
     )
 
 

@@ -8,8 +8,18 @@ import time
 
 import pandas as pd
 
+
+def get_project_root():
+    """Get project root directory (works locally and in Docker)."""
+    if os.path.exists("/app/data"):
+        return "/app"
+    return os.path.dirname(os.path.abspath(__file__))
+
+
+PROJECT_ROOT = get_project_root()
+
 # Add src to path
-sys.path.insert(0, '/app/government_rfp_bid_1927/src')
+sys.path.insert(0, os.path.join(PROJECT_ROOT, 'src'))
 def test_complete_pipeline():
     """Test the complete bid generation pipeline."""
     print("=" * 80)
@@ -36,9 +46,9 @@ def test_complete_pipeline():
         test_rfps = []
         # Try to get samples from each category
         category_files = [
-            ('bottled_water', '/app/government_rfp_bid_1927/data/processed/bottled_water_rfps.parquet'),
-            ('construction', '/app/government_rfp_bid_1927/data/processed/construction_rfps.parquet'),
-            ('delivery', '/app/government_rfp_bid_1927/data/processed/delivery_rfps.parquet')
+            ('bottled_water', os.path.join(PROJECT_ROOT, 'data/processed/bottled_water_rfps.parquet')),
+            ('construction', os.path.join(PROJECT_ROOT, 'data/processed/construction_rfps.parquet')),
+            ('delivery', os.path.join(PROJECT_ROOT, 'data/processed/delivery_rfps.parquet'))
         ]
         for category, file_path in category_files:
             if os.path.exists(file_path):
@@ -50,7 +60,7 @@ def test_complete_pipeline():
                     print(f"✅ Loaded {category} sample: {sample['title'][:50]}...")
         # Fallback to master dataset if needed
         if len(test_rfps) < 2:
-            master_df = pd.read_parquet('/app/government_rfp_bid_1927/data/processed/rfp_master_dataset.parquet')
+            master_df = pd.read_parquet(os.path.join(PROJECT_ROOT, 'data/processed/rfp_master_dataset.parquet'))
             for i in range(2):
                 if i < len(master_df):
                     sample = master_df[master_df['description'].notna()].iloc[i].to_dict()
