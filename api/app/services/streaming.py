@@ -302,6 +302,7 @@ Please provide a helpful response:"""
                     "description": rfp.description or "",
                     "naics_code": rfp.naics_code or "",
                     "award_amount": rfp.award_amount or 0,
+                    "rfp_number": rfp.rfp_id or rfp_id,
                 }
 
             profile = db_session.query(CompanyProfile).first()
@@ -341,6 +342,7 @@ Be specific and detailed - avoid generic language."""
         prompt = f"""
 ## RFP Information
 - **Title:** {rfp_data.get('title', 'Government Contract')}
+- **RFP Number:** {rfp_data.get('rfp_number', rfp_id)}
 - **Agency:** {rfp_data.get('agency', 'Government Agency')}
 - **NAICS Code:** {rfp_data.get('naics_code', 'N/A')}
 - **Estimated Value:** ${rfp_data.get('award_amount', 0):,.2f}
