@@ -1,0 +1,349 @@
+"""
+Document upload and processing API endpoints.
+
+Provides endpoints for:
+- Uploading documents (PDF, DOCX, TXT) for an RFP
+- Processing documents and adding to RAG index
+- Listing and deleting uploaded documents
+"""
+import logging
+import os
+import sys
+import uuid
+from datetime import datetime, timezone
+from pathlib import Path
+from typing import List
+
+from fastapi import APIRouter, File, HTTPException, UploadFile, BackgroundTasks
+from pydantic import BaseModel, Field
+
+from app.dependencies import DBDep, RFPDep
+
+# Add project root to path
+project_root = os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(__file__)))))
+if project_root not in sys.path:
+    sys.path.insert(0, project_root)
+
+logger = logging.getLogger(__name__)
+router = APIRouter()
+
+# Allowed file extensions
+ALLOWED_EXTENSIONS = {'.pdf', '.docx', '.doc', '.txt', '.md', '.xlsx', '.xls'}
+MAX_FILE_SIZE = 50 * 1024 * 1024  # 50MB
+
+
+class UploadedDocument(BaseModel):
+    """Response model for uploaded document."""
+    id: str
+    filename: str
+    file_type: str
+    file_size: int
+    uploaded_at: str
+    status: str = "pending"
+    chunks_count: int | None = None
+    error: str | None = None
+
+
+class DocumentListResponse(BaseModel):
+    """Response model for document list."""
+    documents: List[UploadedDocument]
+    total: int
+
+
+class ProcessingStatus(BaseModel):
+    """Status of document processing."""
+    document_id: str
+    status: str  # pending, processing, completed, failed
+    progress: float = 0
+    chunks_created: int = 0
+    error: str | None = None
+
+
+# In-memory storage for processing status (would be Redis in production)
+_processing_status: dict[str, ProcessingStatus] = {}
+
+
+def get_document_upload_dir(rfp_id: str) -> Path:
+    """Get the upload directory for an RFP's documents."""
+    upload_dir = Path("/app/data/uploads") / rfp_id
+    upload_dir.mkdir(parents=True, exist_ok=True)
+    return upload_dir
+
+
+def extract_text_from_file(filepath: Path) -> str:
+    """Extract text content from a file."""
+    text = ""
+    suffix = filepath.suffix.lower()
+
+    try:
+        if suffix == '.txt' or suffix == '.md':
+            text = filepath.read_text(encoding='utf-8')
+        elif suffix == '.pdf':
+            try:
+                import fitz  # PyMuPDF
+                doc = fitz.open(str(filepath))
+                for page in doc:
+                    text += page.get_text()
+                doc.close()
+            except ImportError:
+                logger.warning("PyMuPDF not installed, trying pdfplumber")
+                try:
+                    import pdfplumber
+                    with pdfplumber.open(str(filepath)) as pdf:
+                        for page in pdf.pages:
+                            page_text = page.extract_text()
+                            if page_text:
+                                text += page_text + "\n"
+                except ImportError:
+                    raise HTTPException(
+                        status_code=500,
+                        detail="PDF processing libraries not available"
+                    )
+        elif suffix in {'.docx', '.doc'}:
+            try:
+                from docx import Document
+                doc = Document(str(filepath))
+                text = "\n".join([para.text for para in doc.paragraphs])
+            except ImportError:
+                raise HTTPException(
+                    status_code=500,
+                    detail="DOCX processing library not available"
+                )
+        elif suffix in {'.xlsx', '.xls'}:
+            try:
+                import pandas as pd
+                df = pd.read_excel(str(filepath))
+                text = df.to_string()
+            except ImportError:
+                raise HTTPException(
+                    status_code=500,
+                    detail="Excel processing library not available"
+                )
+    except Exception as e:
+        logger.error(f"Failed to extract text from {filepath}: {e}")
+        raise HTTPException(
+            status_code=500,
+            detail=f"Failed to extract text: {str(e)}"
+        )
+
+    return text
+
+
+def process_document_for_rag(
+    document_id: str,
+    filepath: Path,
+    rfp_id: str,
+    filename: str,
+):
+    """Background task to process document and add to RAG index."""
+    global _processing_status
+
+    _processing_status[document_id] = ProcessingStatus(
+        document_id=document_id,
+        status="processing",
+        progress=10,
+    )
+
+    try:
+        # Extract text
+        text = extract_text_from_file(filepath)
+        _processing_status[document_id].progress = 40
+
+        if not text.strip():
+            _processing_status[document_id].status = "failed"
+            _processing_status[document_id].error = "No text content extracted"
+            return
+
+        # Chunk the text
+        chunk_size = 512
+        overlap = 50
+        chunks = []
+        words = text.split()
+
+        for i in range(0, len(words), chunk_size - overlap):
+            chunk = " ".join(words[i:i + chunk_size])
+            if chunk.strip():
+                chunks.append(chunk)
+
+        _processing_status[document_id].progress = 60
+        _processing_status[document_id].chunks_created = len(chunks)
+
+        # Add to RAG index
+        try:
+            from src.rag.rag_engine import RAGEngine
+            rag_engine = RAGEngine()
+
+            if rag_engine.is_built:
+                # Create document IDs and metadata for each chunk
+                doc_ids = [f"{document_id}_chunk_{i}" for i in range(len(chunks))]
+                metadata = [
+                    {
+                        "source": filename,
+                        "rfp_id": rfp_id,
+                        "document_id": document_id,
+                        "chunk_index": i,
+                        "upload_date": datetime.now(timezone.utc).isoformat(),
+                    }
+                    for i in range(len(chunks))
+                ]
+
+                added = rag_engine.add_documents(
+                    documents=chunks,
+                    document_ids=doc_ids,
+                    metadata=metadata,
+                )
+
+                _processing_status[document_id].progress = 100
+                _processing_status[document_id].status = "completed"
+                _processing_status[document_id].chunks_created = added
+                logger.info(f"Added {added} chunks from {filename} to RAG index")
+            else:
+                _processing_status[document_id].status = "completed"
+                _processing_status[document_id].progress = 100
+                logger.warning("RAG index not built, document stored but not indexed")
+
+        except Exception as e:
+            logger.error(f"Failed to add document to RAG: {e}")
+            _processing_status[document_id].status = "completed"
+            _processing_status[document_id].progress = 100
+            # Still mark as completed since file is saved
+
+    except Exception as e:
+        logger.error(f"Document processing failed: {e}")
+        _processing_status[document_id].status = "failed"
+        _processing_status[document_id].error = str(e)
+
+
+@router.post("/{rfp_id}/upload", response_model=UploadedDocument)
+async def upload_document(
+    rfp: RFPDep,
+    file: UploadFile = File(...),
+    background_tasks: BackgroundTasks = None,
+):
+    """
+    Upload a document for an RFP.
+
+    Supports PDF, DOCX, DOC, TXT, MD, XLSX, XLS files up to 50MB.
+    Documents are processed in the background and added to the RAG index.
+    """
+    # Validate file extension
+    filename = file.filename or "document"
+    file_ext = Path(filename).suffix.lower()
+
+    if file_ext not in ALLOWED_EXTENSIONS:
+        raise HTTPException(
+            status_code=400,
+            detail=f"File type not allowed. Supported: {', '.join(ALLOWED_EXTENSIONS)}"
+        )
+
+    # Read file content
+    content = await file.read()
+    file_size = len(content)
+
+    if file_size > MAX_FILE_SIZE:
+        raise HTTPException(
+            status_code=400,
+            detail=f"File too large. Maximum size: {MAX_FILE_SIZE // (1024*1024)}MB"
+        )
+
+    if file_size == 0:
+        raise HTTPException(
+            status_code=400,
+            detail="Empty file"
+        )
+
+    # Generate document ID and save file
+    document_id = f"doc-{uuid.uuid4().hex[:12]}"
+    upload_dir = get_document_upload_dir(rfp.rfp_id)
+    filepath = upload_dir / f"{document_id}{file_ext}"
+
+    filepath.write_bytes(content)
+
+    # Schedule background processing
+    if background_tasks:
+        background_tasks.add_task(
+            process_document_for_rag,
+            document_id,
+            filepath,
+            rfp.rfp_id,
+            filename,
+        )
+
+    return UploadedDocument(
+        id=document_id,
+        filename=filename,
+        file_type=file_ext.lstrip('.'),
+        file_size=file_size,
+        uploaded_at=datetime.now(timezone.utc).isoformat(),
+        status="processing",
+    )
+
+
+@router.get("/{rfp_id}/uploads", response_model=DocumentListResponse)
+async def list_uploaded_documents(rfp: RFPDep):
+    """List all uploaded documents for an RFP."""
+    upload_dir = get_document_upload_dir(rfp.rfp_id)
+    documents = []
+
+    if upload_dir.exists():
+        for filepath in upload_dir.iterdir():
+            if filepath.is_file():
+                doc_id = filepath.stem
+                status = _processing_status.get(doc_id)
+
+                documents.append(UploadedDocument(
+                    id=doc_id,
+                    filename=filepath.name,
+                    file_type=filepath.suffix.lstrip('.'),
+                    file_size=filepath.stat().st_size,
+                    uploaded_at=datetime.fromtimestamp(
+                        filepath.stat().st_mtime, tz=timezone.utc
+                    ).isoformat(),
+                    status=status.status if status else "completed",
+                    chunks_count=status.chunks_created if status else None,
+                    error=status.error if status else None,
+                ))
+
+    return DocumentListResponse(
+        documents=sorted(documents, key=lambda d: d.uploaded_at, reverse=True),
+        total=len(documents),
+    )
+
+
+@router.get("/{rfp_id}/uploads/{document_id}/status", response_model=ProcessingStatus)
+async def get_processing_status(rfp: RFPDep, document_id: str):
+    """Get the processing status of an uploaded document."""
+    if document_id not in _processing_status:
+        # Check if file exists
+        upload_dir = get_document_upload_dir(rfp.rfp_id)
+        matching = list(upload_dir.glob(f"{document_id}*"))
+
+        if matching:
+            return ProcessingStatus(
+                document_id=document_id,
+                status="completed",
+                progress=100,
+            )
+
+        raise HTTPException(status_code=404, detail="Document not found")
+
+    return _processing_status[document_id]
+
+
+@router.delete("/{rfp_id}/uploads/{document_id}")
+async def delete_uploaded_document(rfp: RFPDep, document_id: str):
+    """Delete an uploaded document."""
+    upload_dir = get_document_upload_dir(rfp.rfp_id)
+    matching = list(upload_dir.glob(f"{document_id}*"))
+
+    if not matching:
+        raise HTTPException(status_code=404, detail="Document not found")
+
+    for filepath in matching:
+        filepath.unlink()
+
+    # Clean up processing status
+    if document_id in _processing_status:
+        del _processing_status[document_id]
+
+    return {"status": "deleted", "document_id": document_id}

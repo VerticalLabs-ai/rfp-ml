@@ -90,11 +90,14 @@ export default function ProposalCopilot() {
   const [isDirty, setIsDirty] = useState(false)
 
   // Fetch RFP data
-  const { data: rfp, isLoading: rfpLoading, error: rfpError } = useQuery({
+  const { data: rfp, isLoading: rfpLoading, isFetching: rfpFetching, error: rfpError } = useQuery({
     queryKey: ['rfp', rfpId],
     queryFn: () => api.getRFP(rfpId!),
     enabled: !!rfpId,
   })
+
+  // Show loading if rfpId is missing or query is loading/fetching
+  const isInitializing = !rfpId || rfpLoading || (rfpFetching && !rfp)
 
   // Fetch existing bid document if any
   const { data: existingBid } = useQuery({
@@ -248,8 +251,8 @@ export default function ProposalCopilot() {
   ).length
   const completionPercentage = Math.round((completedSections / PROPOSAL_SECTIONS.length) * 100)
 
-  // Loading state
-  if (rfpLoading) {
+  // Loading state - show skeleton while initializing or loading data
+  if (isInitializing) {
     return (
       <div className="h-screen flex flex-col">
         <div className="border-b p-4">

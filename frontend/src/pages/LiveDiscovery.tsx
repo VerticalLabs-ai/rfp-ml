@@ -2,8 +2,9 @@ import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
 import { api } from '@/services/api'
-import { Activity, Play, StopCircle, Terminal } from 'lucide-react'
+import { Activity, Play, StopCircle, Terminal, Search } from 'lucide-react'
 import { useCallback, useEffect, useRef, useState } from 'react'
+import { RFPSearchModal } from '@/components/RFPSearchModal'
 
 interface LogEntry {
     timestamp: string
@@ -16,6 +17,7 @@ export default function LiveDiscovery() {
     const [logs, setLogs] = useState<LogEntry[]>([])
     const [stats, setStats] = useState({ found: 0, processed: 0, qualified: 0 })
     const [jobId, setJobId] = useState<string | null>(null)
+    const [searchModalOpen, setSearchModalOpen] = useState(false)
 
     // Config
     const [limit, setLimit] = useState(50)
@@ -123,6 +125,15 @@ export default function LiveDiscovery() {
                     <h1 className="text-2xl font-bold tracking-tight">Live Discovery</h1>
                     <p className="text-muted-foreground">Real-time monitoring of RFP discovery and processing.</p>
                 </div>
+                <div className="flex gap-3 items-center">
+                    <Button
+                        variant="outline"
+                        onClick={() => setSearchModalOpen(true)}
+                        className="gap-2"
+                    >
+                        <Search className="h-4 w-4" />
+                        Search RFPs
+                    </Button>
                 <div className="flex gap-3 items-center bg-card p-2 rounded-lg border shadow-sm">
                     <div className="flex items-center gap-2 px-2">
                         <span className="text-sm font-medium">Limit:</span>
@@ -163,6 +174,7 @@ export default function LiveDiscovery() {
                             <><Play className="mr-2 h-4 w-4" /> Start Discovery</>
                         )}
                     </Button>
+                </div>
                 </div>
             </div>
 
@@ -234,6 +246,9 @@ export default function LiveDiscovery() {
                     </div>
                 </CardContent>
             </Card>
+
+            {/* Search Modal */}
+            <RFPSearchModal open={searchModalOpen} onOpenChange={setSearchModalOpen} />
         </div>
     )
 }

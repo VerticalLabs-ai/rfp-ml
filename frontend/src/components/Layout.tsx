@@ -23,7 +23,9 @@ export default function Layout({ children }: LayoutProps) {
   const location = useLocation()
 
   // WebSocket connection for real-time updates
-  const wsUrl = import.meta.env.VITE_WS_URL || 'ws://localhost:8000/ws/pipeline'
+  // Use dynamic URL based on current host (supports both localhost and production)
+  const wsProtocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:'
+  const wsUrl = import.meta.env.VITE_WS_URL || `${wsProtocol}//${window.location.host}/ws/pipeline`
   const { isConnected, reconnect } = useWebSocket({
     url: wsUrl,
     onMessage: (message) => {

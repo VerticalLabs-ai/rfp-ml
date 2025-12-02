@@ -14,7 +14,7 @@ import {
 import { useMutation, useQuery } from '@tanstack/react-query'
 import { ChevronDown, ChevronRight, Download, DollarSign, RefreshCw } from 'lucide-react'
 import { useState } from 'react'
-import toast from 'react-hot-toast'
+import { toast } from 'sonner'
 import { api } from '../services/api'
 
 interface LineItem {

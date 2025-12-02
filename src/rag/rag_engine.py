@@ -291,18 +291,37 @@ class VectorIndex:
         }
         metadata_path = f"{filepath}_metadata.json"
         temp_path = f"{filepath}_metadata.json.tmp"
+        backup_path = f"{filepath}_metadata.json.bak"
         try:
+            # Write to temp file without indent (faster, smaller file)
             with open(temp_path, "w") as f:
-                json.dump(metadata_dict, f, indent=2)
+                json.dump(metadata_dict, f, separators=(',', ':'))  # Compact JSON
                 f.flush()
                 os.fsync(f.fileno())  # Ensure data is on disk
+
+            # Validate the temp file before replacing
+            with open(temp_path, "r") as f:
+                test_data = json.load(f)
+                if len(test_data.get("document_ids", [])) != len(self.document_ids):
+                    raise RuntimeError("Metadata validation failed: document_ids count mismatch")
+
+            # Backup existing metadata if it exists
+            if os.path.exists(metadata_path):
+                try:
+                    os.replace(metadata_path, backup_path)
+                except Exception:
+                    pass  # Backup is best-effort
+
             # Atomic rename
             os.replace(temp_path, metadata_path)
             self.logger.info(f"Index saved to {filepath} ({self.index.ntotal} vectors)")
         except Exception as e:
             # Clean up temp file on error
             if os.path.exists(temp_path):
-                os.remove(temp_path)
+                try:
+                    os.remove(temp_path)
+                except Exception:
+                    pass
             raise e
 
     def load_index(self, filepath: str):
@@ -313,17 +332,40 @@ class VectorIndex:
         self.index = faiss.read_index(f"{filepath}.faiss")
         self.embedding_dim = self.index.d  # Get dimension from FAISS index
 
-        # Load metadata (optional - gracefully handle corruption)
+        # Load metadata with fallback to backup
         metadata_path = f"{filepath}_metadata.json"
-        try:
-            with open(metadata_path) as f:
-                metadata_dict = json.load(f)
-            self.document_ids = metadata_dict.get("document_ids", [])
-            self.metadata = metadata_dict.get("metadata", [])
-            self.logger.info(f"Index loaded from {filepath} with {len(self.document_ids)} documents")
-        except (json.JSONDecodeError, FileNotFoundError) as e:
-            # Metadata corrupted or missing - FAISS index still usable
-            self.logger.warning(f"Metadata load failed ({e}), FAISS index loaded without metadata")
+        backup_path = f"{filepath}_metadata.json.bak"
+        metadata_loaded = False
+
+        for path in [metadata_path, backup_path]:
+            if not os.path.exists(path):
+                continue
+            try:
+                with open(path) as f:
+                    metadata_dict = json.load(f)
+                self.document_ids = metadata_dict.get("document_ids", [])
+                self.metadata = metadata_dict.get("metadata", [])
+                # Validate document count matches index
+                if len(self.document_ids) == self.index.ntotal:
+                    metadata_loaded = True
+                    self.logger.info(f"Index loaded from {filepath} with {len(self.document_ids)} documents")
+                    # If loaded from backup, restore it as main
+                    if path == backup_path:
+                        self.logger.warning("Loaded metadata from backup, restoring as main file")
+                        try:
+                            import shutil
+                            shutil.copy2(backup_path, metadata_path)
+                        except Exception:
+                            pass
+                    break
+                else:
+                    self.logger.warning(f"Metadata from {path} has {len(self.document_ids)} docs but index has {self.index.ntotal}")
+            except (json.JSONDecodeError, FileNotFoundError) as e:
+                self.logger.warning(f"Failed to load metadata from {path}: {e}")
+                continue
+
+        if not metadata_loaded:
+            self.logger.warning("Metadata load failed from all sources, FAISS index loaded without metadata")
             self.document_ids = []
             self.metadata = []
 

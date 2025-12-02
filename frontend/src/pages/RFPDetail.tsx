@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, useRef, useCallback } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import {
@@ -19,7 +19,10 @@ import {
   Copy,
   Check,
   DollarSign,
-  Wand2
+  Wand2,
+  Upload,
+  Trash2,
+  FileUp,
 } from 'lucide-react'
 import { toast } from 'sonner'
 import { format, formatDistanceToNow } from 'date-fns'
@@ -46,6 +49,17 @@ interface RFPDocument {
   file_size: number | null
   document_type: string | null
   downloaded_at: string | null
+}
+
+interface UploadedDocument {
+  id: string
+  filename: string
+  file_type: string
+  file_size: number
+  uploaded_at: string
+  status: string
+  chunks_count: number | null
+  error: string | null
 }
 
 interface RFPQandA {
@@ -178,6 +192,17 @@ export default function RFPDetail() {
     queryFn: () => api.getCompanyProfiles(),
   })
 
+  // Fetch uploaded documents
+  const { data: uploadedDocs, isLoading: uploadedDocsLoading } = useQuery({
+    queryKey: ['uploaded-documents', rfpId],
+    queryFn: () => api.getUploadedDocuments(rfpId!),
+    enabled: !!rfpId,
+  })
+
+  // File upload ref
+  const fileInputRef = useRef<HTMLInputElement>(null)
+  const [isDragging, setIsDragging] = useState(false)
+
   // Refresh mutation
   const refreshMutation = useMutation({
     mutationFn: () => api.refreshRFP(rfpId!),
@@ -231,6 +256,57 @@ export default function RFPDetail() {
       toast.error('Generation failed', { description: error.message })
     },
   })
+
+  // Upload document mutation
+  const uploadMutation = useMutation({
+    mutationFn: (file: File) => api.uploadDocument(rfpId!, file),
+    onSuccess: (data) => {
+      queryClient.invalidateQueries({ queryKey: ['uploaded-documents', rfpId] })
+      toast.success('Document uploaded', {
+        description: `${data.filename} is being processed`,
+      })
+    },
+    onError: (error: Error) => {
+      toast.error('Upload failed', { description: error.message })
+    },
+  })
+
+  // Delete uploaded document mutation
+  const deleteUploadedMutation = useMutation({
+    mutationFn: (documentId: string) => api.deleteUploadedDocument(rfpId!, documentId),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['uploaded-documents', rfpId] })
+      toast.success('Document deleted')
+    },
+    onError: (error: Error) => {
+      toast.error('Delete failed', { description: error.message })
+    },
+  })
+
+  // Handle file upload
+  const handleFileUpload = useCallback((files: FileList | null) => {
+    if (!files) return
+    Array.from(files).forEach((file) => {
+      uploadMutation.mutate(file)
+    })
+  }, [uploadMutation])
+
+  // Handle drag and drop
+  const handleDragOver = useCallback((e: React.DragEvent) => {
+    e.preventDefault()
+    setIsDragging(true)
+  }, [])
+
+  const handleDragLeave = useCallback((e: React.DragEvent) => {
+    e.preventDefault()
+    setIsDragging(false)
+  }, [])
+
+  const handleDrop = useCallback((e: React.DragEvent) => {
+    e.preventDefault()
+    setIsDragging(false)
+    handleFileUpload(e.dataTransfer.files)
+  }, [handleFileUpload])
 
   // Download bid document
   const downloadBid = async (format: 'markdown' | 'html' | 'json') => {
@@ -587,69 +663,175 @@ export default function RFPDetail() {
 
         {/* Documents Tab */}
         <TabsContent value="documents">
-          <Card>
-            <CardHeader>
-              <CardTitle>Documents</CardTitle>
-              <CardDescription>
-                Downloaded documents from the RFP posting
-              </CardDescription>
-            </CardHeader>
-            <CardContent>
-              {docsLoading ? (
-                <div className="space-y-2">
-                  <Skeleton className="h-12 w-full" />
-                  <Skeleton className="h-12 w-full" />
-                  <Skeleton className="h-12 w-full" />
-                </div>
-              ) : documents?.length === 0 ? (
-                <div className="text-center py-8 text-muted-foreground">
-                  <FileIcon className="h-12 w-12 mx-auto mb-4 opacity-50" />
-                  <p>No documents found</p>
-                  <p className="text-sm mt-1">
-                    Click Refresh to check for new documents
+          <div className="space-y-4">
+            {/* Upload Section */}
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <Upload className="h-5 w-5" />
+                  Upload Documents
+                </CardTitle>
+                <CardDescription>
+                  Upload PDF, DOCX, TXT, or Excel files to add to the RFP context
+                </CardDescription>
+              </CardHeader>
+              <CardContent>
+                <div
+                  className={`border-2 border-dashed rounded-lg p-8 text-center transition-colors ${
+                    isDragging
+                      ? 'border-blue-500 bg-blue-50 dark:bg-blue-950'
+                      : 'border-gray-300 dark:border-gray-700 hover:border-gray-400'
+                  }`}
+                  onDragOver={handleDragOver}
+                  onDragLeave={handleDragLeave}
+                  onDrop={handleDrop}
+                >
+                  <input
+                    ref={fileInputRef}
+                    type="file"
+                    className="hidden"
+                    accept=".pdf,.docx,.doc,.txt,.md,.xlsx,.xls"
+                    multiple
+                    onChange={(e) => handleFileUpload(e.target.files)}
+                  />
+                  <FileUp className="h-10 w-10 mx-auto mb-4 text-muted-foreground" />
+                  <p className="text-sm text-muted-foreground mb-2">
+                    Drag and drop files here, or
+                  </p>
+                  <Button
+                    variant="outline"
+                    onClick={() => fileInputRef.current?.click()}
+                    disabled={uploadMutation.isPending}
+                  >
+                    {uploadMutation.isPending ? (
+                      <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                    ) : (
+                      <Upload className="h-4 w-4 mr-2" />
+                    )}
+                    Browse Files
+                  </Button>
+                  <p className="text-xs text-muted-foreground mt-2">
+                    Supported: PDF, DOCX, DOC, TXT, MD, XLSX, XLS (max 50MB)
                   </p>
                 </div>
-              ) : (
-                <div className="divide-y">
-                  {documents?.map((doc: RFPDocument) => (
-                    <div
-                      key={doc.id}
-                      className="flex items-center justify-between py-3 hover:bg-muted/50 rounded px-2 -mx-2"
-                    >
-                      <div className="flex items-center gap-3">
-                        <span className="text-2xl">
-                          {fileTypeIcons[doc.file_type || ''] || fileTypeIcons.default}
-                        </span>
-                        <div>
-                          <p className="font-medium">{doc.filename}</p>
-                          <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                            {doc.document_type && (
-                              <Badge variant="outline" className="text-xs">
-                                {doc.document_type}
-                              </Badge>
-                            )}
-                            <span>{formatFileSize(doc.file_size)}</span>
-                            {doc.downloaded_at && (
-                              <span>
-                                Downloaded {formatDistanceToNow(new Date(doc.downloaded_at), { addSuffix: true })}
+
+                {/* Uploaded Documents List */}
+                {(uploadedDocs?.documents?.length > 0 || uploadedDocsLoading) && (
+                  <div className="mt-4">
+                    <h4 className="text-sm font-medium mb-2">Uploaded Documents</h4>
+                    {uploadedDocsLoading ? (
+                      <Skeleton className="h-12 w-full" />
+                    ) : (
+                      <div className="divide-y">
+                        {uploadedDocs?.documents?.map((doc: UploadedDocument) => (
+                          <div
+                            key={doc.id}
+                            className="flex items-center justify-between py-3 hover:bg-muted/50 rounded px-2 -mx-2"
+                          >
+                            <div className="flex items-center gap-3">
+                              <span className="text-2xl">
+                                {fileTypeIcons[doc.file_type] || fileTypeIcons.default}
                               </span>
-                            )}
+                              <div>
+                                <p className="font-medium">{doc.filename}</p>
+                                <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                                  <Badge
+                                    variant={doc.status === 'completed' ? 'default' : doc.status === 'processing' ? 'secondary' : 'destructive'}
+                                    className="text-xs"
+                                  >
+                                    {doc.status === 'completed' && <CheckCircle2 className="h-3 w-3 mr-1" />}
+                                    {doc.status === 'processing' && <Loader2 className="h-3 w-3 mr-1 animate-spin" />}
+                                    {doc.status}
+                                  </Badge>
+                                  <span>{formatFileSize(doc.file_size)}</span>
+                                  {doc.chunks_count && (
+                                    <span>{doc.chunks_count} chunks indexed</span>
+                                  )}
+                                </div>
+                              </div>
+                            </div>
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              onClick={() => deleteUploadedMutation.mutate(doc.id)}
+                              disabled={deleteUploadedMutation.isPending}
+                            >
+                              <Trash2 className="h-4 w-4 text-red-500" />
+                            </Button>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+
+            {/* Scraped Documents Section */}
+            <Card>
+              <CardHeader>
+                <CardTitle>RFP Documents</CardTitle>
+                <CardDescription>
+                  Documents downloaded from the RFP posting
+                </CardDescription>
+              </CardHeader>
+              <CardContent>
+                {docsLoading ? (
+                  <div className="space-y-2">
+                    <Skeleton className="h-12 w-full" />
+                    <Skeleton className="h-12 w-full" />
+                    <Skeleton className="h-12 w-full" />
+                  </div>
+                ) : documents?.length === 0 ? (
+                  <div className="text-center py-8 text-muted-foreground">
+                    <FileIcon className="h-12 w-12 mx-auto mb-4 opacity-50" />
+                    <p>No documents found</p>
+                    <p className="text-sm mt-1">
+                      Click Refresh to check for new documents
+                    </p>
+                  </div>
+                ) : (
+                  <div className="divide-y">
+                    {documents?.map((doc: RFPDocument) => (
+                      <div
+                        key={doc.id}
+                        className="flex items-center justify-between py-3 hover:bg-muted/50 rounded px-2 -mx-2"
+                      >
+                        <div className="flex items-center gap-3">
+                          <span className="text-2xl">
+                            {fileTypeIcons[doc.file_type || ''] || fileTypeIcons.default}
+                          </span>
+                          <div>
+                            <p className="font-medium">{doc.filename}</p>
+                            <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                              {doc.document_type && (
+                                <Badge variant="outline" className="text-xs">
+                                  {doc.document_type}
+                                </Badge>
+                              )}
+                              <span>{formatFileSize(doc.file_size)}</span>
+                              {doc.downloaded_at && (
+                                <span>
+                                  Downloaded {formatDistanceToNow(new Date(doc.downloaded_at), { addSuffix: true })}
+                                </span>
+                              )}
+                            </div>
                           </div>
                         </div>
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => handleDownload(doc)}
+                        >
+                          <Download className="h-4 w-4" />
+                        </Button>
                       </div>
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        onClick={() => handleDownload(doc)}
-                      >
-                        <Download className="h-4 w-4" />
-                      </Button>
-                    </div>
-                  ))}
-                </div>
-              )}
-            </CardContent>
-          </Card>
+                    ))}
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+          </div>
         </TabsContent>
 
         {/* Q&A Tab */}

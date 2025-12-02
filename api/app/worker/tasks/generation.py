@@ -91,7 +91,7 @@ def generate_proposal_section(
             company_profile = {}
             if profile:
                 company_profile = {
-                    "company_name": profile.company_name,
+                    "company_name": profile.name,
                     "certifications": profile.certifications or [],
                     "core_competencies": profile.core_competencies or [],
                 }

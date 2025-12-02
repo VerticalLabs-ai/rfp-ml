@@ -641,7 +641,7 @@ async def generate_pricing_table(
     profile = db.query(CompanyProfile).filter(CompanyProfile.is_default == True).first()
 
     company_profile = {
-        "company_name": profile.company_name if profile else "Your Company",
+        "company_name": profile.name if profile else "Your Company",
     }
 
     rfp_data = {
@@ -692,7 +692,7 @@ async def download_pricing_table_csv(
     profile = db.query(CompanyProfile).filter(CompanyProfile.is_default == True).first()
 
     company_profile = {
-        "company_name": profile.company_name if profile else "Your Company",
+        "company_name": profile.name if profile else "Your Company",
     }
 
     rfp_data = {

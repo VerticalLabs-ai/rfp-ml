@@ -256,7 +256,39 @@ export const api = {
     apiClient.delete(`/profiles/${profileId}`).then(res => res.data),
 
   setDefaultProfile: (profileId: number) =>
-    apiClient.post(`/profiles/${profileId}/default`).then(res => res.data)
+    apiClient.post(`/profiles/${profileId}/default`).then(res => res.data),
+
+  // Document upload endpoints
+  uploadDocument: (rfpId: string, file: File) => {
+    const formData = new FormData()
+    formData.append('file', file)
+    return apiClient.post(`/documents/${rfpId}/upload`, formData, {
+      headers: { 'Content-Type': 'multipart/form-data' },
+    }).then(res => res.data)
+  },
+
+  getUploadedDocuments: (rfpId: string) =>
+    apiClient.get(`/documents/${rfpId}/uploads`).then(res => res.data),
+
+  getDocumentProcessingStatus: (rfpId: string, documentId: string) =>
+    apiClient.get(`/documents/${rfpId}/uploads/${documentId}/status`).then(res => res.data),
+
+  deleteUploadedDocument: (rfpId: string, documentId: string) =>
+    apiClient.delete(`/documents/${rfpId}/uploads/${documentId}`).then(res => res.data),
+
+  // Natural Language Search endpoints
+  searchRFPs: (params: {
+    query: string
+    search_type?: 'hybrid' | 'semantic' | 'keyword'
+    top_k?: number
+    skip?: number
+    min_score?: number
+    filters?: Record<string, any>
+  }) =>
+    apiClient.post('/discovery/search', params).then(res => res.data),
+
+  getSearchSuggestions: (q: string) =>
+    apiClient.get('/discovery/search/suggestions', { params: { q } }).then(res => res.data),
 }
 
 
@@ -264,7 +296,9 @@ export const api = {
 
 // WebSocket connection
 export const connectWebSocket = (onMessage: (data: any) => void) => {
-  const ws = new WebSocket('ws://localhost:8000/ws/pipeline')
+  const wsProtocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:'
+  const wsUrl = `${wsProtocol}//${window.location.host}/ws/pipeline`
+  const ws = new WebSocket(wsUrl)
 
   ws.onmessage = (event) => {
     const data = JSON.parse(event.data)

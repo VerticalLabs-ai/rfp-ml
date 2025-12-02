@@ -6,6 +6,7 @@ compliance checking, and draft management.
 """
 import logging
 from datetime import datetime, timezone
+from typing import Optional
 from typing import Any
 
 from app.dependencies import DBDep, RFPDep
@@ -131,10 +132,11 @@ async def check_compliance(rfp: RFPDep, request: ComplianceCheckRequest):
     """
     Check proposal compliance against RFP requirements.
 
-    Analyzes each section for:
+    Uses a combination of rule-based checks and LLM analysis for:
     - Required content coverage
     - Missing mandatory elements
     - Word count requirements
+    - RFP-specific requirement alignment
     - Regulatory compliance
     """
     try:
@@ -219,21 +221,105 @@ async def check_compliance(rfp: RFPDep, request: ComplianceCheckRequest):
                 total_score += score
                 section_count += 1
 
-        # Calculate overall score
-        overall_score = round(total_score / section_count, 1) if section_count > 0 else 0
+        # Calculate overall score from rule-based checks
+        rule_based_score = round(total_score / section_count, 1) if section_count > 0 else 0
 
         # Add RFP-specific checks
-        if rfp.naics_code and overall_score > 0:
-            # Check if NAICS is mentioned
-            all_content = " ".join([
-                s.content for s in request.sections.values() if s.content
-            ]).lower()
+        all_content = " ".join([
+            s.content for s in request.sections.values() if s.content
+        ]).lower()
 
+        if rfp.naics_code and rule_based_score > 0:
             if rfp.naics_code not in all_content:
                 issues.append(ComplianceIssue(
                     severity="info",
                     message=f"Consider referencing NAICS code {rfp.naics_code} in your proposal",
                 ))
+
+        # LLM-enhanced compliance check (if content exists)
+        llm_issues = []
+        llm_score_adjustment = 0
+
+        if rule_based_score > 20 and len(all_content) > 200:
+            try:
+                import anthropic
+                import os
+
+                api_key = os.getenv("ANTHROPIC_API_KEY")
+                if api_key:
+                    client = anthropic.Anthropic(api_key=api_key)
+
+                    # Build context for LLM
+                    rfp_context = f"""RFP Title: {rfp.title}
+Agency: {rfp.agency or 'Not specified'}
+Description: {rfp.description or 'Not available'}
+NAICS Code: {rfp.naics_code or 'Not specified'}
+Category: {rfp.category or 'General'}
+Estimated Value: {f'${rfp.estimated_value:,.0f}' if rfp.estimated_value else 'Not specified'}"""
+
+                    # Build proposal summary
+                    proposal_summary = "\n\n".join([
+                        f"## {section_id.replace('_', ' ').title()}\n{data.content[:500]}..."
+                        for section_id, data in request.sections.items()
+                        if data.content and len(data.content) > 50
+                    ][:5])
+
+                    prompt = f"""Analyze this government proposal for compliance issues. Be concise.
+
+RFP DETAILS:
+{rfp_context}
+
+PROPOSAL SECTIONS (excerpts):
+{proposal_summary}
+
+Identify 2-4 specific compliance concerns or improvements. For each, provide:
+1. Severity: ERROR, WARNING, or INFO
+2. Brief issue description (one sentence)
+3. Which section it affects (if applicable)
+
+Format each issue on one line as: SEVERITY|description|section
+Example: WARNING|Missing security clearance requirements|technical_approach
+
+Only output the issues, no other text."""
+
+                    response = client.messages.create(
+                        model="claude-sonnet-4-20250514",
+                        max_tokens=500,
+                        messages=[{"role": "user", "content": prompt}]
+                    )
+
+                    llm_response = response.content[0].text.strip()
+
+                    # Parse LLM issues
+                    for line in llm_response.split("\n"):
+                        line = line.strip()
+                        if "|" in line:
+                            parts = line.split("|")
+                            if len(parts) >= 2:
+                                severity = parts[0].strip().lower()
+                                message = parts[1].strip()
+                                section = parts[2].strip() if len(parts) > 2 else None
+
+                                if severity in ["error", "warning", "info"]:
+                                    llm_issues.append(ComplianceIssue(
+                                        severity=severity,
+                                        message=f"[AI] {message}",
+                                        section=section if section and section in required_sections else None,
+                                    ))
+
+                    # Adjust score based on LLM issues
+                    error_count = sum(1 for i in llm_issues if i.severity == "error")
+                    warning_count = sum(1 for i in llm_issues if i.severity == "warning")
+                    llm_score_adjustment = -(error_count * 10 + warning_count * 5)
+
+            except Exception as e:
+                logger.warning(f"LLM compliance check failed (falling back to rules only): {e}")
+
+        # Combine all issues
+        issues.extend(llm_issues)
+
+        # Calculate final score
+        overall_score = max(0, min(100, rule_based_score + llm_score_adjustment))
 
         return ComplianceCheckResponse(
             score=overall_score,
