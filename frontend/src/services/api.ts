@@ -194,8 +194,23 @@ export const api = {
     }).then(res => res.data),
 
   // Prediction endpoints
-  getPredictions: (confidence: number = 0.7) =>
-    apiClient.get('/predictions/upcoming', { params: { confidence } }).then(res => res.data),
+  getPredictions: (confidence: number = 0.7, options?: { timeout?: number; use_ai?: boolean }) =>
+    apiClient.get('/predictions/upcoming', {
+      params: { confidence, timeout: options?.timeout ?? 55, use_ai: options?.use_ai ?? true },
+      timeout: 60000 // 60 second client timeout
+    }).then(res => res.data),
+
+  getPredictionStatus: () =>
+    apiClient.get('/predictions/status').then(res => res.data),
+
+  getFallbackPredictions: (confidence: number = 0.3) =>
+    apiClient.get('/predictions/fallback', { params: { confidence } }).then(res => res.data),
+
+  triggerPredictionGeneration: (use_ai: boolean = true) =>
+    apiClient.post('/predictions/generate', null, { params: { use_ai } }).then(res => res.data),
+
+  clearPredictionCache: () =>
+    apiClient.delete('/predictions/cache').then(res => res.data),
 
   // Pricing endpoints
   runPricingScenarios: (rfpId: string, params: any) =>

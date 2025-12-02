@@ -185,24 +185,20 @@ async def chat_with_rfp(rfp: RFPDep, request: ChatRequest, db: DBDep):
                 logger.warning(f"Session {request.session_id} not found, using request history")
 
         # Import RAG and LLM components
-        from src.rag.rag_engine import RAGEngine
+        from src.rag.chroma_rag_engine import get_rag_engine
         from src.config.llm_adapter import create_llm_interface
 
         # Initialize components
-        rag_engine = RAGEngine()
+        rag_engine = get_rag_engine()
         llm = create_llm_interface()
 
-        # Check if RAG index is built
-        if not rag_engine.is_built:
-            logger.warning("RAG index not built, attempting to build...")
-            try:
-                rag_engine.build_index()
-            except Exception as e:
-                logger.error(f"Failed to build RAG index: {e}")
-                raise HTTPException(
-                    status_code=503,
-                    detail="RAG index not available. Please try again later."
-                )
+        # ChromaDB is always ready (persistence is automatic)
+        if rag_engine.collection.count() == 0:
+            logger.warning("RAG collection is empty")
+            raise HTTPException(
+                status_code=503,
+                detail="RAG index is empty. Please rebuild the index."
+            )
 
         # Enhance query with RFP context for better retrieval
         enhanced_query = f"{rfp.title} {rfp.agency or ''} {request.message}"
@@ -473,10 +469,11 @@ async def get_chat_status(rfp: RFPDep):
     }
 
     try:
-        from src.rag.rag_engine import RAGEngine
-        rag = RAGEngine()
-        status["rag_status"] = "ready" if rag.is_built else "not_built"
-        status["rag_documents"] = len(rag.vector_index.document_ids) if rag.is_built else 0
+        from src.rag.chroma_rag_engine import get_rag_engine
+        rag = get_rag_engine()
+        doc_count = rag.collection.count()
+        status["rag_status"] = "ready" if doc_count > 0 else "empty"
+        status["rag_documents"] = doc_count
     except Exception as e:
         status["rag_status"] = f"error: {str(e)}"
 

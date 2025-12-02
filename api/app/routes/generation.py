@@ -478,15 +478,16 @@ async def execute_writer_command(rfp: RFPDep, request: AIWriterRequest):
         rag_context = ""
         if request.include_citations:
             try:
-                from src.rag.rag_engine import RAGEngine
-                rag = RAGEngine()
-                if rag.is_built:
-                    context_result = rag.generate_context(
+                from src.rag.chroma_rag_engine import get_rag_engine
+                rag = get_rag_engine()
+                if rag.collection.count() > 0:
+                    results = rag.retrieve(
                         f"{rfp.title} {request.command.value}",
-                        k=3
+                        top_k=3
                     )
-                    if context_result.retrieved_documents:
-                        rag_context = "\n\nReference material:\n" + context_result.context_text[:1000]
+                    if results:
+                        context_text = "\n\n".join([r["content"][:500] for r in results])
+                        rag_context = "\n\nReference material:\n" + context_text[:1000]
                         prompt += rag_context
             except Exception as e:
                 logger.debug(f"RAG context retrieval skipped: {e}")

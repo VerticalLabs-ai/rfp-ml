@@ -26,7 +26,14 @@ export default function Layout({ children }: LayoutProps) {
   // Use dynamic URL based on current host (supports both localhost and production)
   const wsProtocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:'
   const wsUrl = import.meta.env.VITE_WS_URL || `${wsProtocol}//${window.location.host}/ws/pipeline`
-  const { isConnected, reconnect } = useWebSocket({
+  const {
+    isConnected,
+    connectionState,
+    reconnect,
+    reconnectAttempt,
+    reconnectCountdown,
+    queuedMessageCount
+  } = useWebSocket({
     url: wsUrl,
     onMessage: (message) => {
       console.log('WebSocket message:', message)
@@ -55,7 +62,14 @@ export default function Layout({ children }: LayoutProps) {
             </div>
             <div className="flex items-center space-x-2">
               <RAGStatus />
-              <WebSocketStatus isConnected={isConnected} onReconnect={reconnect} />
+              <WebSocketStatus
+                isConnected={isConnected}
+                connectionState={connectionState}
+                reconnectAttempt={reconnectAttempt}
+                reconnectCountdown={reconnectCountdown}
+                queuedMessageCount={queuedMessageCount}
+                onReconnect={reconnect}
+              />
             </div>
           </div>
         </div>

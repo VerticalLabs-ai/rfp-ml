@@ -49,6 +49,9 @@ data/embeddings/embeddings.*
 data/embeddings/documents.pkl
 data/embeddings/metadata.pkl
 
+# ChromaDB Vector Database (large binary files)
+data/chroma/
+
 # Generated Outputs - Bid Documents
 data/bid_documents/*.html
 data/bid_documents/*.json

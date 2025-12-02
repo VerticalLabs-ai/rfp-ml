@@ -17,7 +17,7 @@ async def lifespan(app: FastAPI):
     """Application lifespan events."""
     import sys
     import traceback
-    
+
     # Startup
     try:
         print("Initializing database...")
@@ -36,6 +36,24 @@ async def lifespan(app: FastAPI):
         traceback.print_exc(file=sys.stderr)
         # Don't crash - let the app start but log the error
         # This allows the health check to still work
+
+    # Initialize ChromaDB RAG engine at startup (eager initialization)
+    try:
+        print("Initializing ChromaDB RAG engine...")
+        from src.rag.chroma_rag_engine import get_rag_engine
+        engine = get_rag_engine()
+        stats = engine.get_statistics()
+        print(f"RAG engine ready: {stats['total_documents']} documents")
+
+        # Build from parquet if empty
+        if stats['total_documents'] == 0:
+            print("Empty collection, building from parquet files...")
+            engine.build_index(force_rebuild=True)
+            print(f"RAG build complete: {engine.collection.count()} documents")
+    except Exception as e:
+        print(f"WARNING: Failed to initialize RAG engine: {e}", file=sys.stderr)
+        traceback.print_exc(file=sys.stderr)
+        # Don't crash - RAG is optional for basic functionality
 
     yield
     # Shutdown

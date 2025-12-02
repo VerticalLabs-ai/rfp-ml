@@ -29,6 +29,7 @@ celery_app = Celery(
     include=[
         "api.app.worker.tasks.generation",
         "api.app.worker.tasks.alerts",
+        "api.app.worker.tasks.predictions",
     ]
 )
 
@@ -62,6 +63,7 @@ celery_app.conf.update(
     task_routes={
         "api.app.worker.tasks.generation.*": {"queue": "generation"},
         "api.app.worker.tasks.alerts.*": {"queue": "alerts"},
+        "api.app.worker.tasks.predictions.*": {"queue": "predictions"},
     },
 
     # Default queue

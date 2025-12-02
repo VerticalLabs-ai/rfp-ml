@@ -35,10 +35,10 @@ class RFPProcessor:
             from src.compliance.compliance_matrix import ComplianceMatrixGenerator
             from src.decision.go_nogo_engine import GoNoGoEngine
             from src.pricing.pricing_engine import PricingEngine
-            from src.rag.rag_engine import RAGEngine
+            from src.rag.chroma_rag_engine import get_rag_engine
 
             # Initialize components
-            self.rag_engine = RAGEngine()
+            self.rag_engine = get_rag_engine()
             self.compliance_generator = ComplianceMatrixGenerator()
             self.pricing_engine = PricingEngine()
             self.go_nogo_engine = GoNoGoEngine(

@@ -25,10 +25,10 @@ async def ingest_documents_task(task_id: str, file_paths: list[str]):
     }
 
     try:
-        from src.rag.rag_engine import RAGEngine
+        from src.rag.chroma_rag_engine import get_rag_engine
 
-        rag_engine = RAGEngine()
-        rag_engine.build_index()
+        rag_engine = get_rag_engine()
+        rag_engine.build_index(force_rebuild=True)
 
         task_status[task_id].update({
             "status": "completed",

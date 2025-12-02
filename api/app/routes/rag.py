@@ -36,13 +36,10 @@ _build_state = {
 
 
 def _get_rag_engine():
-    """Get or create RAG engine instance."""
+    """Get ChromaDB RAG engine singleton."""
     try:
-        from src.rag.rag_engine import RAGEngine
-        engine = RAGEngine()
-        # Load existing index if available
-        engine.build_index(force_rebuild=False)
-        return engine
+        from src.rag.chroma_rag_engine import get_rag_engine
+        return get_rag_engine()
     except Exception as e:
         logger.error(f"Failed to get RAG engine: {e}")
         return None
@@ -94,8 +91,8 @@ def _run_rebuild_in_background(force: bool = True):
     _build_state["error"] = None
 
     try:
-        from src.rag.rag_engine import RAGEngine
-        engine = RAGEngine()
+        from src.rag.chroma_rag_engine import get_rag_engine
+        engine = get_rag_engine()
         engine.build_index(force_rebuild=force)
         _build_state["progress"] = 100
         _build_state["completed_at"] = datetime.utcnow().isoformat()
@@ -106,7 +103,7 @@ def _run_rebuild_in_background(force: bool = True):
             end = datetime.fromisoformat(_build_state["completed_at"])
             _build_state["last_build_duration_seconds"] = (end - start).total_seconds()
 
-        logger.info("RAG index rebuild completed successfully")
+        logger.info(f"RAG index rebuild completed: {engine.collection.count()} documents")
     except Exception as e:
         _build_state["error"] = str(e)
         logger.error(f"RAG index rebuild failed: {e}")
@@ -162,14 +159,32 @@ async def get_rag_status() -> RAGStatusResponse:
     )
 
 
+@router.get("/ready")
+async def rag_readiness():
+    """
+    RAG readiness check for Docker health checks.
+
+    Returns 200 if RAG is ready, 503 if not available.
+    """
+    engine = _get_rag_engine()
+    if engine is None:
+        raise HTTPException(status_code=503, detail="RAG engine not available")
+
+    count = engine.collection.count()
+    if count == 0:
+        raise HTTPException(status_code=503, detail="RAG collection empty")
+
+    return {"status": "ready", "documents": count}
+
+
 @router.get("/health", response_model=RAGHealthResponse)
 async def check_rag_health() -> RAGHealthResponse:
     """
     Check RAG index health.
 
     Validates:
-    - Index files exist and are valid
-    - Metadata is not corrupted
+    - ChromaDB collection is accessible
+    - Documents are indexed
     - Embedding model is available
     """
     issues = []
@@ -186,27 +201,14 @@ async def check_rag_health() -> RAGHealthResponse:
     try:
         index_info = engine.get_index_info()
 
-        # Check FAISS index
-        if not index_info["files"]["faiss_exists"]:
-            issues.append("FAISS index file does not exist")
-            recommendations.append("Run a full index rebuild")
-        elif index_info["vectors"]["total"] == 0:
-            issues.append("FAISS index has no vectors")
-            recommendations.append("Rebuild index or add documents")
-
-        # Check metadata
-        if index_info["files"]["metadata_exists"] and not index_info["files"]["metadata_valid"]:
-            issues.append("Metadata file is corrupted")
-            recommendations.append("Rebuild index to regenerate metadata (now with atomic writes)")
-
-        # Check for metadata mismatch
-        if index_info["vectors"]["total"] != index_info["vectors"]["documents_with_metadata"]:
-            issues.append(f"Metadata mismatch: {index_info['vectors']['total']} vectors but {index_info['vectors']['documents_with_metadata']} metadata entries")
-            recommendations.append("Rebuild index to sync metadata with vectors")
+        # Check document count
+        if index_info["vectors"]["total"] == 0:
+            issues.append("Collection has no documents")
+            recommendations.append("Rebuild index or add documents via POST /rag/rebuild")
 
         # Check embedding availability
         stats = engine.get_statistics()
-        if not stats["embedding_available"]:
+        if not stats.get("embedding_available", True):
             issues.append("Embedding model not available")
             recommendations.append("Check sentence-transformers installation")
 
@@ -256,7 +258,6 @@ async def add_documents(request: AddDocumentsRequest) -> AddDocumentsResponse:
     Add documents to the RAG index incrementally.
 
     This is much faster than a full rebuild when adding new documents.
-    The index must already be built.
     """
     if _build_state["is_building"]:
         raise HTTPException(
@@ -265,10 +266,10 @@ async def add_documents(request: AddDocumentsRequest) -> AddDocumentsResponse:
         )
 
     engine = _get_rag_engine()
-    if engine is None or not engine.is_built:
+    if engine is None:
         raise HTTPException(
             status_code=400,
-            detail="RAG index not available. Build the index first using POST /rag/rebuild",
+            detail="RAG engine not available",
         )
 
     # Validate input lengths match
@@ -288,10 +289,16 @@ async def add_documents(request: AddDocumentsRequest) -> AddDocumentsResponse:
     metadata = request.metadata if request.metadata else [{} for _ in request.documents]
 
     try:
+        # Convert to ChromaDB format: list of dicts with 'content' key
+        docs_for_chroma = []
+        for i, doc_text in enumerate(request.documents):
+            doc = {"content": doc_text}
+            doc.update(metadata[i])
+            docs_for_chroma.append(doc)
+
         added = engine.add_documents(
-            documents=request.documents,
-            document_ids=request.document_ids,
-            metadata=metadata,
+            documents=docs_for_chroma,
+            ids=request.document_ids,
         )
 
         stats = engine.get_statistics()
@@ -320,20 +327,20 @@ async def delete_index() -> dict:
         )
 
     try:
-        from src.config.paths import PathConfig
-        index_path = PathConfig.EMBEDDINGS_DIR / "rag_index"
-
-        deleted_files = []
-        for suffix in [".faiss", "_metadata.json", "_tfidf.pkl", "_metadata.json.tmp"]:
-            file_path = f"{index_path}{suffix}"
-            if os.path.exists(file_path):
-                os.remove(file_path)
-                deleted_files.append(file_path)
-
-        return {
-            "status": "deleted",
-            "deleted_files": deleted_files,
-        }
+        engine = _get_rag_engine()
+        if engine:
+            count_before = engine.collection.count()
+            engine.delete_collection()
+            # Recreate empty collection
+            engine.collection = engine.client.get_or_create_collection(
+                name="rfp_documents",
+                metadata={"hnsw:space": "cosine"}
+            )
+            return {
+                "status": "deleted",
+                "documents_removed": count_before,
+            }
+        return {"status": "no_engine", "documents_removed": 0}
     except Exception as e:
         raise HTTPException(
             status_code=500,

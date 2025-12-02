@@ -1,3 +1,4 @@
+import { useState, useEffect } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { api } from '../services/api'
 import {
@@ -11,17 +12,20 @@ import {
   RotateCcw,
   Loader2,
   DollarSign,
+  CheckCircle2,
+  Database,
 } from 'lucide-react'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Progress } from '@/components/ui/progress'
+import { Card, CardContent } from '@/components/ui/card'
+import { Skeleton } from '@/components/ui/skeleton'
 import {
   Tooltip,
   TooltipContent,
   TooltipProvider,
   TooltipTrigger,
 } from '@/components/ui/tooltip'
-import { apiClient } from '../services/api'
 
 interface Prediction {
   predicted_title: string
@@ -40,6 +44,8 @@ interface Prediction {
   ai_enhanced?: boolean
   ai_insight?: string
 }
+
+type LoadingPhase = 'idle' | 'checking_cache' | 'loading_data' | 'analyzing' | 'generating_insights' | 'complete' | 'error' | 'timeout'
 
 const cycleTypeColors: Record<string, string> = {
   quarterly: 'bg-purple-100 text-purple-800 dark:bg-purple-900 dark:text-purple-200',
@@ -70,30 +76,376 @@ const formatCurrency = (amount: number): string => {
   return `$${amount.toFixed(0)}`
 }
 
+function LoadingState({ phase, progress, elapsedSeconds }: { phase: LoadingPhase; progress: number; elapsedSeconds: number }) {
+  const phaseLabels: Record<LoadingPhase, string> = {
+    idle: 'Initializing...',
+    checking_cache: 'Checking cached data...',
+    loading_data: 'Loading historical data...',
+    analyzing: 'Analyzing patterns...',
+    generating_insights: 'Generating AI insights...',
+    complete: 'Complete',
+    error: 'Error occurred',
+    timeout: 'Request timed out',
+  }
+
+  const phaseProgress: Record<LoadingPhase, number> = {
+    idle: 5,
+    checking_cache: 15,
+    loading_data: 30,
+    analyzing: 60,
+    generating_insights: 85,
+    complete: 100,
+    error: 0,
+    timeout: 0,
+  }
+
+  const currentProgress = progress || phaseProgress[phase]
+
+  return (
+    <Card className="max-w-md mx-auto">
+      <CardContent className="py-8">
+        <div className="text-center mb-6">
+          <div className="inline-flex items-center justify-center w-16 h-16 rounded-full bg-blue-100 dark:bg-blue-900/30 mb-4">
+            <Loader2 className="w-8 h-8 text-blue-600 dark:text-blue-400 animate-spin" />
+          </div>
+          <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-2">
+            Analyzing Opportunities
+          </h3>
+          <p className="text-sm text-gray-500 dark:text-gray-400">
+            {phaseLabels[phase]}
+          </p>
+        </div>
+
+        <div className="space-y-4">
+          <Progress value={currentProgress} className="h-2" />
+
+          <div className="flex justify-between text-xs text-gray-500">
+            <span>{Math.round(currentProgress)}% complete</span>
+            <span>{elapsedSeconds}s elapsed</span>
+          </div>
+
+          <div className="grid grid-cols-2 gap-2 text-xs">
+            <div className={`flex items-center gap-2 p-2 rounded ${phase === 'checking_cache' || currentProgress > 15 ? 'text-green-600 bg-green-50 dark:bg-green-900/20' : 'text-gray-400'}`}>
+              {currentProgress > 15 ? <CheckCircle2 className="w-3 h-3" /> : <Database className="w-3 h-3" />}
+              Cache check
+            </div>
+            <div className={`flex items-center gap-2 p-2 rounded ${phase === 'loading_data' || currentProgress > 30 ? 'text-green-600 bg-green-50 dark:bg-green-900/20' : 'text-gray-400'}`}>
+              {currentProgress > 30 ? <CheckCircle2 className="w-3 h-3" /> : <BarChart3 className="w-3 h-3" />}
+              Data loaded
+            </div>
+            <div className={`flex items-center gap-2 p-2 rounded ${phase === 'analyzing' || currentProgress > 60 ? 'text-green-600 bg-green-50 dark:bg-green-900/20' : 'text-gray-400'}`}>
+              {currentProgress > 60 ? <CheckCircle2 className="w-3 h-3" /> : <TrendingUp className="w-3 h-3" />}
+              Patterns analyzed
+            </div>
+            <div className={`flex items-center gap-2 p-2 rounded ${phase === 'generating_insights' || currentProgress > 85 ? 'text-green-600 bg-green-50 dark:bg-green-900/20' : 'text-gray-400'}`}>
+              {currentProgress > 85 ? <CheckCircle2 className="w-3 h-3" /> : <Sparkles className="w-3 h-3" />}
+              AI insights
+            </div>
+          </div>
+        </div>
+      </CardContent>
+    </Card>
+  )
+}
+
+function PredictionSkeleton() {
+  return (
+    <div className="bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 p-5">
+      <div className="flex gap-2 mb-3">
+        <Skeleton className="h-5 w-24 rounded-full" />
+        <Skeleton className="h-5 w-16 rounded-full" />
+      </div>
+      <Skeleton className="h-1.5 w-full mb-3" />
+      <Skeleton className="h-4 w-32 mb-2" />
+      <Skeleton className="h-6 w-full mb-3" />
+      <div className="space-y-2">
+        <Skeleton className="h-4 w-48" />
+        <Skeleton className="h-4 w-40" />
+      </div>
+    </div>
+  )
+}
+
+function ErrorFallback({
+  error,
+  onRetry,
+  isRetrying,
+  fallbackData,
+}: {
+  error: string
+  onRetry: () => void
+  isRetrying: boolean
+  fallbackData?: Prediction[]
+}) {
+  return (
+    <div className="space-y-6">
+      <Card className="border-amber-200 dark:border-amber-800 bg-amber-50 dark:bg-amber-900/20">
+        <CardContent className="py-6">
+          <div className="flex items-start gap-4">
+            <AlertCircle className="w-6 h-6 text-amber-600 flex-shrink-0 mt-0.5" />
+            <div className="flex-1">
+              <h3 className="font-semibold text-amber-800 dark:text-amber-300 mb-1">
+                {error.includes('timeout') ? 'Analysis Taking Longer Than Expected' : 'Unable to Generate Fresh Predictions'}
+              </h3>
+              <p className="text-sm text-amber-700 dark:text-amber-400 mb-4">
+                {error.includes('timeout')
+                  ? 'The AI analysis is taking longer than usual. You can view cached predictions while we continue processing in the background.'
+                  : error}
+              </p>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={onRetry}
+                disabled={isRetrying}
+                className="border-amber-300 text-amber-700 hover:bg-amber-100 dark:border-amber-700 dark:text-amber-400"
+              >
+                {isRetrying ? (
+                  <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                ) : (
+                  <RefreshCw className="w-4 h-4 mr-2" />
+                )}
+                {isRetrying ? 'Retrying...' : 'Retry Analysis'}
+              </Button>
+            </div>
+          </div>
+        </CardContent>
+      </Card>
+
+      {fallbackData && fallbackData.length > 0 && (
+        <>
+          <div className="flex items-center gap-2 text-sm text-gray-500">
+            <Database className="w-4 h-4" />
+            Showing {fallbackData.length} cached predictions
+          </div>
+          <PredictionGrid predictions={fallbackData} />
+        </>
+      )}
+    </div>
+  )
+}
+
+function PredictionGrid({ predictions }: { predictions: Prediction[] }) {
+  return (
+    <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+      {predictions.map((pred, idx) => (
+        <div
+          key={idx}
+          className="bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 p-5 shadow-sm hover:shadow-md transition-shadow"
+        >
+          {/* Header with badges */}
+          <div className="flex flex-wrap gap-2 mb-3">
+            <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${getConfidenceBadgeClass(pred.confidence)}`}>
+              {Math.round(pred.confidence * 100)}% Confidence
+            </span>
+            {pred.cycle_type && (
+              <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium capitalize ${cycleTypeColors[pred.cycle_type] || cycleTypeColors.recurring}`}>
+                {pred.cycle_type}
+              </span>
+            )}
+            {pred.ai_enhanced && (
+              <TooltipProvider>
+                <Tooltip>
+                  <TooltipTrigger>
+                    <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-violet-100 text-violet-800 dark:bg-violet-900 dark:text-violet-200">
+                      <Sparkles className="h-3 w-3 mr-1" />
+                      AI
+                    </span>
+                  </TooltipTrigger>
+                  <TooltipContent>AI-generated insights available</TooltipContent>
+                </Tooltip>
+              </TooltipProvider>
+            )}
+          </div>
+
+          {/* Confidence bar */}
+          <div className="mb-3">
+            <Progress
+              value={pred.confidence * 100}
+              className={`h-1.5 [&>div]:${getConfidenceColor(pred.confidence)}`}
+            />
+          </div>
+
+          {/* Agency */}
+          <div className="text-xs text-slate-500 mb-1">{pred.agency}</div>
+
+          {/* Title */}
+          <h3
+            className="font-semibold text-lg text-slate-900 dark:text-white mb-3 line-clamp-2"
+            title={pred.predicted_title}
+          >
+            {pred.predicted_title}
+          </h3>
+
+          {/* Key info */}
+          <div className="space-y-2 mb-4">
+            <div className="flex items-center gap-2 text-slate-600 dark:text-slate-300 text-sm">
+              <Calendar className="h-4 w-4 flex-shrink-0" />
+              <span>Est. Release: {pred.predicted_date}</span>
+              {pred.days_until !== undefined && pred.days_until > 0 && (
+                <Badge variant="outline" className="ml-auto text-xs">
+                  {pred.days_until} days
+                </Badge>
+              )}
+            </div>
+
+            {pred.historical_value && (
+              <div className="flex items-center gap-2 text-slate-600 dark:text-slate-300 text-sm">
+                <DollarSign className="h-4 w-4 flex-shrink-0" />
+                <span>Historical Value: {formatCurrency(pred.historical_value)}</span>
+              </div>
+            )}
+
+            {pred.num_observations && (
+              <div className="flex items-center gap-2 text-slate-600 dark:text-slate-300 text-sm">
+                <RotateCcw className="h-4 w-4 flex-shrink-0" />
+                <span>
+                  {pred.num_observations} historical postings
+                  {pred.variance_days !== undefined && ` (±${pred.variance_days}d variance)`}
+                </span>
+              </div>
+            )}
+
+            {pred.last_posted && (
+              <div className="flex items-center gap-2 text-slate-600 dark:text-slate-300 text-sm">
+                <Clock className="h-4 w-4 flex-shrink-0" />
+                <span>Last posted: {pred.last_posted}</span>
+              </div>
+            )}
+          </div>
+
+          {/* AI Insight */}
+          {pred.ai_insight && (
+            <div className="bg-violet-50 dark:bg-violet-900/30 border border-violet-200 dark:border-violet-800 rounded-lg p-3 mb-3">
+              <div className="flex items-center gap-1 text-xs font-medium text-violet-700 dark:text-violet-300 mb-1">
+                <Sparkles className="h-3 w-3" />
+                AI Insight
+              </div>
+              <p className="text-xs text-violet-600 dark:text-violet-400">
+                {pred.ai_insight}
+              </p>
+            </div>
+          )}
+
+          {/* Basis */}
+          <div className="bg-slate-50 dark:bg-slate-700/50 rounded-lg p-3 text-xs text-slate-500 dark:text-slate-400">
+            <p className="font-medium mb-1">Prediction Basis:</p>
+            {pred.basis}
+          </div>
+        </div>
+      ))}
+    </div>
+  )
+}
+
 export function FutureOpportunities() {
-  const { data: predictions, isLoading, error, isError, refetch, isFetching } = useQuery({
+  const [loadingPhase, setLoadingPhase] = useState<LoadingPhase>('idle')
+  const [loadingProgress, setLoadingProgress] = useState(0)
+  const [elapsedSeconds, setElapsedSeconds] = useState(0)
+  const [fallbackPredictions, setFallbackPredictions] = useState<Prediction[] | null>(null)
+
+  // Main predictions query with 60s timeout
+  const {
+    data: predictions,
+    isLoading,
+    error,
+    isError,
+    refetch,
+    isFetching,
+  } = useQuery({
     queryKey: ['predictions'],
-    queryFn: () => api.getPredictions(0.3), // Get all above 30% confidence
+    queryFn: async () => {
+      setLoadingPhase('checking_cache')
+      setLoadingProgress(10)
+
+      // Simulate progress updates
+      const progressInterval = setInterval(() => {
+        setLoadingProgress((prev) => {
+          if (prev < 30) return prev + 5
+          if (prev < 60) return prev + 3
+          if (prev < 85) return prev + 2
+          return prev
+        })
+        setElapsedSeconds((prev) => prev + 1)
+      }, 1000)
+
+      try {
+        setLoadingPhase('loading_data')
+        const result = await api.getPredictions(0.3, { timeout: 55, use_ai: true })
+        setLoadingPhase('complete')
+        setLoadingProgress(100)
+        return result
+      } finally {
+        clearInterval(progressInterval)
+      }
+    },
     retry: 1,
     staleTime: 5 * 60 * 1000, // 5 minutes
+    gcTime: 30 * 60 * 1000, // 30 minutes
   })
 
+  // Fetch fallback predictions on error
+  useEffect(() => {
+    if (isError && !fallbackPredictions) {
+      api.getFallbackPredictions(0.3)
+        .then((result) => {
+          if (result.predictions && result.predictions.length > 0) {
+            setFallbackPredictions(result.predictions)
+          }
+        })
+        .catch(() => {
+          // Ignore fallback errors
+        })
+    }
+  }, [isError, fallbackPredictions])
+
+  // Reset loading state when starting fresh
+  useEffect(() => {
+    if (isLoading) {
+      setElapsedSeconds(0)
+      setLoadingProgress(0)
+      setLoadingPhase('idle')
+    }
+  }, [isLoading])
+
   const handleRefresh = async () => {
-    // Clear cache and refetch
-    await apiClient.delete('/predictions/cache').catch(() => {})
+    setFallbackPredictions(null)
+    await api.clearPredictionCache().catch(() => {})
     refetch()
   }
 
+  // Loading state
   if (isLoading) {
     return (
-      <div className="p-8 text-center">
-        <div className="animate-spin h-8 w-8 border-4 border-blue-500 border-t-transparent rounded-full mx-auto mb-4" />
-        <p className="text-slate-500">Running AI-powered opportunity analysis...</p>
-        <p className="text-xs text-slate-400 mt-2">Analyzing historical patterns and generating insights...</p>
+      <div className="space-y-6">
+        <div className="flex items-center justify-between">
+          <div>
+            <h1 className="text-2xl font-bold text-slate-900 dark:text-white flex items-center gap-2">
+              <TrendingUp className="h-6 w-6 text-blue-500" />
+              Future Opportunities
+            </h1>
+            <p className="text-slate-500 dark:text-slate-400 mt-1">
+              AI-powered forecasting of recurring government contracts
+            </p>
+          </div>
+        </div>
+
+        <LoadingState
+          phase={loadingPhase}
+          progress={loadingProgress}
+          elapsedSeconds={elapsedSeconds}
+        />
+
+        {/* Skeleton grid */}
+        <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+          {[...Array(6)].map((_, i) => (
+            <PredictionSkeleton key={i} />
+          ))}
+        </div>
       </div>
     )
   }
 
+  // Error state with fallback
   if (isError || error) {
     const errorMessage = error instanceof Error ? error.message : String(error)
     const isNoData = errorMessage.includes('404') || errorMessage.includes('not found')
@@ -125,10 +477,25 @@ export function FutureOpportunities() {
     }
 
     return (
-      <div className="p-8 text-center text-red-500">
-        <AlertCircle className="mx-auto h-12 w-12 mb-2" />
-        <p>Failed to load predictions. Please ensure historical data is available.</p>
-        <p className="text-sm mt-2 text-slate-500">{errorMessage}</p>
+      <div className="space-y-6">
+        <div className="flex items-center justify-between">
+          <div>
+            <h1 className="text-2xl font-bold text-slate-900 dark:text-white flex items-center gap-2">
+              <TrendingUp className="h-6 w-6 text-blue-500" />
+              Future Opportunities
+            </h1>
+            <p className="text-slate-500 dark:text-slate-400 mt-1">
+              AI-powered forecasting of recurring government contracts
+            </p>
+          </div>
+        </div>
+
+        <ErrorFallback
+          error={errorMessage}
+          onRetry={handleRefresh}
+          isRetrying={isFetching}
+          fallbackData={fallbackPredictions || undefined}
+        />
       </div>
     )
   }
@@ -196,123 +563,16 @@ export function FutureOpportunities() {
         </div>
       )}
 
-      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-        {predictions?.map((pred: Prediction, idx: number) => (
-          <div
-            key={idx}
-            className="bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 p-5 shadow-sm hover:shadow-md transition-shadow"
-          >
-            {/* Header with badges */}
-            <div className="flex flex-wrap gap-2 mb-3">
-              <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${getConfidenceBadgeClass(pred.confidence)}`}>
-                {Math.round(pred.confidence * 100)}% Confidence
-              </span>
-              {pred.cycle_type && (
-                <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium capitalize ${cycleTypeColors[pred.cycle_type] || cycleTypeColors.recurring}`}>
-                  {pred.cycle_type}
-                </span>
-              )}
-              {pred.ai_enhanced && (
-                <TooltipProvider>
-                  <Tooltip>
-                    <TooltipTrigger>
-                      <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-violet-100 text-violet-800 dark:bg-violet-900 dark:text-violet-200">
-                        <Sparkles className="h-3 w-3 mr-1" />
-                        AI
-                      </span>
-                    </TooltipTrigger>
-                    <TooltipContent>AI-generated insights available</TooltipContent>
-                  </Tooltip>
-                </TooltipProvider>
-              )}
-            </div>
+      <PredictionGrid predictions={predictions || []} />
 
-            {/* Confidence bar */}
-            <div className="mb-3">
-              <Progress
-                value={pred.confidence * 100}
-                className={`h-1.5 [&>div]:${getConfidenceColor(pred.confidence)}`}
-              />
-            </div>
-
-            {/* Agency */}
-            <div className="text-xs text-slate-500 mb-1">{pred.agency}</div>
-
-            {/* Title */}
-            <h3
-              className="font-semibold text-lg text-slate-900 dark:text-white mb-3 line-clamp-2"
-              title={pred.predicted_title}
-            >
-              {pred.predicted_title}
-            </h3>
-
-            {/* Key info */}
-            <div className="space-y-2 mb-4">
-              <div className="flex items-center gap-2 text-slate-600 dark:text-slate-300 text-sm">
-                <Calendar className="h-4 w-4 flex-shrink-0" />
-                <span>Est. Release: {pred.predicted_date}</span>
-                {pred.days_until !== undefined && pred.days_until > 0 && (
-                  <Badge variant="outline" className="ml-auto text-xs">
-                    {pred.days_until} days
-                  </Badge>
-                )}
-              </div>
-
-              {pred.historical_value && (
-                <div className="flex items-center gap-2 text-slate-600 dark:text-slate-300 text-sm">
-                  <DollarSign className="h-4 w-4 flex-shrink-0" />
-                  <span>Historical Value: {formatCurrency(pred.historical_value)}</span>
-                </div>
-              )}
-
-              {pred.num_observations && (
-                <div className="flex items-center gap-2 text-slate-600 dark:text-slate-300 text-sm">
-                  <RotateCcw className="h-4 w-4 flex-shrink-0" />
-                  <span>
-                    {pred.num_observations} historical postings
-                    {pred.variance_days !== undefined && ` (±${pred.variance_days}d variance)`}
-                  </span>
-                </div>
-              )}
-
-              {pred.last_posted && (
-                <div className="flex items-center gap-2 text-slate-600 dark:text-slate-300 text-sm">
-                  <Clock className="h-4 w-4 flex-shrink-0" />
-                  <span>Last posted: {pred.last_posted}</span>
-                </div>
-              )}
-            </div>
-
-            {/* AI Insight */}
-            {pred.ai_insight && (
-              <div className="bg-violet-50 dark:bg-violet-900/30 border border-violet-200 dark:border-violet-800 rounded-lg p-3 mb-3">
-                <div className="flex items-center gap-1 text-xs font-medium text-violet-700 dark:text-violet-300 mb-1">
-                  <Sparkles className="h-3 w-3" />
-                  AI Insight
-                </div>
-                <p className="text-xs text-violet-600 dark:text-violet-400">
-                  {pred.ai_insight}
-                </p>
-              </div>
-            )}
-
-            {/* Basis */}
-            <div className="bg-slate-50 dark:bg-slate-700/50 rounded-lg p-3 text-xs text-slate-500 dark:text-slate-400">
-              <p className="font-medium mb-1">Prediction Basis:</p>
-              {pred.basis}
-            </div>
-          </div>
-        ))}
-
-        {predictions?.length === 0 && (
-          <div className="col-span-full text-center py-12 bg-slate-50 dark:bg-slate-800/50 rounded-xl border border-dashed border-slate-300">
-            <p className="text-slate-500">No recurring opportunities identified in historical data.</p>
-            <p className="text-xs text-slate-400 mt-2">
-              Try uploading more historical data or lowering the confidence threshold.
-            </p>
-          </div>
-        )}
-      </div>
+      {predictions?.length === 0 && (
+        <div className="text-center py-12 bg-slate-50 dark:bg-slate-800/50 rounded-xl border border-dashed border-slate-300">
+          <p className="text-slate-500">No recurring opportunities identified in historical data.</p>
+          <p className="text-xs text-slate-400 mt-2">
+            Try uploading more historical data or lowering the confidence threshold.
+          </p>
+        </div>
+      )}
     </div>
   )
 }

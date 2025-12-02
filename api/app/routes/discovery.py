@@ -83,13 +83,13 @@ class SearchSuggestionsResponse(BaseModel):
 
 
 def get_rag_engine():
-    """Get RAG engine lazy singleton instance."""
+    """Get ChromaDB RAG engine singleton instance."""
     global _rag_engine_instance
     if _rag_engine_instance is not None:
         return _rag_engine_instance
     try:
-        from src.rag.rag_engine import RAGEngine
-        _rag_engine_instance = RAGEngine()
+        from src.rag.chroma_rag_engine import get_rag_engine as get_chroma_engine
+        _rag_engine_instance = get_chroma_engine()
         return _rag_engine_instance
     except Exception:
         logger.exception("Failed to initialize RAG engine")

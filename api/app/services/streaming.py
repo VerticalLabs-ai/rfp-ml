@@ -63,20 +63,13 @@ class StreamingService:
         return self._client
 
     def _get_rag_engine(self):
-        """Get or create RAG engine."""
+        """Get ChromaDB RAG engine singleton."""
         if self._rag_engine is None:
             try:
-                from src.rag.rag_engine import RAGEngine
-
-                self._rag_engine = RAGEngine()
-                # Load existing index if available (doesn't rebuild, just loads)
-                try:
-                    self._rag_engine.build_index(force_rebuild=False)
-                    logger.info(
-                        f"RAG engine initialized, is_built={self._rag_engine.is_built}"
-                    )
-                except Exception as load_err:
-                    logger.warning(f"RAG index not loaded: {load_err}")
+                from src.rag.chroma_rag_engine import get_rag_engine
+                self._rag_engine = get_rag_engine()
+                stats = self._rag_engine.get_statistics()
+                logger.info(f"RAG engine ready: {stats['total_documents']} documents")
             except Exception as e:
                 logger.error(f"Failed to initialize RAG engine: {e}")
         return self._rag_engine

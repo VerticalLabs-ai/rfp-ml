@@ -102,12 +102,12 @@ def generate_proposal_section(
             # Get RAG context
             rag_context = ""
             try:
-                from src.rag.rag_engine import RAGEngine
-                rag = RAGEngine()
-                if rag.is_built:
-                    results = rag.retrieve(f"{rfp.title} {section_type}", k=3)
+                from src.rag.chroma_rag_engine import get_rag_engine
+                rag = get_rag_engine()
+                if rag.collection.count() > 0:
+                    results = rag.retrieve(f"{rfp.title} {section_type}", top_k=3)
                     for result in results:
-                        rag_context += f"\n{result.get('content', result.get('text', ''))[:500]}"
+                        rag_context += f"\n{result.get('content', '')[:500]}"
             except Exception as e:
                 logger.warning(f"RAG retrieval failed: {e}")
 

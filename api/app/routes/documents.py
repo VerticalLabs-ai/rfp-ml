@@ -170,37 +170,32 @@ def process_document_for_rag(
 
         # Add to RAG index
         try:
-            from src.rag.rag_engine import RAGEngine
-            rag_engine = RAGEngine()
+            from src.rag.chroma_rag_engine import get_rag_engine
+            rag_engine = get_rag_engine()
 
-            if rag_engine.is_built:
-                # Create document IDs and metadata for each chunk
-                doc_ids = [f"{document_id}_chunk_{i}" for i in range(len(chunks))]
-                metadata = [
-                    {
-                        "source": filename,
-                        "rfp_id": rfp_id,
-                        "document_id": document_id,
-                        "chunk_index": i,
-                        "upload_date": datetime.now(timezone.utc).isoformat(),
-                    }
-                    for i in range(len(chunks))
-                ]
+            # Create document IDs and metadata for each chunk
+            doc_ids = [f"{document_id}_chunk_{i}" for i in range(len(chunks))]
+            docs_for_chroma = [
+                {
+                    "content": chunk,
+                    "source": filename,
+                    "rfp_id": rfp_id,
+                    "document_id": document_id,
+                    "chunk_index": str(i),
+                    "upload_date": datetime.now(timezone.utc).isoformat(),
+                }
+                for i, chunk in enumerate(chunks)
+            ]
 
-                added = rag_engine.add_documents(
-                    documents=chunks,
-                    document_ids=doc_ids,
-                    metadata=metadata,
-                )
+            added = rag_engine.add_documents(
+                documents=docs_for_chroma,
+                ids=doc_ids,
+            )
 
-                _processing_status[document_id].progress = 100
-                _processing_status[document_id].status = "completed"
-                _processing_status[document_id].chunks_created = added
-                logger.info(f"Added {added} chunks from {filename} to RAG index")
-            else:
-                _processing_status[document_id].status = "completed"
-                _processing_status[document_id].progress = 100
-                logger.warning("RAG index not built, document stored but not indexed")
+            _processing_status[document_id].progress = 100
+            _processing_status[document_id].status = "completed"
+            _processing_status[document_id].chunks_created = added
+            logger.info(f"Added {added} chunks from {filename} to RAG index")
 
         except Exception as e:
             logger.error(f"Failed to add document to RAG: {e}")

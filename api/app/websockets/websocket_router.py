@@ -92,22 +92,40 @@ manager = ConnectionManager()
 
 @router.websocket("/pipeline")
 async def websocket_pipeline_updates(websocket: WebSocket):
-    """WebSocket endpoint for pipeline updates."""
+    """WebSocket endpoint for pipeline updates with heartbeat support."""
     await manager.connect(websocket)
     try:
         while True:
             # Keep connection alive and receive any client messages
             data = await websocket.receive_text()
 
-            # Echo back or handle client messages if needed
             if data:
-                await websocket.send_json({
-                    "type": "ack",
-                    "message": "Message received"
-                })
+                try:
+                    message = json.loads(data)
+                    msg_type = message.get("type", "")
+
+                    # Handle heartbeat ping
+                    if msg_type == "ping":
+                        await websocket.send_json({
+                            "type": "pong",
+                            "timestamp": message.get("timestamp")
+                        })
+                    else:
+                        # Echo back or handle other client messages
+                        await websocket.send_json({
+                            "type": "ack",
+                            "message": "Message received"
+                        })
+                except json.JSONDecodeError:
+                    # Handle non-JSON messages
+                    await websocket.send_json({
+                        "type": "ack",
+                        "message": "Message received"
+                    })
 
     except WebSocketDisconnect:
         manager.disconnect(websocket)
+        logger.info("WebSocket client disconnected from pipeline")
 
 
 @router.websocket("/edit/{bid_document_id}")
