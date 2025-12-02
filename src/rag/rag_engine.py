@@ -561,25 +561,36 @@ class RAGEngine:
             and self.vector_index.index is not None
         ):
             try:
-                query_embedding = self.embedding_engine.embed_single_text(query)
-                scores, indices = self.vector_index.search(query_embedding, k)
-                for score, idx in zip(scores, indices, strict=False):
-                    if score >= self.config.similarity_threshold:
-                        result = RetrievalResult(
-                            document_id=self.vector_index.document_ids[idx],
-                            content=self.vector_index.metadata[idx].get("text", ""),
-                            metadata=self.vector_index.metadata[idx],
-                            similarity_score=float(score),
-                            source_dataset=self.vector_index.metadata[idx].get(
-                                "source_dataset", "unknown"
-                            ),
-                        )
-                        results.append(result)
-                if results:
-                    self.logger.info(
-                        f"Retrieved {len(results)} documents using embeddings"
+                # Validate that metadata is available
+                if not self.vector_index.document_ids or not self.vector_index.metadata:
+                    self.logger.warning(
+                        "Embedding index has no metadata, falling back to TF-IDF"
                     )
-                    return results
+                else:
+                    query_embedding = self.embedding_engine.embed_single_text(query)
+                    scores, indices = self.vector_index.search(query_embedding, k)
+                    num_docs = len(self.vector_index.document_ids)
+                    for score, idx in zip(scores, indices, strict=False):
+                        # Skip invalid indices (-1 returned by FAISS when no results)
+                        # and out-of-bounds indices
+                        if idx < 0 or idx >= num_docs:
+                            continue
+                        if score >= self.config.similarity_threshold:
+                            result = RetrievalResult(
+                                document_id=self.vector_index.document_ids[idx],
+                                content=self.vector_index.metadata[idx].get("text", ""),
+                                metadata=self.vector_index.metadata[idx],
+                                similarity_score=float(score),
+                                source_dataset=self.vector_index.metadata[idx].get(
+                                    "source_dataset", "unknown"
+                                ),
+                            )
+                            results.append(result)
+                    if results:
+                        self.logger.info(
+                            f"Retrieved {len(results)} documents using embeddings"
+                        )
+                        return results
             except Exception as e:
                 self.logger.warning(
                     f"Embedding retrieval failed: {str(e)}, falling back to TF-IDF"
@@ -587,21 +598,29 @@ class RAGEngine:
         # Fallback to TF-IDF
         if self.tfidf_retriever and self.tfidf_retriever.vectorizer is not None:
             try:
-                scores, indices = self.tfidf_retriever.search(query, k)
-                for score, idx in zip(scores, indices, strict=False):
-                    if score >= self.config.similarity_threshold:
-                        result = RetrievalResult(
-                            document_id=self.tfidf_retriever.document_ids[idx],
-                            content=self.tfidf_retriever.documents[idx],
-                            metadata=self.tfidf_retriever.metadata[idx],
-                            similarity_score=float(score),
-                            source_dataset=self.tfidf_retriever.metadata[idx].get(
-                                "source_dataset", "unknown"
-                            ),
-                        )
-                        results.append(result)
-                self.logger.info(f"Retrieved {len(results)} documents using TF-IDF")
-                return results
+                # Validate that TF-IDF data is available
+                if not self.tfidf_retriever.document_ids or not self.tfidf_retriever.documents:
+                    self.logger.warning("TF-IDF retriever has no documents")
+                else:
+                    scores, indices = self.tfidf_retriever.search(query, k)
+                    num_docs = len(self.tfidf_retriever.document_ids)
+                    for score, idx in zip(scores, indices, strict=False):
+                        # Skip invalid or out-of-bounds indices
+                        if idx < 0 or idx >= num_docs:
+                            continue
+                        if score >= self.config.similarity_threshold:
+                            result = RetrievalResult(
+                                document_id=self.tfidf_retriever.document_ids[idx],
+                                content=self.tfidf_retriever.documents[idx],
+                                metadata=self.tfidf_retriever.metadata[idx],
+                                similarity_score=float(score),
+                                source_dataset=self.tfidf_retriever.metadata[idx].get(
+                                    "source_dataset", "unknown"
+                                ),
+                            )
+                            results.append(result)
+                    self.logger.info(f"Retrieved {len(results)} documents using TF-IDF")
+                    return results
             except Exception as e:
                 self.logger.error(f"TF-IDF retrieval failed: {str(e)}")
         self.logger.warning("No retrieval method succeeded")

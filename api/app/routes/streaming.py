@@ -6,6 +6,7 @@ Provides Server-Sent Events (SSE) endpoints for:
 - Chat responses with RAG context
 - General LLM completion streaming
 """
+
 import logging
 from typing import Annotated
 
@@ -15,40 +16,44 @@ from fastapi import APIRouter, HTTPException, Query
 from fastapi.responses import StreamingResponse
 from pydantic import BaseModel, Field
 
+from src.config.claude_llm_config import ClaudeModel
+
 logger = logging.getLogger(__name__)
 router = APIRouter()
 
 
 class StreamGenerateRequest(BaseModel):
     """Request for streaming section generation."""
+
     section_type: str = Field(
         ...,
-        description="Section type: executive_summary, technical_approach, company_qualifications, management_approach, pricing_narrative"
+        description="Section type: executive_summary, technical_approach, company_qualifications, management_approach, pricing_narrative",
     )
     use_thinking: bool = Field(
-        default=True,
-        description="Enable extended thinking mode for better quality"
+        default=True, description="Enable extended thinking mode for better quality"
     )
     thinking_budget: int = Field(
         default=10000,
         ge=1000,
         le=50000,
-        description="Token budget for thinking (if enabled)"
+        description="Token budget for thinking (if enabled)",
     )
 
 
 class StreamChatRequest(BaseModel):
     """Request for streaming chat response."""
+
     message: str = Field(..., min_length=1, max_length=2000)
     history: list[dict] = Field(
         default_factory=list,
         max_length=20,
-        description="Previous messages as [{role, content}]"
+        description="Previous messages as [{role, content}]",
     )
 
 
 class StreamCompletionRequest(BaseModel):
     """Request for general streaming completion."""
+
     prompt: str = Field(..., min_length=1, max_length=10000)
     system_message: str | None = Field(None, max_length=5000)
     max_tokens: int = Field(default=4096, ge=100, le=16000)
@@ -63,7 +68,9 @@ async def stream_section_generation(
     db: DBDep,
     use_thinking: Annotated[bool, Query(description="Enable thinking mode")] = True,
     thinking_budget: Annotated[int, Query(ge=1000, le=50000)] = 10000,
-    model: Annotated[str, Query(description="Model: sonnet, opus, or full model ID")] = "sonnet",
+    model: Annotated[
+        str, Query(description="Model: haiku, sonnet, opus, or full model ID")
+    ] = "sonnet",
 ) -> StreamingResponse:
     """
     Stream proposal section generation for an RFP.
@@ -102,20 +109,21 @@ async def stream_section_generation(
     if section_type not in valid_sections:
         raise HTTPException(
             status_code=400,
-            detail=f"Invalid section_type. Must be one of: {', '.join(valid_sections)}"
+            detail=f"Invalid section_type. Must be one of: {', '.join(valid_sections)}",
         )
 
     # Verify RFP exists
     from app.models.database import RFPOpportunity
+
     rfp = db.query(RFPOpportunity).filter(RFPOpportunity.rfp_id == rfp_id).first()
     if not rfp:
         raise HTTPException(status_code=404, detail="RFP not found")
 
     # Resolve model shorthand to full model ID
     model_map = {
-        "sonnet": "claude-sonnet-4-5-20250929",
-        "opus": "claude-opus-4-5-20251101",
-        "haiku": "claude-haiku-4-5-20251001",
+        "haiku": ClaudeModel.HAIKU_4_5.value,
+        "sonnet": ClaudeModel.SONNET_4_5.value,
+        "opus": ClaudeModel.OPUS_4_5.value,
     }
     resolved_model = model_map.get(model.lower(), model)
 
@@ -156,6 +164,7 @@ async def stream_chat_response(
 
     # Verify RFP exists
     from app.models.database import RFPOpportunity
+
     rfp = db.query(RFPOpportunity).filter(RFPOpportunity.rfp_id == rfp_id).first()
     if not rfp:
         raise HTTPException(status_code=404, detail="RFP not found")

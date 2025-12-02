@@ -6,17 +6,22 @@ Provides Server-Sent Events (SSE) streaming for:
 - RAG context retrieval
 - Chat responses
 """
-import asyncio
+
 import json
 import logging
 import os
 import sys
-from typing import Any, AsyncGenerator
+from collections.abc import AsyncGenerator
+from typing import Any
 
 from fastapi.responses import StreamingResponse
 
+from src.config.claude_llm_config import ClaudeModel
+
 # Add project root to path for imports
-project_root = os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(__file__)))))
+project_root = os.path.dirname(
+    os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(__file__))))
+)
 if project_root not in sys.path:
     sys.path.insert(0, project_root)
 
@@ -46,6 +51,7 @@ class StreamingService:
         if self._client is None:
             try:
                 import anthropic
+
                 api_key = os.getenv("ANTHROPIC_API_KEY")
                 if api_key:
                     self._client = anthropic.AsyncAnthropic(api_key=api_key)
@@ -61,11 +67,14 @@ class StreamingService:
         if self._rag_engine is None:
             try:
                 from src.rag.rag_engine import RAGEngine
+
                 self._rag_engine = RAGEngine()
                 # Load existing index if available (doesn't rebuild, just loads)
                 try:
                     self._rag_engine.build_index(force_rebuild=False)
-                    logger.info(f"RAG engine initialized, is_built={self._rag_engine.is_built}")
+                    logger.info(
+                        f"RAG engine initialized, is_built={self._rag_engine.is_built}"
+                    )
                 except Exception as load_err:
                     logger.warning(f"RAG index not loaded: {load_err}")
             except Exception as e:
@@ -77,7 +86,7 @@ class StreamingService:
         prompt: str,
         system_message: str | None = None,
         task_type: str = "generation",
-        model: str = "claude-sonnet-4-5-20250929",
+        model: str = ClaudeModel.SONNET_4_5.value,
         max_tokens: int = 16000,
         enable_thinking: bool = False,
         thinking_budget: int = 10000,
@@ -99,7 +108,9 @@ class StreamingService:
         """
         client = self._get_anthropic_client()
         if not client:
-            yield self._format_sse_event("error", {"error": "Anthropic client not available"})
+            yield self._format_sse_event(
+                "error", {"error": "Anthropic client not available"}
+            )
             return
 
         # Build messages
@@ -119,57 +130,66 @@ class StreamingService:
         if enable_thinking:
             api_params["thinking"] = {
                 "type": "enabled",
-                "budget_tokens": thinking_budget
+                "budget_tokens": thinking_budget,
             }
 
         try:
             # Send start event
-            yield self._format_sse_event("start", {
-                "task_type": task_type,
-                "model": model,
-                "thinking_enabled": enable_thinking
-            })
+            yield self._format_sse_event(
+                "start",
+                {
+                    "task_type": task_type,
+                    "model": model,
+                    "thinking_enabled": enable_thinking,
+                },
+            )
 
             # Stream response using async client for non-blocking I/O
             async with client.messages.stream(**api_params) as stream:
                 async for event in stream:
-                    if hasattr(event, 'type'):
-                        if event.type == 'content_block_start':
-                            if hasattr(event, 'content_block'):
+                    if hasattr(event, "type"):
+                        if event.type == "content_block_start":
+                            if hasattr(event, "content_block"):
                                 block = event.content_block
-                                if hasattr(block, 'type'):
-                                    if block.type == 'thinking':
-                                        yield self._format_sse_event("thinking_start", {})
-                                    elif block.type == 'text':
+                                if hasattr(block, "type"):
+                                    if block.type == "thinking":
+                                        yield self._format_sse_event(
+                                            "thinking_start", {}
+                                        )
+                                    elif block.type == "text":
                                         yield self._format_sse_event("text_start", {})
 
-                        elif event.type == 'content_block_delta':
-                            if hasattr(event, 'delta'):
+                        elif event.type == "content_block_delta":
+                            if hasattr(event, "delta"):
                                 delta = event.delta
-                                if hasattr(delta, 'type'):
-                                    if delta.type == 'thinking_delta':
-                                        yield self._format_sse_event("thinking", {
-                                            "content": delta.thinking
-                                        })
-                                    elif delta.type == 'text_delta':
-                                        yield self._format_sse_event("text", {
-                                            "content": delta.text
-                                        })
+                                if hasattr(delta, "type"):
+                                    if delta.type == "thinking_delta":
+                                        yield self._format_sse_event(
+                                            "thinking", {"content": delta.thinking}
+                                        )
+                                    elif delta.type == "text_delta":
+                                        yield self._format_sse_event(
+                                            "text", {"content": delta.text}
+                                        )
 
-                        elif event.type == 'content_block_stop':
+                        elif event.type == "content_block_stop":
                             yield self._format_sse_event("block_stop", {})
 
-                        elif event.type == 'message_delta':
-                            if hasattr(event, 'usage'):
-                                yield self._format_sse_event("usage", {
-                                    "output_tokens": event.usage.output_tokens
-                                })
+                        elif event.type == "message_delta":
+                            if hasattr(event, "usage"):
+                                yield self._format_sse_event(
+                                    "usage",
+                                    {"output_tokens": event.usage.output_tokens},
+                                )
 
-                        elif event.type == 'message_start':
-                            if hasattr(event, 'message') and hasattr(event.message, 'usage'):
-                                yield self._format_sse_event("usage", {
-                                    "input_tokens": event.message.usage.input_tokens
-                                })
+                        elif event.type == "message_start":
+                            if hasattr(event, "message") and hasattr(
+                                event.message, "usage"
+                            ):
+                                yield self._format_sse_event(
+                                    "usage",
+                                    {"input_tokens": event.message.usage.input_tokens},
+                                )
 
             # Send complete event
             yield self._format_sse_event("complete", {"status": "success"})
@@ -201,9 +221,12 @@ class StreamingService:
         rfp_context = ""
         if db_session:
             from app.models.database import RFPOpportunity
-            rfp = db_session.query(RFPOpportunity).filter(
-                RFPOpportunity.rfp_id == rfp_id
-            ).first()
+
+            rfp = (
+                db_session.query(RFPOpportunity)
+                .filter(RFPOpportunity.rfp_id == rfp_id)
+                .first()
+            )
             if rfp:
                 rfp_context = f"RFP: {rfp.title}\nAgency: {rfp.agency}\nDescription: {rfp.description or ''}"
 
@@ -217,11 +240,17 @@ class StreamingService:
                 results = rag_engine.retrieve(enhanced_query, k=5)
                 for i, result in enumerate(results):
                     rag_context += f"\n\nContext {i+1}:\n{result.get('content', result.get('text', ''))}"
-                    citations.append({
-                        "index": i,
-                        "content": result.get('content', result.get('text', ''))[:200],
-                        "similarity": result.get('similarity_score', result.get('score', 0))
-                    })
+                    citations.append(
+                        {
+                            "index": i,
+                            "content": result.get("content", result.get("text", ""))[
+                                :200
+                            ],
+                            "similarity": result.get(
+                                "similarity_score", result.get("score", 0)
+                            ),
+                        }
+                    )
             except Exception as e:
                 logger.warning(f"RAG retrieval failed: {e}")
 
@@ -260,7 +289,7 @@ Please provide a helpful response:"""
             system_message=system_message,
             task_type="chat",
             max_tokens=2000,
-            enable_thinking=False
+            enable_thinking=False,
         ):
             yield chunk
 
@@ -295,12 +324,19 @@ Please provide a helpful response:"""
         rfp_db_id = None
 
         if db_session:
-            from app.models.database import CompanyProfile, RFPDocument, RFPOpportunity, RFPQandA
+            from app.models.database import (
+                CompanyProfile,
+                RFPDocument,
+                RFPOpportunity,
+                RFPQandA,
+            )
 
             # Get RFP data
-            rfp = db_session.query(RFPOpportunity).filter(
-                RFPOpportunity.rfp_id == rfp_id
-            ).first()
+            rfp = (
+                db_session.query(RFPOpportunity)
+                .filter(RFPOpportunity.rfp_id == rfp_id)
+                .first()
+            )
             if rfp:
                 rfp_db_id = rfp.id
                 rfp_data = {
@@ -312,7 +348,11 @@ Please provide a helpful response:"""
                     "estimated_value": rfp.estimated_value or 0,
                     "rfp_number": rfp.rfp_id or rfp_id,
                     "solicitation_number": rfp.solicitation_number or "",
-                    "response_deadline": rfp.response_deadline.strftime("%B %d, %Y") if rfp.response_deadline else "Not specified",
+                    "response_deadline": (
+                        rfp.response_deadline.strftime("%B %d, %Y")
+                        if rfp.response_deadline
+                        else "Not specified"
+                    ),
                     "category": rfp.category or "",
                 }
 
@@ -335,39 +375,55 @@ Please provide a helpful response:"""
 
             # Get Q&A context - filter by section relevance if available
             if rfp_db_id:
-                qa_items = db_session.query(RFPQandA).filter(
-                    RFPQandA.rfp_id == rfp_db_id
-                ).all()
+                qa_items = (
+                    db_session.query(RFPQandA)
+                    .filter(RFPQandA.rfp_id == rfp_db_id)
+                    .all()
+                )
                 if qa_items:
                     # Build Q&A context, prioritizing section-relevant items
                     relevant_qa = []
                     other_qa = []
                     for qa in qa_items:
                         related = qa.related_sections or []
-                        if section_type in related or qa.category == section_type.replace('_', ' '):
+                        if (
+                            section_type in related
+                            or qa.category == section_type.replace("_", " ")
+                        ):
                             relevant_qa.append(qa)
                         else:
                             other_qa.append(qa)
 
                     # Combine: relevant first, then others (limit total)
-                    prioritized_qa = relevant_qa[:10] + other_qa[:max(0, 15 - len(relevant_qa))]
+                    prioritized_qa = (
+                        relevant_qa[:10] + other_qa[: max(0, 15 - len(relevant_qa))]
+                    )
 
                     if prioritized_qa:
                         qa_lines = []
                         for qa in prioritized_qa:
                             q = qa.question_text[:300] if qa.question_text else ""
-                            a = qa.answer_text[:500] if qa.answer_text else "No answer provided"
+                            a = (
+                                qa.answer_text[:500]
+                                if qa.answer_text
+                                else "No answer provided"
+                            )
                             category = f" [{qa.category}]" if qa.category else ""
-                            qa_lines.append(f"**Q{qa.question_number or ''}:{category}** {q}\n**A:** {a}")
+                            qa_lines.append(
+                                f"**Q{qa.question_number or ''}:{category}** {q}\n**A:** {a}"
+                            )
                         qa_context = "\n\n".join(qa_lines)
 
             # Get document content
             if rfp_db_id:
                 try:
                     from src.utils.document_reader import extract_all_document_content
-                    docs = db_session.query(RFPDocument).filter(
-                        RFPDocument.rfp_id == rfp_db_id
-                    ).all()
+
+                    docs = (
+                        db_session.query(RFPDocument)
+                        .filter(RFPDocument.rfp_id == rfp_db_id)
+                        .all()
+                    )
                     if docs:
                         docs_for_extraction = [
                             {
@@ -379,12 +435,18 @@ Please provide a helpful response:"""
                             if doc.file_path
                         ]
                         if docs_for_extraction:
-                            extracted = extract_all_document_content(docs_for_extraction)
+                            extracted = extract_all_document_content(
+                                docs_for_extraction
+                            )
                             if extracted.get("documents"):
                                 doc_parts = []
-                                for doc_info in extracted["documents"][:3]:  # Limit to 3 docs
+                                for doc_info in extracted["documents"][
+                                    :3
+                                ]:  # Limit to 3 docs
                                     doc_name = doc_info.get("filename", "Document")
-                                    doc_text = doc_info.get("content", "")[:2000]  # Limit each doc
+                                    doc_text = doc_info.get("content", "")[
+                                        :2000
+                                    ]  # Limit each doc
                                     if doc_text:
                                         doc_parts.append(f"### {doc_name}\n{doc_text}")
                                 document_context = "\n\n".join(doc_parts)
@@ -400,31 +462,32 @@ Please provide a helpful response:"""
                     f"{rfp_data['title']} {section_type}", k=3
                 )
                 for result in results:
-                    rag_context += f"\n{result.get('content', result.get('text', ''))[:500]}"
+                    rag_context += (
+                        f"\n{result.get('content', result.get('text', ''))[:500]}"
+                    )
             except Exception as e:
                 logger.warning(f"RAG retrieval failed: {e}")
 
-        # Build section generation prompt using Claude LLM config patterns
-        from src.config.claude_llm_config import ClaudeLLMManager
-
-        manager = ClaudeLLMManager()
-
-        # Build prompt using manager's internal method pattern
+        # Build section generation prompt using Claude LLM config patterns for instructions
         section_instructions = self._get_section_instructions(section_type)
 
         # Format company credentials
-        certs_str = ', '.join(company_profile.get('certifications', [])) or 'N/A'
-        naics_str = ', '.join(company_profile.get('naics_codes', [])) or 'N/A'
-        competencies_str = ', '.join(company_profile.get('core_competencies', [])[:8]) or 'N/A'
+        certs_str = ", ".join(company_profile.get("certifications", [])) or "N/A"
+        naics_str = ", ".join(company_profile.get("naics_codes", [])) or "N/A"
+        competencies_str = (
+            ", ".join(company_profile.get("core_competencies", [])[:8]) or "N/A"
+        )
 
         # Format past performance summary
         past_perf_str = ""
-        past_perf = company_profile.get('past_performance', [])
+        past_perf = company_profile.get("past_performance", [])
         if past_perf and isinstance(past_perf, list):
             perf_items = []
             for p in past_perf[:5]:
                 if isinstance(p, dict):
-                    perf_items.append(f"- {p.get('client', 'Client')}: {p.get('description', p.get('project', ''))[:100]}")
+                    perf_items.append(
+                        f"- {p.get('client', 'Client')}: {p.get('description', p.get('project', ''))[:100]}"
+                    )
                 elif isinstance(p, str):
                     perf_items.append(f"- {p[:100]}")
             past_perf_str = "\n".join(perf_items) if perf_items else "N/A"
@@ -503,7 +566,7 @@ Generate the {section_type.replace('_', ' ')} section now:
             model=model,
             max_tokens=effective_max_tokens,
             enable_thinking=use_thinking,
-            thinking_budget=thinking_budget
+            thinking_budget=thinking_budget,
         ):
             yield chunk
 
@@ -516,7 +579,6 @@ Generate the {section_type.replace('_', ' ')} section now:
 - Highlights competitive advantages
 - Provides clear value statement
 - Closes with commitment to successful delivery""",
-
             "technical_approach": """Generate a detailed technical approach that:
 - Describes methodology to meet requirements
 - Outlines processes and workflows
@@ -524,56 +586,48 @@ Generate the {section_type.replace('_', ' ')} section now:
 - Explains project management approach
 - Addresses risk management
 - Includes implementation timeline""",
-
             "company_qualifications": """Generate company qualifications that:
 - Details relevant experience and track record
 - Highlights past performance on similar contracts
 - Lists certifications and credentials
 - Demonstrates organizational capabilities
 - Showcases team expertise""",
-
             "management_approach": """Generate a management approach that:
 - Describes organizational structure
 - Details key personnel qualifications
 - Explains communication procedures
 - Outlines quality management system
 - Details continuous improvement processes""",
-
             "pricing_narrative": """Generate a pricing narrative that:
 - Explains pricing methodology
 - Justifies proposed pricing
 - Demonstrates cost efficiency
 - Highlights cost control measures
 - Shows sustainable delivery""",
-
             "past_performance": """Generate a past performance section that:
 - Details 3-5 relevant contract examples
 - Highlights successful outcomes and metrics
 - Demonstrates experience with similar scope/size
 - Shows consistent track record of on-time, on-budget delivery
 - Includes client references where appropriate""",
-
             "staffing_plan": """Generate a staffing plan that:
 - Identifies key personnel and their roles
 - Describes qualifications and experience of team members
 - Shows organizational structure and reporting relationships
 - Demonstrates capability to scale as needed
 - Addresses succession planning and knowledge transfer""",
-
             "quality_assurance": """Generate a quality assurance section that:
 - Describes QA/QC processes and procedures
 - Details inspection and testing methods
 - Outlines quality metrics and reporting
 - Shows continuous improvement approach
 - Demonstrates ISO or industry certifications""",
-
             "risk_mitigation": """Generate a risk mitigation section that:
 - Identifies potential risks (technical, schedule, cost, performance)
 - Assesses probability and impact of each risk
 - Describes specific mitigation strategies
 - Outlines contingency plans
 - Shows proactive risk management approach""",
-
             "compliance_matrix": """Generate a compliance matrix that:
 - Maps all RFP requirements to proposed solutions
 - Demonstrates full compliance with mandatory requirements
@@ -581,13 +635,16 @@ Generate the {section_type.replace('_', ' ')} section now:
 - Identifies any exceptions or deviations
 - Cross-references to detailed proposal sections""",
         }
-        return instructions.get(section_type, f"""
+        return instructions.get(
+            section_type,
+            f"""
 Generate a comprehensive {section_type.replace('_', ' ')} section that:
 - Addresses all relevant requirements
 - Demonstrates capabilities and qualifications
 - Uses professional government contracting language
 - Is persuasive and compelling
-""")
+""",
+        )
 
     def _format_sse_event(self, event_type: str, data: dict) -> str:
         """Format data as SSE event."""
@@ -596,12 +653,10 @@ Generate a comprehensive {section_type.replace('_', ' ')} section that:
     def is_rag_available(self) -> bool:
         """Check if RAG engine is available and built. Public API method."""
         rag_engine = self._get_rag_engine()
-        return rag_engine is not None and getattr(rag_engine, 'is_built', False)
+        return rag_engine is not None and getattr(rag_engine, "is_built", False)
 
     def create_sse_response(
-        self,
-        generator: AsyncGenerator,
-        media_type: str = "text/event-stream"
+        self, generator: AsyncGenerator, media_type: str = "text/event-stream"
     ) -> StreamingResponse:
         """
         Wrap async generator in FastAPI StreamingResponse.
@@ -620,7 +675,7 @@ Generate a comprehensive {section_type.replace('_', ' ')} section that:
                 "Cache-Control": "no-cache",
                 "Connection": "keep-alive",
                 "X-Accel-Buffering": "no",  # Disable nginx buffering
-            }
+            },
         )
 
 
