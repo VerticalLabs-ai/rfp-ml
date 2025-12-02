@@ -63,6 +63,7 @@ async def stream_section_generation(
     db: DBDep,
     use_thinking: Annotated[bool, Query(description="Enable thinking mode")] = True,
     thinking_budget: Annotated[int, Query(ge=1000, le=50000)] = 10000,
+    model: Annotated[str, Query(description="Model: sonnet, opus, or full model ID")] = "sonnet",
 ) -> StreamingResponse:
     """
     Stream proposal section generation for an RFP.
@@ -110,6 +111,14 @@ async def stream_section_generation(
     if not rfp:
         raise HTTPException(status_code=404, detail="RFP not found")
 
+    # Resolve model shorthand to full model ID
+    model_map = {
+        "sonnet": "claude-sonnet-4-5-20250929",
+        "opus": "claude-opus-4-5-20251101",
+        "haiku": "claude-haiku-4-5-20251001",
+    }
+    resolved_model = model_map.get(model.lower(), model)
+
     streaming_service = get_streaming_service()
 
     return streaming_service.create_sse_response(
@@ -119,6 +128,7 @@ async def stream_section_generation(
             db_session=db,
             use_thinking=use_thinking,
             thinking_budget=thinking_budget,
+            model=resolved_model,
         )
     )
 

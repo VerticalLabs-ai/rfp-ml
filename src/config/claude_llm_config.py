@@ -20,6 +20,7 @@ logger = logging.getLogger(__name__)
 
 class ClaudeModel(Enum):
     """Available Claude 4.5 models"""
+    HAIKU_4_5 = "claude-haiku-4-5-20251001"
     SONNET_4_5 = "claude-sonnet-4-5-20250929"
     OPUS_4_5 = "claude-opus-4-5-20251101"
 

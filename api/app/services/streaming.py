@@ -271,9 +271,10 @@ Please provide a helpful response:"""
         db_session: Any | None = None,
         use_thinking: bool = True,
         thinking_budget: int = 10000,
+        model: str = "claude-sonnet-4-5-20250929",
     ) -> AsyncGenerator[str, None]:
         """
-        Stream proposal section generation.
+        Stream proposal section generation with full RFP context.
 
         Args:
             rfp_id: The RFP ID
@@ -281,37 +282,114 @@ Please provide a helpful response:"""
             db_session: Database session
             use_thinking: Enable thinking mode for better quality
             thinking_budget: Tokens for thinking
+            model: Claude model to use (sonnet or opus)
 
         Yields:
             SSE-formatted data chunks
         """
-        # Get RFP and company profile
+        # Get RFP, company profile, Q&A, and documents
         rfp_data = {}
         company_profile = {}
+        qa_context = ""
+        document_context = ""
+        rfp_db_id = None
 
         if db_session:
-            from app.models.database import CompanyProfile, RFPOpportunity
+            from app.models.database import CompanyProfile, RFPDocument, RFPOpportunity, RFPQandA
 
+            # Get RFP data
             rfp = db_session.query(RFPOpportunity).filter(
                 RFPOpportunity.rfp_id == rfp_id
             ).first()
             if rfp:
+                rfp_db_id = rfp.id
                 rfp_data = {
                     "title": rfp.title,
                     "agency": rfp.agency,
                     "description": rfp.description or "",
                     "naics_code": rfp.naics_code or "",
                     "award_amount": rfp.award_amount or 0,
+                    "estimated_value": rfp.estimated_value or 0,
                     "rfp_number": rfp.rfp_id or rfp_id,
+                    "solicitation_number": rfp.solicitation_number or "",
+                    "response_deadline": rfp.response_deadline.strftime("%B %d, %Y") if rfp.response_deadline else "Not specified",
+                    "category": rfp.category or "",
                 }
 
+            # Get enhanced company profile
             profile = db_session.query(CompanyProfile).first()
             if profile:
                 company_profile = {
                     "company_name": profile.name,
+                    "legal_name": profile.legal_name or profile.name,
                     "certifications": profile.certifications or [],
+                    "naics_codes": profile.naics_codes or [],
                     "core_competencies": profile.core_competencies or [],
+                    "established_year": profile.established_year,
+                    "employee_count": profile.employee_count or "Not specified",
+                    "past_performance": profile.past_performance or [],
+                    "uei": profile.uei or "",
+                    "cage_code": profile.cage_code or "",
+                    "headquarters": profile.headquarters or "",
                 }
+
+            # Get Q&A context - filter by section relevance if available
+            if rfp_db_id:
+                qa_items = db_session.query(RFPQandA).filter(
+                    RFPQandA.rfp_id == rfp_db_id
+                ).all()
+                if qa_items:
+                    # Build Q&A context, prioritizing section-relevant items
+                    relevant_qa = []
+                    other_qa = []
+                    for qa in qa_items:
+                        related = qa.related_sections or []
+                        if section_type in related or qa.category == section_type.replace('_', ' '):
+                            relevant_qa.append(qa)
+                        else:
+                            other_qa.append(qa)
+
+                    # Combine: relevant first, then others (limit total)
+                    prioritized_qa = relevant_qa[:10] + other_qa[:max(0, 15 - len(relevant_qa))]
+
+                    if prioritized_qa:
+                        qa_lines = []
+                        for qa in prioritized_qa:
+                            q = qa.question_text[:300] if qa.question_text else ""
+                            a = qa.answer_text[:500] if qa.answer_text else "No answer provided"
+                            category = f" [{qa.category}]" if qa.category else ""
+                            qa_lines.append(f"**Q{qa.question_number or ''}:{category}** {q}\n**A:** {a}")
+                        qa_context = "\n\n".join(qa_lines)
+
+            # Get document content
+            if rfp_db_id:
+                try:
+                    from src.utils.document_reader import extract_all_document_content
+                    docs = db_session.query(RFPDocument).filter(
+                        RFPDocument.rfp_id == rfp_db_id
+                    ).all()
+                    if docs:
+                        docs_for_extraction = [
+                            {
+                                "file_path": doc.file_path,
+                                "filename": doc.filename,
+                                "document_type": doc.document_type,
+                            }
+                            for doc in docs
+                            if doc.file_path
+                        ]
+                        if docs_for_extraction:
+                            extracted = extract_all_document_content(docs_for_extraction)
+                            if extracted.get("documents"):
+                                doc_parts = []
+                                for doc_info in extracted["documents"][:3]:  # Limit to 3 docs
+                                    doc_name = doc_info.get("filename", "Document")
+                                    doc_text = doc_info.get("content", "")[:2000]  # Limit each doc
+                                    if doc_text:
+                                        doc_parts.append(f"### {doc_name}\n{doc_text}")
+                                document_context = "\n\n".join(doc_parts)
+                except Exception as e:
+                    logger.warning(f"Document extraction failed: {e}")
 
         # Get RAG context
         rag_context = ""
@@ -334,28 +412,74 @@ Please provide a helpful response:"""
         # Build prompt using manager's internal method pattern
         section_instructions = self._get_section_instructions(section_type)
 
+        # Format company credentials
+        certs_str = ', '.join(company_profile.get('certifications', [])) or 'N/A'
+        naics_str = ', '.join(company_profile.get('naics_codes', [])) or 'N/A'
+        competencies_str = ', '.join(company_profile.get('core_competencies', [])[:8]) or 'N/A'
+
+        # Format past performance summary
+        past_perf_str = ""
+        past_perf = company_profile.get('past_performance', [])
+        if past_perf and isinstance(past_perf, list):
+            perf_items = []
+            for p in past_perf[:5]:
+                if isinstance(p, dict):
+                    perf_items.append(f"- {p.get('client', 'Client')}: {p.get('description', p.get('project', ''))[:100]}")
+                elif isinstance(p, str):
+                    perf_items.append(f"- {p[:100]}")
+            past_perf_str = "\n".join(perf_items) if perf_items else "N/A"
+        else:
+            past_perf_str = "N/A"
+
         system_message = f"""You are an expert government contracting proposal writer.
 You specialize in writing compelling, compliant, and comprehensive {section_type.replace('_', ' ')} sections.
 Write in a professional, confident tone appropriate for government contracting.
-Be specific and detailed - avoid generic language."""
+Be specific and detailed - use the provided Q&A, company credentials, and document content.
+Reference specific requirements from the RFP documents and Q&A when relevant."""
 
         prompt = f"""
 ## RFP Information
 - **Title:** {rfp_data.get('title', 'Government Contract')}
-- **RFP Number:** {rfp_data.get('rfp_number', rfp_id)}
+- **RFP/Solicitation Number:** {rfp_data.get('rfp_number', rfp_id)} / {rfp_data.get('solicitation_number', 'N/A')}
 - **Agency:** {rfp_data.get('agency', 'Government Agency')}
 - **NAICS Code:** {rfp_data.get('naics_code', 'N/A')}
-- **Estimated Value:** ${rfp_data.get('award_amount', 0):,.2f}
+- **Category:** {rfp_data.get('category', 'N/A')}
+- **Estimated Value:** ${rfp_data.get('estimated_value', 0):,.2f}
+- **Response Deadline:** {rfp_data.get('response_deadline', 'Not specified')}
 
-### Description
-{rfp_data.get('description', '')[:2000]}
+### RFP Description
+{rfp_data.get('description', 'No description available.')[:3000]}
+
+---
 
 ## Company Information
 - **Company Name:** {company_profile.get('company_name', 'Our Company')}
-- **Certifications:** {', '.join(company_profile.get('certifications', [])) or 'N/A'}
-- **Core Competencies:** {', '.join(company_profile.get('core_competencies', [])[:5]) or 'N/A'}
+- **Legal Name:** {company_profile.get('legal_name', 'N/A')}
+- **Established:** {company_profile.get('established_year', 'N/A')}
+- **Employee Count:** {company_profile.get('employee_count', 'N/A')}
+- **Headquarters:** {company_profile.get('headquarters', 'N/A')}
+- **UEI:** {company_profile.get('uei', 'N/A')}
+- **CAGE Code:** {company_profile.get('cage_code', 'N/A')}
+- **Certifications:** {certs_str}
+- **NAICS Codes:** {naics_str}
+- **Core Competencies:** {competencies_str}
 
-## Historical Context
+### Past Performance Summary
+{past_perf_str}
+
+---
+
+## RFP Q&A (Requirements & Clarifications)
+{qa_context if qa_context else 'No Q&A available for this RFP.'}
+
+---
+
+## RFP Document Excerpts
+{document_context[:4000] if document_context else 'No document content available.'}
+
+---
+
+## Historical Context (Similar Proposals)
 {rag_context[:1000] if rag_context else 'No historical context available.'}
 
 ---
@@ -363,6 +487,8 @@ Be specific and detailed - avoid generic language."""
 # Task: Generate {section_type.replace('_', ' ').title()} Section
 
 {section_instructions}
+
+**Important:** Use the Q&A responses to address specific requirements. Reference company certifications and past performance where relevant. Be specific to THIS RFP - avoid generic content.
 
 Generate the {section_type.replace('_', ' ')} section now:
 """
@@ -374,6 +500,7 @@ Generate the {section_type.replace('_', ' ')} section now:
             prompt=prompt,
             system_message=system_message,
             task_type=section_type,
+            model=model,
             max_tokens=effective_max_tokens,
             enable_thinking=use_thinking,
             thinking_budget=thinking_budget

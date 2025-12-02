@@ -31,6 +31,22 @@ import {
   ResizablePanelGroup,
 } from '@/components/ui/resizable'
 import { Progress } from '@/components/ui/progress'
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select'
+
+// Model options for AI generation
+const MODEL_OPTIONS = [
+  { id: 'haiku', name: 'Claude Haiku', description: 'Fast & economical' },
+  { id: 'sonnet', name: 'Claude Sonnet', description: 'Balanced quality' },
+  { id: 'opus', name: 'Claude Opus', description: 'Highest quality' },
+] as const
+
+type ModelId = typeof MODEL_OPTIONS[number]['id']
 import { api } from '@/services/api'
 import { CopilotChat } from '@/components/CopilotChat'
 import { StreamingText } from '@/components/ui/streaming-text'
@@ -88,6 +104,7 @@ export default function ProposalCopilot() {
   const [complianceIssues, setComplianceIssues] = useState<ComplianceIssue[]>([])
   const [overallScore, setOverallScore] = useState(0)
   const [isDirty, setIsDirty] = useState(false)
+  const [selectedModel, setSelectedModel] = useState<ModelId>('sonnet')
 
   // Fetch RFP data
   const { data: rfp, isLoading: rfpLoading, isFetching: rfpFetching, error: rfpError } = useQuery({
@@ -138,7 +155,7 @@ export default function ProposalCopilot() {
 
   // Streaming for section generation
   const sectionStreaming = useStreaming({
-    url: `/api/v1/streaming/${rfpId}/generate/${activeSection}`,
+    url: `/api/v1/streaming/${rfpId}/generate/${activeSection}?model=${selectedModel}`,
     onComplete: (content) => {
       setSections((prev) => ({
         ...prev,
@@ -480,6 +497,22 @@ export default function ProposalCopilot() {
                     <RotateCcw className="h-4 w-4 mr-2" />
                     Clear
                   </Button>
+                  {/* Model Selector */}
+                  <Select value={selectedModel} onValueChange={(value) => setSelectedModel(value as ModelId)}>
+                    <SelectTrigger className="w-[160px] h-9">
+                      <SelectValue placeholder="Select model" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {MODEL_OPTIONS.map((model) => (
+                        <SelectItem key={model.id} value={model.id}>
+                          <div className="flex flex-col">
+                            <span>{model.name}</span>
+                            <span className="text-xs text-muted-foreground">{model.description}</span>
+                          </div>
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
                   <Button
                     size="sm"
                     onClick={generateSection}
