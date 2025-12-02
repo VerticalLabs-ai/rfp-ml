@@ -83,14 +83,14 @@ class ClaudeLLMManager:
         },
         "executive_summary": {
             "model": ClaudeModel.SONNET_4_5,
-            "max_tokens": 4000,
+            "max_tokens": 12000,  # Must be > thinking_budget
             "thinking_enabled": True,
             "thinking_budget": 5000,
             "temperature": 1.0,
         },
         "technical_approach": {
             "model": ClaudeModel.SONNET_4_5,
-            "max_tokens": 8000,
+            "max_tokens": 16000,  # Must be > thinking_budget
             "thinking_enabled": True,
             "thinking_budget": 8000,
             "temperature": 1.0,

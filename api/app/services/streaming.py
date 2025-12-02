@@ -78,7 +78,7 @@ class StreamingService:
         system_message: str | None = None,
         task_type: str = "generation",
         model: str = "claude-sonnet-4-5-20250929",
-        max_tokens: int = 4096,
+        max_tokens: int = 16000,
         enable_thinking: bool = False,
         thinking_budget: int = 10000,
     ) -> AsyncGenerator[str, None]:
@@ -366,11 +366,13 @@ Generate the {section_type.replace('_', ' ')} section now:
 """
 
         # Stream generation
+        # max_tokens must be > thinking_budget for extended thinking to work
+        effective_max_tokens = max(16000, thinking_budget + 6000)
         async for chunk in self.stream_llm_response(
             prompt=prompt,
             system_message=system_message,
             task_type=section_type,
-            max_tokens=8000,
+            max_tokens=effective_max_tokens,
             enable_thinking=use_thinking,
             thinking_budget=thinking_budget
         ):

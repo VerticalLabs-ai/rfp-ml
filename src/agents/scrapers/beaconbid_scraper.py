@@ -307,12 +307,26 @@ class BeaconBidScraper(BaseScraper):
             result = await stagehand.page.extract(
                 ExtractOptions(
                     instruction="""Find all downloadable documents/attachments on this page.
-                For each document, extract:
-                - filename: The name of the file
-                - url: The FULL download URL or href link (must start with http or be a relative path starting with /)
-                - type: The type of document (solicitation, amendment, attachment, etc.)
 
-                IMPORTANT: Extract the actual href attribute value from the download links, not display text.
+For each document, you MUST extract these fields carefully:
+- filename: The visible name/label of the file (e.g., "Informal General Terms.docx")
+- url: The ACTUAL href attribute from the <a> tag - each document MUST have a UNIQUE URL
+- type: Document category (solicitation, amendment, attachment, etc.)
+
+CRITICAL RULES:
+1. Each document link has a UNIQUE href attribute - extract it exactly as it appears in the HTML
+2. Do NOT use the same URL for multiple documents - each file has its own download link
+3. Look at the actual href="..." value in the HTML, not the display text
+4. URLs may contain encoded characters like %20 for spaces - keep them as-is
+5. If a link points to a PDF, docx, xlsx, or other file, extract that specific URL
+
+Example of correct extraction:
+- Link: <a href="/download/doc123.pdf">Terms and Conditions.pdf</a>
+  → filename: "Terms and Conditions.pdf", url: "/download/doc123.pdf"
+- Link: <a href="/files/attachment_456.docx">Signature Page.docx</a>
+  → filename: "Signature Page.docx", url: "/files/attachment_456.docx"
+
+Look for download links in tables, lists, or attachment sections on the page.
                 """,
                     schema_definition=DocumentsListSchema,
                 )
@@ -324,6 +338,9 @@ class BeaconBidScraper(BaseScraper):
             doc_list = data.get("documents", [])
 
             logger.info(f"Stagehand extracted {len(doc_list)} document entries")
+            print(f"[EXTRACT] Stagehand returned {len(doc_list)} documents:")
+            for i, d in enumerate(doc_list):
+                print(f"[EXTRACT]   {i+1}. {d.get('filename', 'unknown')} -> {d.get('url', 'NO URL')[:80]}")
 
             for doc in doc_list:
                 filename = doc.get("filename", "unknown")
@@ -485,20 +502,28 @@ class BeaconBidScraper(BaseScraper):
         Returns:
             List of ScrapedDocument with local file paths
         """
+        print(f"[DOWNLOAD] download_documents called for RFP {rfp_id}")
+        print(f"[DOWNLOAD] Documents to download: {[d.filename for d in rfp.documents] if rfp.documents else 'None'}")
         storage_path = self.get_document_storage_path(rfp_id)
         downloaded_docs = []
 
         if not rfp.documents:
+            print(f"[DOWNLOAD] No documents to download for RFP {rfp_id}")
             logger.info("No documents to download for RFP %s", rfp_id)
             return downloaded_docs
 
         # Try browser-based download first (click links)
         try:
+            print("[DOWNLOAD] Starting browser-based download via _download_via_browser...")
             downloaded_docs = await self._download_via_browser(rfp, storage_path)
             if downloaded_docs:
+                print(f"[DOWNLOAD] Successfully downloaded {len(downloaded_docs)} documents via browser")
                 logger.info(f"Successfully downloaded {len(downloaded_docs)} documents via browser")
                 return downloaded_docs
+            else:
+                print("[DOWNLOAD] Browser download returned empty list")
         except Exception as e:
+            print(f"[DOWNLOAD] Browser-based download failed with exception: {e}")
             logger.warning(f"Browser-based download failed: {e}, falling back to direct download")
 
         # Fallback to direct URL download
@@ -521,28 +546,26 @@ class BeaconBidScraper(BaseScraper):
         self, rfp: ScrapedRFP, storage_path: Path
     ) -> list[ScrapedDocument]:
         """
-        Download documents by clicking links in the browser using Browserbase cloud storage.
+        Download all documents by clicking the 'Download Package' button.
+
+        BeaconBid has a 'Download Package' button that downloads all attachments as a ZIP.
+        This is much simpler and more reliable than clicking individual document links.
 
         Browserbase stores downloads in their cloud - files must be retrieved via API after session.
         See: https://docs.browserbase.com/features/downloads
-
-        Steps:
-        1. Configure CDP session with Browser.setDownloadBehavior
-        2. Click all download links
-        3. Close session (triggers upload to Browserbase cloud)
-        4. Retrieve downloads from Browserbase API
-        5. Extract and save files locally
         """
         downloaded_docs = []
         stagehand = None
         session_id = None
 
         try:
+            print(f"[DOWNLOAD] === Starting browser session for Download Package ===")
+            logger.info("Starting browser session for Download Package button")
+
             stagehand = await self._create_stagehand_session()
             page = stagehand.page
 
             # Get session ID for later download retrieval
-            # Stagehand should expose the Browserbase session ID
             if hasattr(stagehand, 'session_id'):
                 session_id = stagehand.session_id
             elif hasattr(stagehand, 'browserbase_session_id'):
@@ -550,19 +573,13 @@ class BeaconBidScraper(BaseScraper):
             elif hasattr(stagehand, '_session_id'):
                 session_id = stagehand._session_id
 
-            print(f"[DOWNLOAD] Browserbase session ID for downloads: {session_id}")
-            logger.info(f"Browserbase session ID for downloads: {session_id}")
+            print(f"[DOWNLOAD] Session ID: {session_id}")
+            logger.info(f"Browserbase session ID: {session_id}")
 
-            # Get the underlying Playwright browser and configure CDP for downloads
-            browser = None
-            if hasattr(stagehand, 'browser'):
-                browser = stagehand.browser
-            elif hasattr(stagehand, '_browser'):
-                browser = stagehand._browser
-
+            # Configure CDP for downloads
+            browser = getattr(stagehand, 'browser', None) or getattr(stagehand, '_browser', None)
             if browser:
                 try:
-                    # Create CDP session and configure download behavior
                     cdp_session = await browser.new_browser_cdp_session()
                     await cdp_session.send(
                         "Browser.setDownloadBehavior",
@@ -572,7 +589,6 @@ class BeaconBidScraper(BaseScraper):
                             "eventsEnabled": True,
                         },
                     )
-                    logger.info("CDP download behavior configured for Browserbase cloud storage")
                 except Exception as cdp_err:
                     logger.warning(f"Could not configure CDP session: {cdp_err}")
 
@@ -580,33 +596,23 @@ class BeaconBidScraper(BaseScraper):
             await page.goto(rfp.source_url)
             await asyncio.sleep(2)
 
-            # Click all download links
-            for doc in rfp.documents:
-                try:
-                    logger.info(f"Clicking download link for: {doc.filename}")
-                    base_filename = doc.filename.split('.')[0]
+            # Click the "Download Package" button to get all attachments at once
+            print("[DOWNLOAD] Clicking 'Download Package' button...")
+            await stagehand.page.act(
+                "Click the 'Download Package' button to download all attachments"
+            )
 
-                    # Use Stagehand's AI-powered click action
-                    await stagehand.page.act(
-                        f"Click the download link or button for '{doc.filename}' or '{base_filename}'"
-                    )
-                    # Give time for download to initiate
-                    await asyncio.sleep(3)
-                    logger.info(f"Download click completed for: {doc.filename}")
-
-                except Exception as e:
-                    logger.warning(f"Failed to click download for {doc.filename}: {e}")
-
-            # Wait for downloads to sync to Browserbase cloud
-            logger.info("Waiting for downloads to sync to Browserbase cloud...")
-            await asyncio.sleep(5)
+            # Wait for the package download to complete (ZIP file with all docs)
+            print("[DOWNLOAD] Waiting 15s for package download to complete...")
+            await asyncio.sleep(15)
+            print("[DOWNLOAD] Download Package click completed")
 
         except Exception as e:
-            logger.error(f"Browser download session failed: {e}")
-            raise
+            print(f"[DOWNLOAD] Session failed: {e}")
+            logger.error(f"Download session failed: {e}")
 
         finally:
-            # Close the Stagehand session
+            # Close the Stagehand session - this triggers upload to Browserbase cloud
             if stagehand:
                 try:
                     await stagehand.close()
@@ -614,21 +620,24 @@ class BeaconBidScraper(BaseScraper):
                 except Exception as e:
                     logger.warning(f"Error closing Stagehand session: {e}")
 
-        # Now retrieve downloads from Browserbase cloud storage
+        # Wait for upload to Browserbase cloud
+        await asyncio.sleep(3)
+
+        # Retrieve the package from Browserbase cloud storage
         if session_id:
             try:
-                print(f"[DOWNLOAD] Starting Browserbase retrieval for session: {session_id}")
+                print(f"[DOWNLOAD] Retrieving package from Browserbase session: {session_id}")
                 downloaded_docs = await self._retrieve_browserbase_downloads(
                     session_id, rfp.documents, storage_path
                 )
-                print(f"[DOWNLOAD] Retrieved {len(downloaded_docs)} documents from Browserbase")
+                print(f"[DOWNLOAD] ✓ Retrieved {len(downloaded_docs)} documents from package")
             except Exception as e:
-                print(f"[DOWNLOAD] Failed to retrieve downloads: {e}")
-                logger.error(f"Failed to retrieve downloads from Browserbase: {e}")
+                print(f"[DOWNLOAD] Failed to retrieve package: {e}")
+                logger.error(f"Failed to retrieve from Browserbase: {e}")
         else:
-            print("[DOWNLOAD] No session ID available - cannot retrieve downloads")
-            logger.warning("No session ID available - cannot retrieve downloads from Browserbase")
+            print("[DOWNLOAD] No session ID - cannot retrieve downloads")
 
+        print(f"[DOWNLOAD] === Total downloaded: {len(downloaded_docs)}/{len(rfp.documents)} ===")
         return downloaded_docs
 
     async def _retrieve_browserbase_downloads(
@@ -671,11 +680,13 @@ class BeaconBidScraper(BaseScraper):
                     content = response.read()
                     # Check if we have actual content (ZIP header is 22+ bytes)
                     if len(content) > 22:
+                        print(f"[DOWNLOAD] Retrieved {len(content)} bytes from Browserbase")
                         logger.info(f"Retrieved {len(content)} bytes from Browserbase")
 
                         # Extract ZIP contents
                         with zipfile.ZipFile(io.BytesIO(content), 'r') as zip_ref:
                             file_names = zip_ref.namelist()
+                            print(f"[DOWNLOAD] ZIP contains {len(file_names)} files: {file_names}")
                             logger.info(f"ZIP contains files: {file_names}")
 
                             for zip_filename in file_names:
