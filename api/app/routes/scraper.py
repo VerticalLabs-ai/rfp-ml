@@ -63,7 +63,9 @@ class RFPDocumentResponse(BaseModel):
     file_type: str | None
     file_size: int | None
     document_type: str | None
+    source_url: str | None
     downloaded_at: datetime | None
+    download_status: str  # "completed", "pending", or "failed"
 
     class Config:
         from_attributes = True
@@ -291,8 +293,33 @@ async def refresh_rfp(
     try:
         # Refresh check
         result = await scraper.refresh(rfp.source_url, rfp.scrape_checksum)
+        updated_rfp = result["updated_rfp"]
 
-        if not result["has_changes"]:
+        # Count existing Q&A and docs in database
+        existing_qa_count = db.query(RFPQandA).filter(RFPQandA.rfp_id == rfp.id).count()
+        existing_doc_count = (
+            db.query(RFPDocument).filter(RFPDocument.rfp_id == rfp.id).count()
+        )
+
+        # Check if database is missing documents/Q&A that were scraped
+        # (This can happen if previous saves failed due to constraints)
+        scraped_doc_count = len(updated_rfp.documents) if updated_rfp else 0
+        scraped_qa_count = len(updated_rfp.qa_items) if updated_rfp else 0
+
+        # Also check for documents that exist but failed to download (file_path is None)
+        pending_downloads = (
+            db.query(RFPDocument)
+            .filter(RFPDocument.rfp_id == rfp.id, RFPDocument.file_path.is_(None))
+            .count()
+        )
+
+        has_missing_data = (
+            (scraped_doc_count > existing_doc_count)
+            or (scraped_qa_count > existing_qa_count)
+            or (pending_downloads > 0)
+        )
+
+        if not result["has_changes"] and not has_missing_data:
             return RefreshResponse(
                 rfp_id=rfp_id,
                 has_changes=False,
@@ -301,14 +328,6 @@ async def refresh_rfp(
                 metadata_changed=False,
                 message="No changes detected",
             )
-
-        updated_rfp = result["updated_rfp"]
-
-        # Count existing Q&A and docs
-        existing_qa_count = db.query(RFPQandA).filter(RFPQandA.rfp_id == rfp.id).count()
-        existing_doc_count = (
-            db.query(RFPDocument).filter(RFPDocument.rfp_id == rfp.id).count()
-        )
 
         # Check for new Q&A
         new_qa_count = len(updated_rfp.qa_items) - existing_qa_count
@@ -331,13 +350,20 @@ async def refresh_rfp(
                 )
                 db.add(qa_record)
 
-        # Check for new documents
+        # Check for new documents OR documents that failed to download (file_path is None)
         new_doc_count = len(updated_rfp.documents) - existing_doc_count
-        if new_doc_count > 0:
-            # Download new documents in background (function creates its own db session)
+        docs_needing_download = (
+            db.query(RFPDocument)
+            .filter(RFPDocument.rfp_id == rfp.id, RFPDocument.file_path.is_(None))
+            .count()
+        )
+
+        if new_doc_count > 0 or docs_needing_download > 0:
+            # Download documents in background (includes retrying failed downloads)
             background_tasks.add_task(
                 _download_and_save_documents, scraper, updated_rfp, rfp.id, rfp_id
             )
+            logger.info(f"Triggering download: {new_doc_count} new, {docs_needing_download} pending")
 
         # Check for metadata changes
         metadata_changed = (
@@ -346,10 +372,13 @@ async def refresh_rfp(
             or rfp.response_deadline != updated_rfp.response_deadline
         )
 
-        # Update RFP metadata
-        rfp.title = updated_rfp.title
-        rfp.description = updated_rfp.description
-        rfp.response_deadline = updated_rfp.response_deadline
+        # Update RFP metadata - only if extraction succeeded (not fallback values)
+        if updated_rfp.title and updated_rfp.title != "Untitled RFP":
+            rfp.title = updated_rfp.title
+        if updated_rfp.description:
+            rfp.description = updated_rfp.description
+        if updated_rfp.response_deadline:
+            rfp.response_deadline = updated_rfp.response_deadline
         rfp.last_scraped_at = datetime.utcnow()
         rfp.scrape_checksum = updated_rfp.scrape_checksum
 
@@ -371,13 +400,38 @@ async def refresh_rfp(
 
 @router.get("/{rfp_id}/documents", response_model=list[RFPDocumentResponse])
 async def get_rfp_documents(rfp_id: str, db: Session = Depends(get_db)):
-    """Get all documents for an RFP."""
+    """Get all documents for an RFP, including download status."""
     rfp = db.query(RFPOpportunity).filter(RFPOpportunity.rfp_id == rfp_id).first()
     if not rfp:
         raise HTTPException(status_code=404, detail="RFP not found")
 
     documents = db.query(RFPDocument).filter(RFPDocument.rfp_id == rfp.id).all()
-    return documents
+
+    # Add download_status based on file_path presence
+    response = []
+    for doc in documents:
+        # Determine download status
+        if doc.file_path and os.path.exists(doc.file_path):
+            download_status = "completed"
+        elif doc.file_path:
+            # file_path set but file doesn't exist - download failed
+            download_status = "failed"
+        else:
+            # file_path not set - still pending
+            download_status = "pending"
+
+        response.append(RFPDocumentResponse(
+            id=doc.id,
+            filename=doc.filename,
+            file_type=doc.file_type,
+            file_size=doc.file_size,
+            document_type=doc.document_type,
+            source_url=doc.source_url,
+            downloaded_at=doc.downloaded_at,
+            download_status=download_status,
+        ))
+
+    return response
 
 
 @router.get("/{rfp_id}/documents/{doc_id}/download")

@@ -321,6 +321,7 @@ class ClaudeLLMManager:
         qa_items: list[dict[str, Any]] | None = None,
         use_opus: bool = False,
         enable_thinking: bool = True,
+        document_content: dict[str, Any] | None = None,
     ) -> dict[str, Any]:
         """
         Generate a comprehensive proposal section using Claude with thinking mode.
@@ -336,6 +337,7 @@ class ClaudeLLMManager:
             qa_items: Optional Q&A items from the RFP
             use_opus: Use Opus for premium generation
             enable_thinking: Enable extended thinking mode
+            document_content: Extracted text from RFP attachments (PDFs, DOCX)
 
         Returns:
             Dictionary with generated content and metadata
@@ -352,7 +354,7 @@ class ClaudeLLMManager:
         prompt = self._build_section_prompt(
             section_type, rfp_data, company_profile,
             compliance_data, pricing_data, rag_context,
-            compliance_signals, qa_items
+            compliance_signals, qa_items, document_content
         )
 
         # Build system message with compliance awareness
@@ -386,6 +388,7 @@ class ClaudeLLMManager:
         rag_context: str | None,
         compliance_signals: dict[str, Any] | None = None,
         qa_items: list[dict[str, Any]] | None = None,
+        document_content: dict[str, Any] | None = None,
     ) -> str:
         """Build comprehensive prompt for section generation"""
 
@@ -436,6 +439,25 @@ class ClaudeLLMManager:
                 a = qa.get('answer_text', '')[:300]
                 if q and a:
                     qa_context += f"**Q:** {q}\n**A:** {a}\n\n"
+
+        # Add document content (from RFP attachments like PDFs, DOCX)
+        document_context = ""
+        if document_content and document_content.get("documents"):
+            document_context = "\n## RFP Attachment Content\n"
+            document_context += f"*{document_content.get('document_count', 0)} documents extracted*\n\n"
+
+            for doc in document_content.get("documents", [])[:3]:  # Limit to 3 docs
+                doc_name = doc.get("filename", "Unknown")
+                doc_type = doc.get("document_type", "attachment")
+                content = doc.get("content", "")
+
+                # Truncate content per document to keep prompt manageable
+                max_chars = 8000  # ~2k tokens per document
+                if len(content) > max_chars:
+                    content = content[:max_chars] + "\n[... content truncated ...]"
+
+                document_context += f"### {doc_name} ({doc_type})\n"
+                document_context += f"{content}\n\n"
 
         # Add compliance context if available
         compliance_context = ""
@@ -490,6 +512,8 @@ class ClaudeLLMManager:
 {company_context}
 
 {qa_context}
+
+{document_context}
 
 {compliance_context}
 

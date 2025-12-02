@@ -48,7 +48,9 @@ interface RFPDocument {
   file_type: string | null
   file_size: number | null
   document_type: string | null
+  source_url: string | null
   downloaded_at: string | null
+  download_status: 'completed' | 'pending' | 'failed'
 }
 
 interface UploadedDocument {
@@ -809,22 +811,50 @@ export default function RFPDetail() {
                                   {doc.document_type}
                                 </Badge>
                               )}
-                              <span>{formatFileSize(doc.file_size)}</span>
-                              {doc.downloaded_at && (
-                                <span>
-                                  Downloaded {formatDistanceToNow(new Date(doc.downloaded_at), { addSuffix: true })}
-                                </span>
+                              {doc.download_status === 'pending' && (
+                                <Badge variant="secondary" className="text-xs bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-200">
+                                  <Loader2 className="h-3 w-3 mr-1 animate-spin" />
+                                  Downloading...
+                                </Badge>
+                              )}
+                              {doc.download_status === 'failed' && (
+                                <Badge variant="destructive" className="text-xs">
+                                  Download Failed
+                                </Badge>
+                              )}
+                              {doc.download_status === 'completed' && (
+                                <>
+                                  <span>{formatFileSize(doc.file_size)}</span>
+                                  {doc.downloaded_at && (
+                                    <span>
+                                      Downloaded {formatDistanceToNow(new Date(doc.downloaded_at), { addSuffix: true })}
+                                    </span>
+                                  )}
+                                </>
                               )}
                             </div>
                           </div>
                         </div>
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          onClick={() => handleDownload(doc)}
-                        >
-                          <Download className="h-4 w-4" />
-                        </Button>
+                        {doc.download_status === 'completed' ? (
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => handleDownload(doc)}
+                          >
+                            <Download className="h-4 w-4" />
+                          </Button>
+                        ) : doc.download_status === 'failed' && doc.source_url ? (
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => window.open(doc.source_url!, '_blank')}
+                            title="Open source URL"
+                          >
+                            <ExternalLink className="h-4 w-4" />
+                          </Button>
+                        ) : (
+                          <div className="w-8" /> // Spacer for pending items
+                        )}
                       </div>
                     ))}
                   </div>

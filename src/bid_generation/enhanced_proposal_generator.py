@@ -137,6 +137,7 @@ class EnhancedProposalGenerator:
         enable_thinking_override: bool | None = None,
         qa_items: list[dict[str, Any]] | None = None,
         compliance_signals: dict[str, Any] | None = None,
+        document_content: dict[str, Any] | None = None,
     ) -> dict[str, Any]:
         """
         Generate an enhanced proposal section using Claude.
@@ -151,6 +152,7 @@ class EnhancedProposalGenerator:
             enable_thinking_override: Override thinking mode
             qa_items: Q&A items from the RFP for context
             compliance_signals: Detected compliance signals (FEMA, etc.)
+            document_content: Extracted text from RFP attachments (PDFs, DOCX)
 
         Returns:
             Dictionary with generated content and metadata
@@ -185,6 +187,7 @@ class EnhancedProposalGenerator:
                 enable_thinking=enable_thinking,
                 qa_items=qa_items,
                 compliance_signals=compliance_signals,
+                document_content=document_content,
             )
 
             # Add quality metadata

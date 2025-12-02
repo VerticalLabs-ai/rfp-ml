@@ -13,6 +13,10 @@ from .constants import (
     TriageDefaults,
 )
 from .text import clean_amount, extract_keywords, preprocess_text, truncate_text
+from .document_reader import (
+    extract_text_from_document,
+    extract_all_document_content,
+)
 
 __all__ = [
     # Category
@@ -34,4 +38,7 @@ __all__ = [
     "DurationDefaults",
     "ContractValueDefaults",
     "TriageDefaults",
+    # Document reading
+    "extract_text_from_document",
+    "extract_all_document_content",
 ]

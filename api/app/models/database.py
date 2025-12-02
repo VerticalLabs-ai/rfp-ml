@@ -416,7 +416,7 @@ class RFPDocument(Base):
     rfp_id = Column(Integer, ForeignKey("rfp_opportunities.id"), nullable=False)
 
     filename = Column(String, nullable=False)  # Original filename
-    file_path = Column(String, nullable=False)  # Local storage path
+    file_path = Column(String, nullable=True)  # Local storage path (set after download completes)
     file_type = Column(String, nullable=True)  # "pdf", "docx", "xlsx"
     file_size = Column(Integer, nullable=True)  # Size in bytes
     document_type = Column(String, nullable=True)  # "solicitation", "amendment", "attachment", "qa_response"

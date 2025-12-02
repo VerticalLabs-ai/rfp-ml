@@ -135,6 +135,7 @@ class RFPProcessor:
         thinking_budget: int = 10000,
         qa_items: list[Dict[str, Any]] | None = None,
         compliance_signals: Dict[str, Any] | None = None,
+        document_content: Dict[str, Any] | None = None,
     ) -> Dict[str, Any]:
         """
         Generate a complete bid document for an RFP.
@@ -146,6 +147,7 @@ class RFPProcessor:
             thinking_budget: Token budget for thinking
             qa_items: Q&A items from the RFP (for compliance context)
             compliance_signals: Detected compliance signals (FEMA, federal funding, etc.)
+            document_content: Extracted text content from RFP attachments (PDFs, DOCX)
 
         Returns:
             Generated bid document with content in multiple formats
@@ -163,6 +165,7 @@ class RFPProcessor:
                     enable_thinking=enable_thinking,
                     qa_items=qa_items,
                     compliance_signals=compliance_signals,
+                    document_content=document_content,
                 )
             else:
                 # Mock bid generation

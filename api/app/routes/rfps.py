@@ -21,12 +21,13 @@ from pydantic import BaseModel, field_validator
 from sqlalchemy.orm import Session
 
 logger = logging.getLogger(__name__)
-from app.models.database import PipelineStage, PostAwardChecklist, RFPOpportunity
+from app.models.database import PipelineStage, PostAwardChecklist, RFPDocument, RFPOpportunity
 from app.services.rfp_processor import processing_jobs, processor
 from app.services.rfp_service import RFPService
 
 from src.agents.competitor_analytics import CompetitorAnalyticsService
 from src.pricing.pricing_engine import ScenarioParams
+from src.utils.document_reader import extract_all_document_content
 
 router = APIRouter()
 
@@ -515,10 +516,38 @@ async def generate_bid_document(
             "question_text": qa.question_text,
             "answer_text": qa.answer_text,
             "category": qa.category,
-            "posted_date": qa.posted_date.isoformat() if qa.posted_date else None,
+            "asked_date": qa.asked_date.isoformat() if qa.asked_date else None,
         }
         for qa in qa_records
     ] if qa_records else None
+
+    # Fetch and extract content from RFP documents (PDFs, DOCX, etc.)
+    document_content = None
+    if options.generation_mode != "template":
+        try:
+            doc_records = db.query(RFPDocument).filter(RFPDocument.rfp_id == rfp.id).all()
+            if doc_records:
+                # Convert to list of dicts for extraction
+                docs_for_extraction = [
+                    {
+                        "file_path": doc.file_path,
+                        "filename": doc.filename,
+                        "document_type": doc.document_type,
+                    }
+                    for doc in doc_records
+                    if doc.file_path  # Only include downloaded documents
+                ]
+
+                if docs_for_extraction:
+                    extracted = extract_all_document_content(docs_for_extraction)
+                    if extracted["documents"]:
+                        document_content = extracted
+                        logger.info(
+                            f"Extracted content from {extracted['document_count']} documents "
+                            f"({extracted['total_chars']} chars) for RFP {rfp.rfp_id}"
+                        )
+        except Exception as e:
+            logger.warning(f"Failed to extract document content: {e}")
 
     # Detect compliance signals from RFP data and Q&A
     compliance_signals = None
@@ -542,6 +571,7 @@ async def generate_bid_document(
         thinking_budget=options.thinking_budget,
         qa_items=qa_items,
         compliance_signals=compliance_signals,
+        document_content=document_content,
     )
 
     if "error" in bid_document:

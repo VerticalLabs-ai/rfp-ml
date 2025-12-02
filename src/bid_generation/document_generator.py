@@ -300,6 +300,7 @@ class BidDocumentGenerator:
                 pricing_data=pricing_data,
                 qa_items=getattr(self, '_current_qa_items', None),
                 compliance_signals=getattr(self, '_current_compliance_signals', None),
+                document_content=getattr(self, '_current_document_content', None),
             )
 
             if result.get("status") == "success" and result.get("content"):
@@ -625,6 +626,7 @@ class BidDocumentGenerator:
                     pricing_data=pricing_data,
                     qa_items=getattr(self, '_current_qa_items', None),
                     compliance_signals=getattr(self, '_current_compliance_signals', None),
+                    document_content=getattr(self, '_current_document_content', None),
                 )
 
                 if result.get("status") == "success" and result.get("content"):
@@ -684,6 +686,7 @@ class BidDocumentGenerator:
                     compliance_data=compliance_matrix,
                     qa_items=getattr(self, '_current_qa_items', None),
                     compliance_signals=getattr(self, '_current_compliance_signals', None),
+                    document_content=getattr(self, '_current_document_content', None),
                 )
 
                 if result.get("status") == "success" and result.get("content"):
@@ -741,6 +744,7 @@ class BidDocumentGenerator:
         enable_thinking: bool | None = None,
         qa_items: list[dict[str, Any]] | None = None,
         compliance_signals: dict[str, Any] | None = None,
+        document_content: dict[str, Any] | None = None,
     ) -> dict[str, Any]:
         """
         Generate complete bid document integrating all pipeline components.
@@ -755,6 +759,7 @@ class BidDocumentGenerator:
             enable_thinking: Override thinking mode setting
             qa_items: Q&A items from the RFP for context
             compliance_signals: Detected compliance signals (FEMA domestic preference, etc.)
+            document_content: Extracted text from RFP attachments (PDFs, DOCX files)
 
         Returns:
             Complete bid document dictionary
@@ -787,6 +792,13 @@ class BidDocumentGenerator:
         # Store compliance context for use in section generation
         self._current_qa_items = qa_items
         self._current_compliance_signals = compliance_signals
+        self._current_document_content = document_content
+
+        # Log document content availability
+        if document_content and document_content.get('documents'):
+            doc_count = document_content.get('document_count', 0)
+            total_chars = document_content.get('total_chars', 0)
+            self.logger.info(f"RFP attachments available: {doc_count} documents, {total_chars} chars")
 
         # Step 1: Generate compliance matrix
         compliance_matrix = None

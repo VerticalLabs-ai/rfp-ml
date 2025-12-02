@@ -17,6 +17,8 @@ import aiofiles
 import aiohttp
 from aiohttp import ClientTimeout
 
+from pydantic import BaseModel, Field
+
 from .base_scraper import (
     BaseScraper,
     ScrapedDocument,
@@ -29,6 +31,51 @@ from .base_scraper import (
 )
 
 logger = logging.getLogger(__name__)
+
+
+# Pydantic schemas for Stagehand extraction validation
+class RFPMetadataSchema(BaseModel):
+    """Schema for RFP metadata extraction."""
+    title: str | None = None
+    solicitation_number: str | None = None
+    agency: str | None = None
+    office: str | None = None
+    description: str | None = None
+    posted_date: str | None = None
+    response_deadline: str | None = None
+    award_amount: str | None = None
+    naics_code: str | None = None
+    category: str | None = None
+
+
+class DocumentItemSchema(BaseModel):
+    """Schema for individual document item."""
+    filename: str
+    url: str
+    type: str | None = None
+
+
+class DocumentsListSchema(BaseModel):
+    """Schema for documents list extraction."""
+    documents: list[DocumentItemSchema] = []
+
+
+class QAItemSchema(BaseModel):
+    """Schema for individual Q&A item."""
+    question_number: str | None = Field(default=None, alias="questionNumber")
+    question: str
+    answer: str | None = None
+    asked_date: str | None = Field(default=None, alias="askedDate")
+    answered_date: str | None = Field(default=None, alias="answeredDate")
+
+    model_config = {"populate_by_name": True}
+
+
+class QAListSchema(BaseModel):
+    """Schema for Q&A list extraction."""
+    qa_items: list[QAItemSchema] = Field(default=[], alias="qaItems")
+
+    model_config = {"populate_by_name": True}
 
 
 class BeaconBidScraper(BaseScraper):
@@ -77,6 +124,21 @@ class BeaconBidScraper(BaseScraper):
             logger.warning("Browserbase API key not configured. Scraping will fail.")
         if not self.model_api_key:
             logger.warning("Model API key not configured. Stagehand AI features may fail.")
+
+    def _to_dict(self, data: Any) -> dict:
+        """
+        Convert Stagehand extraction result to dict.
+
+        Stagehand may return data as a Pydantic model instance instead of a dict.
+        This helper ensures we always get a dict for processing.
+        """
+        if isinstance(data, dict):
+            return data
+        if hasattr(data, "model_dump"):  # Pydantic v2
+            return data.model_dump()
+        if hasattr(data, "dict"):  # Pydantic v1
+            return data.dict()
+        return {}
 
     async def _create_stagehand_session(self) -> Any:
         """
@@ -213,28 +275,15 @@ class BeaconBidScraper(BaseScraper):
                 - naics_code: Any NAICS code mentioned
                 - category: The category or type of work (e.g., IT Services, Construction)
                 """,
-                    schema_definition={
-                        "type": "object",
-                        "properties": {
-                            "title": {"type": "string"},
-                            "solicitation_number": {"type": "string"},
-                            "agency": {"type": "string"},
-                            "office": {"type": "string"},
-                            "description": {"type": "string"},
-                            "posted_date": {"type": "string"},
-                            "response_deadline": {"type": "string"},
-                            "award_amount": {"type": "string"},
-                            "naics_code": {"type": "string"},
-                            "category": {"type": "string"},
-                        },
-                    },
+                    schema_definition=RFPMetadataSchema,
                 )
             )
 
             # Extract data from result
             data = result.data if hasattr(result, "data") else result
+            data = self._to_dict(data)
             logger.info(f"Extracted metadata: {data}")
-            return data if isinstance(data, dict) else {}
+            return data
 
         except Exception as e:
             logger.error(f"Error extracting metadata: {e}")
@@ -265,28 +314,14 @@ class BeaconBidScraper(BaseScraper):
 
                 IMPORTANT: Extract the actual href attribute value from the download links, not display text.
                 """,
-                    schema_definition={
-                        "type": "object",
-                        "properties": {
-                            "documents": {
-                                "type": "array",
-                                "items": {
-                                    "type": "object",
-                                    "properties": {
-                                        "filename": {"type": "string"},
-                                        "url": {"type": "string"},
-                                        "type": {"type": "string"},
-                                    },
-                                },
-                            },
-                        },
-                    },
+                    schema_definition=DocumentsListSchema,
                 )
             )
 
             documents = []
             data = result.data if hasattr(result, "data") else result
-            doc_list = data.get("documents", []) if isinstance(data, dict) else []
+            data = self._to_dict(data)
+            doc_list = data.get("documents", [])
 
             logger.info(f"Stagehand extracted {len(doc_list)} document entries")
 
@@ -400,35 +435,15 @@ class BeaconBidScraper(BaseScraper):
                 - asked_date: When the question was asked (if shown)
                 - answered_date: When it was answered (if shown)
                 """,
-                    schema_definition={
-                        "type": "object",
-                        "properties": {
-                            "qa_items": {
-                                "type": "array",
-                                "items": {
-                                    "type": "object",
-                                    "properties": {
-                                        "question_number": {"type": "string"},
-                                        "question": {"type": "string"},
-                                        "answer": {"type": "string"},
-                                        "asked_date": {"type": "string"},
-                                        "answered_date": {"type": "string"},
-                                    },
-                                },
-                            },
-                        },
-                    },
+                    schema_definition=QAListSchema,
                 )
             )
 
             qa_items = []
             data = result.data if hasattr(result, "data") else result
+            data = self._to_dict(data)
             # Handle both camelCase (qaItems) and snake_case (qa_items) keys
-            qa_list = (
-                data.get("qaItems", []) or data.get("qa_items", [])
-                if isinstance(data, dict)
-                else []
-            )
+            qa_list = data.get("qaItems", []) or data.get("qa_items", [])
 
             for qa in qa_list:
                 question = qa.get("question") or qa.get("questionText") or ""
@@ -506,75 +521,231 @@ class BeaconBidScraper(BaseScraper):
         self, rfp: ScrapedRFP, storage_path: Path
     ) -> list[ScrapedDocument]:
         """
-        Download documents by clicking links in the browser.
-        This handles JavaScript-triggered downloads that don't work with direct HTTP requests.
+        Download documents by clicking links in the browser using Browserbase cloud storage.
+
+        Browserbase stores downloads in their cloud - files must be retrieved via API after session.
+        See: https://docs.browserbase.com/features/downloads
+
+        Steps:
+        1. Configure CDP session with Browser.setDownloadBehavior
+        2. Click all download links
+        3. Close session (triggers upload to Browserbase cloud)
+        4. Retrieve downloads from Browserbase API
+        5. Extract and save files locally
         """
         downloaded_docs = []
         stagehand = None
+        session_id = None
 
         try:
             stagehand = await self._create_stagehand_session()
             page = stagehand.page
 
+            # Get session ID for later download retrieval
+            # Stagehand should expose the Browserbase session ID
+            if hasattr(stagehand, 'session_id'):
+                session_id = stagehand.session_id
+            elif hasattr(stagehand, 'browserbase_session_id'):
+                session_id = stagehand.browserbase_session_id
+            elif hasattr(stagehand, '_session_id'):
+                session_id = stagehand._session_id
+
+            print(f"[DOWNLOAD] Browserbase session ID for downloads: {session_id}")
+            logger.info(f"Browserbase session ID for downloads: {session_id}")
+
+            # Get the underlying Playwright browser and configure CDP for downloads
+            browser = None
+            if hasattr(stagehand, 'browser'):
+                browser = stagehand.browser
+            elif hasattr(stagehand, '_browser'):
+                browser = stagehand._browser
+
+            if browser:
+                try:
+                    # Create CDP session and configure download behavior
+                    cdp_session = await browser.new_browser_cdp_session()
+                    await cdp_session.send(
+                        "Browser.setDownloadBehavior",
+                        {
+                            "behavior": "allow",
+                            "downloadPath": "downloads",
+                            "eventsEnabled": True,
+                        },
+                    )
+                    logger.info("CDP download behavior configured for Browserbase cloud storage")
+                except Exception as cdp_err:
+                    logger.warning(f"Could not configure CDP session: {cdp_err}")
+
             # Navigate to the RFP page
             await page.goto(rfp.source_url)
             await asyncio.sleep(2)
 
-            # Get the underlying Playwright page for download handling
-            playwright_page = page._impl_obj if hasattr(page, '_impl_obj') else page
-
+            # Click all download links
             for doc in rfp.documents:
                 try:
-                    logger.info(f"Attempting browser download for: {doc.filename}")
+                    logger.info(f"Clicking download link for: {doc.filename}")
                     base_filename = doc.filename.split('.')[0]
 
-                    # Set up download handling with Playwright
-                    try:
-                        async with playwright_page.expect_download(timeout=30000) as download_info:
-                            # Use Stagehand to click the download link
-                            await stagehand.page.act(
-                                f"Click the download link or button for '{doc.filename}' or '{base_filename}'"
-                            )
-
-                        # Get the download object
-                        download = await download_info.value
-
-                        # Save to our storage path
-                        safe_filename = self._sanitize_filename(doc.filename)
-                        file_path = storage_path / safe_filename
-                        await download.save_as(str(file_path))
-
-                        # Get file info
-                        file_size = file_path.stat().st_size
-
-                        # Update document info
-                        doc.file_path = str(file_path)
-                        doc.file_size = file_size
-                        doc.checksum = self.compute_file_checksum(str(file_path))
-                        doc.downloaded_at = datetime.now(timezone.utc)
-
-                        downloaded_docs.append(doc)
-                        logger.info(f"Downloaded via browser: {safe_filename} ({file_size} bytes)")
-
-                    except Exception as download_error:
-                        logger.warning(f"Browser download failed for {doc.filename}: {download_error}")
-                        # Continue to next document
+                    # Use Stagehand's AI-powered click action
+                    await stagehand.page.act(
+                        f"Click the download link or button for '{doc.filename}' or '{base_filename}'"
+                    )
+                    # Give time for download to initiate
+                    await asyncio.sleep(3)
+                    logger.info(f"Download click completed for: {doc.filename}")
 
                 except Exception as e:
-                    logger.warning(f"Failed to download {doc.filename} via browser: {e}")
+                    logger.warning(f"Failed to click download for {doc.filename}: {e}")
 
-            return downloaded_docs
+            # Wait for downloads to sync to Browserbase cloud
+            logger.info("Waiting for downloads to sync to Browserbase cloud...")
+            await asyncio.sleep(5)
 
         except Exception as e:
             logger.error(f"Browser download session failed: {e}")
             raise
 
         finally:
+            # Close the Stagehand session
             if stagehand:
                 try:
                     await stagehand.close()
+                    logger.info("Stagehand session closed")
                 except Exception as e:
                     logger.warning(f"Error closing Stagehand session: {e}")
+
+        # Now retrieve downloads from Browserbase cloud storage
+        if session_id:
+            try:
+                print(f"[DOWNLOAD] Starting Browserbase retrieval for session: {session_id}")
+                downloaded_docs = await self._retrieve_browserbase_downloads(
+                    session_id, rfp.documents, storage_path
+                )
+                print(f"[DOWNLOAD] Retrieved {len(downloaded_docs)} documents from Browserbase")
+            except Exception as e:
+                print(f"[DOWNLOAD] Failed to retrieve downloads: {e}")
+                logger.error(f"Failed to retrieve downloads from Browserbase: {e}")
+        else:
+            print("[DOWNLOAD] No session ID available - cannot retrieve downloads")
+            logger.warning("No session ID available - cannot retrieve downloads from Browserbase")
+
+        return downloaded_docs
+
+    async def _retrieve_browserbase_downloads(
+        self,
+        session_id: str,
+        documents: list[ScrapedDocument],
+        storage_path: Path,
+        retry_seconds: int = 30
+    ) -> list[ScrapedDocument]:
+        """
+        Retrieve downloaded files from Browserbase cloud storage.
+
+        Args:
+            session_id: Browserbase session ID
+            documents: List of expected documents
+            storage_path: Local path to save files
+            retry_seconds: How long to retry if no downloads found
+
+        Returns:
+            List of documents with updated file paths
+        """
+        import io
+        import time
+        import zipfile
+
+        from browserbase import Browserbase
+
+        downloaded_docs = []
+        end_time = time.time() + retry_seconds
+
+        bb = Browserbase(api_key=self.browserbase_api_key)
+        print(f"[DOWNLOAD] Browserbase client created, polling for downloads...")
+        logger.info(f"Retrieving downloads from Browserbase session: {session_id}")
+
+        while time.time() < end_time:
+            try:
+                response = bb.sessions.downloads.list(session_id)
+
+                if response and hasattr(response, 'status_code') and response.status_code == 200:
+                    content = response.read()
+                    # Check if we have actual content (ZIP header is 22+ bytes)
+                    if len(content) > 22:
+                        logger.info(f"Retrieved {len(content)} bytes from Browserbase")
+
+                        # Extract ZIP contents
+                        with zipfile.ZipFile(io.BytesIO(content), 'r') as zip_ref:
+                            file_names = zip_ref.namelist()
+                            logger.info(f"ZIP contains files: {file_names}")
+
+                            for zip_filename in file_names:
+                                # Browserbase adds timestamp suffix: sample-1719265797164.pdf
+                                # Try to match with our expected documents
+                                for doc in documents:
+                                    base_name = doc.filename.rsplit('.', 1)[0]
+                                    if base_name in zip_filename or doc.filename in zip_filename:
+                                        # Extract and save the file
+                                        safe_filename = self._sanitize_filename(doc.filename)
+                                        local_path = storage_path / safe_filename
+
+                                        with zip_ref.open(zip_filename) as src:
+                                            file_content = src.read()
+                                            async with aiofiles.open(local_path, 'wb') as dst:
+                                                await dst.write(file_content)
+
+                                        file_size = len(file_content)
+                                        doc.file_path = str(local_path)
+                                        doc.file_size = file_size
+                                        doc.checksum = self.compute_file_checksum(str(local_path))
+                                        doc.downloaded_at = datetime.now(timezone.utc)
+
+                                        downloaded_docs.append(doc)
+                                        logger.info(
+                                            f"Saved from Browserbase: {safe_filename} ({file_size} bytes)"
+                                        )
+                                        break
+
+                        return downloaded_docs
+
+                elif hasattr(response, 'content'):
+                    # Alternative response format
+                    content = response.content
+                    if len(content) > 22:
+                        # Same extraction logic
+                        with zipfile.ZipFile(io.BytesIO(content), 'r') as zip_ref:
+                            for zip_filename in zip_ref.namelist():
+                                for doc in documents:
+                                    base_name = doc.filename.rsplit('.', 1)[0]
+                                    if base_name in zip_filename or doc.filename in zip_filename:
+                                        safe_filename = self._sanitize_filename(doc.filename)
+                                        local_path = storage_path / safe_filename
+
+                                        with zip_ref.open(zip_filename) as src:
+                                            file_content = src.read()
+                                            async with aiofiles.open(local_path, 'wb') as dst:
+                                                await dst.write(file_content)
+
+                                        file_size = len(file_content)
+                                        doc.file_path = str(local_path)
+                                        doc.file_size = file_size
+                                        doc.checksum = self.compute_file_checksum(str(local_path))
+                                        doc.downloaded_at = datetime.now(timezone.utc)
+
+                                        downloaded_docs.append(doc)
+                                        logger.info(
+                                            f"Saved from Browserbase: {safe_filename} ({file_size} bytes)"
+                                        )
+                                        break
+
+                        return downloaded_docs
+
+            except Exception as e:
+                logger.debug(f"Error fetching downloads (will retry): {e}")
+
+            await asyncio.sleep(2)  # Wait before retrying
+
+        logger.warning(f"No downloads found from Browserbase within {retry_seconds}s")
+        return downloaded_docs
 
     async def _download_single_document(
         self, session: aiohttp.ClientSession, doc: ScrapedDocument, storage_path: Path
@@ -681,7 +852,9 @@ class BeaconBidScraper(BaseScraper):
             "new_checksum": updated_rfp.scrape_checksum,
             "document_count": len(updated_rfp.documents),
             "qa_count": len(updated_rfp.qa_items),
-            "updated_rfp": updated_rfp if has_changes else None,
+            # Always return updated_rfp so caller can compare against database
+            # (e.g., documents may need to be saved even if page content unchanged)
+            "updated_rfp": updated_rfp,
         }
 
         if has_changes:
