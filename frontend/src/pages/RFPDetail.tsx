@@ -1,4 +1,4 @@
-import { useState, useRef, useCallback } from 'react'
+import { useState, useRef, useCallback, useEffect } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import {
@@ -204,6 +204,20 @@ export default function RFPDetail() {
   // File upload ref
   const fileInputRef = useRef<HTMLInputElement>(null)
   const [isDragging, setIsDragging] = useState(false)
+
+  // Auto-select company profile when RFP or profiles load
+  useEffect(() => {
+    if (!selectedProfileId && profiles && profiles.length > 0) {
+      // Priority 1: Use RFP's associated profile
+      if (rfp?.company_profile_id) {
+        setSelectedProfileId(rfp.company_profile_id.toString())
+      }
+      // Priority 2: Auto-select first profile if only one exists
+      else if (profiles.length === 1) {
+        setSelectedProfileId(profiles[0].id.toString())
+      }
+    }
+  }, [rfp, profiles, selectedProfileId])
 
   // Refresh mutation
   const refreshMutation = useMutation({

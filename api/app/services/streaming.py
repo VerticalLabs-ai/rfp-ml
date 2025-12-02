@@ -323,6 +323,8 @@ Please provide a helpful response:"""
         document_context = ""
         rfp_db_id = None
 
+        logger.info(f"stream_section_generation: rfp_id={rfp_id}, section={section_type}")
+
         if db_session:
             from app.models.database import (
                 CompanyProfile,
@@ -380,6 +382,7 @@ Please provide a helpful response:"""
                     .filter(RFPQandA.rfp_id == rfp_db_id)
                     .all()
                 )
+                logger.info(f"Q&A loaded: {len(qa_items)} items for rfp_id={rfp_db_id}")
                 if qa_items:
                     # Build Q&A context, prioritizing section-relevant items
                     relevant_qa = []
@@ -413,6 +416,7 @@ Please provide a helpful response:"""
                                 f"**Q{qa.question_number or ''}:{category}** {q}\n**A:** {a}"
                             )
                         qa_context = "\n\n".join(qa_lines)
+                        logger.info(f"Q&A context: {len(prioritized_qa)} items, {len(qa_context)} chars")
 
             # Get document content
             if rfp_db_id:
@@ -425,6 +429,7 @@ Please provide a helpful response:"""
                         .all()
                     )
                     if docs:
+                        # Filter to documents with file_path (downloaded files)
                         docs_for_extraction = [
                             {
                                 "file_path": doc.file_path,
@@ -434,7 +439,17 @@ Please provide a helpful response:"""
                             for doc in docs
                             if doc.file_path
                         ]
+
+                        # Log document status
+                        docs_without_path = [d for d in docs if not d.file_path]
+                        if docs_without_path:
+                            logger.warning(
+                                f"Documents not downloaded: {[d.filename for d in docs_without_path]}. "
+                                "Use 'Refresh' to download."
+                            )
+
                         if docs_for_extraction:
+                            logger.info(f"Extracting content from {len(docs_for_extraction)} documents")
                             extracted = extract_all_document_content(
                                 docs_for_extraction
                             )
@@ -450,6 +465,7 @@ Please provide a helpful response:"""
                                     if doc_text:
                                         doc_parts.append(f"### {doc_name}\n{doc_text}")
                                 document_context = "\n\n".join(doc_parts)
+                                logger.info(f"Document context: {len(doc_parts)} docs, {len(document_context)} chars")
                 except Exception as e:
                     logger.warning(f"Document extraction failed: {e}")
 
