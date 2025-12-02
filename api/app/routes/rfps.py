@@ -21,7 +21,7 @@ from pydantic import BaseModel, field_validator
 from sqlalchemy.orm import Session
 
 logger = logging.getLogger(__name__)
-from app.models.database import PipelineStage, PostAwardChecklist, RFPDocument, RFPOpportunity
+from app.models.database import BidDocument, PipelineStage, PostAwardChecklist, RFPDocument, RFPOpportunity
 from app.services.rfp_processor import processing_jobs, processor
 from app.services.rfp_service import RFPService
 
@@ -41,6 +41,130 @@ def get_competitor_service():
     if _competitor_service is None:
         _competitor_service = CompetitorAnalyticsService()
     return _competitor_service
+
+
+def save_proposal_sections_to_db(
+    rfp_id: int,
+    rfp_id_str: str,
+    bid_document_data: dict,
+    db: Session
+) -> None:
+    """
+    Parse and save proposal sections to database for Proposal Copilot.
+
+    Args:
+        rfp_id: Database ID of the RFP
+        rfp_id_str: String RFP ID (e.g., "RFP-20251202...")
+        bid_document_data: The generated bid document dict
+        db: Database session
+    """
+    import re
+    from datetime import datetime, timezone
+
+    try:
+        # Get sections from the generated content
+        sections = bid_document_data.get("content", {}).get("sections", {})
+        markdown_content = bid_document_data.get("content", {}).get("markdown", "")
+
+        # Map of section headers to section IDs
+        section_patterns = {
+            "executive_summary": r"##\s*Executive\s+Summary\s*\n(.*?)(?=\n##|\Z)",
+            "technical_approach": r"##\s*Technical\s+Approach\s*\n(.*?)(?=\n##|\Z)",
+            "management_approach": r"##\s*Management\s+Approach\s*\n(.*?)(?=\n##|\Z)",
+            "past_performance": r"##\s*Past\s+Performance\s*\n(.*?)(?=\n##|\Z)",
+            "staffing_plan": r"##\s*Staffing\s+Plan\s*\n(.*?)(?=\n##|\Z)",
+            "quality_assurance": r"##\s*Quality\s+Assurance\s*\n(.*?)(?=\n##|\Z)",
+            "risk_mitigation": r"##\s*Risk\s+Mitigation\s*\n(.*?)(?=\n##|\Z)",
+            "compliance_matrix": r"##\s*Compliance\s+Matrix\s*\n(.*?)(?=\n##|\Z)",
+            "pricing": r"##\s*(?:Pricing|Cost)\s*(?:Proposal|Summary|Breakdown)?\s*\n(.*?)(?=\n##|\Z)",
+        }
+
+        # Parse sections from markdown if not already in sections dict
+        for section_id, pattern in section_patterns.items():
+            if section_id not in sections or not sections[section_id]:
+                match = re.search(pattern, markdown_content, re.IGNORECASE | re.DOTALL)
+                if match:
+                    sections[section_id] = match.group(1).strip()
+
+        # Ensure all sections are strings (not dicts)
+        for section_id, content in list(sections.items()):
+            if isinstance(content, dict):
+                # Convert dict to formatted string based on section type
+                if section_id == "technical_approach":
+                    parts = []
+                    if "methodology" in content:
+                        parts.append(f"**Methodology:** {content['methodology']}")
+                    if "deliverables" in content:
+                        deliverables = content.get("deliverables", [])
+                        if deliverables:
+                            parts.append(f"**Deliverables:** {', '.join(deliverables) if isinstance(deliverables, list) else deliverables}")
+                    if "timeline" in content:
+                        parts.append(f"**Timeline:** {content['timeline']}")
+                    sections[section_id] = "\n\n".join(parts) if parts else str(content)
+
+                elif section_id == "pricing":
+                    parts = []
+                    if "recommended_price" in content:
+                        parts.append(f"**Recommended Price:** ${content['recommended_price']:,.2f}" if isinstance(content['recommended_price'], (int, float)) else f"**Recommended Price:** {content['recommended_price']}")
+                    if "pricing_strategies" in content:
+                        strategies = content.get("pricing_strategies", [])
+                        if strategies:
+                            parts.append("**Pricing Strategies:**")
+                            for s in strategies[:5]:
+                                if isinstance(s, dict):
+                                    parts.append(f"- {s.get('strategy', s.get('name', str(s)))}")
+                                else:
+                                    parts.append(f"- {s}")
+                    sections[section_id] = "\n".join(parts) if parts else str(content)
+
+                elif section_id == "compliance_matrix":
+                    # Already handled below, but keep as fallback
+                    import json
+                    sections[section_id] = json.dumps(content, indent=2)
+
+                else:
+                    # Generic dict to string conversion
+                    import json
+                    sections[section_id] = json.dumps(content, indent=2)
+
+        # Ensure compliance_matrix is a string for storage (detailed handling)
+        if "compliance_matrix" in sections and isinstance(sections["compliance_matrix"], dict):
+            # Convert dict compliance matrix to readable text
+            cm = sections["compliance_matrix"]
+            if "requirements_and_responses" in cm:
+                lines = ["| Requirement | Response | Status |", "|-------------|----------|--------|"]
+                for item in cm.get("requirements_and_responses", []):
+                    req = item.get("requirement", "")[:50]
+                    resp = item.get("response", "")[:50]
+                    status = item.get("compliance_status", "")
+                    lines.append(f"| {req} | {resp} | {status} |")
+                sections["compliance_matrix"] = "\n".join(lines)
+
+        # Check if BidDocument exists for this RFP
+        existing = db.query(BidDocument).filter(BidDocument.rfp_id == rfp_id).first()
+
+        if existing:
+            # Replace sections entirely with new generated content
+            # (old sections may have dict format that causes validation errors)
+            existing.content_json = {"sections": sections}
+            existing.updated_at = datetime.now(timezone.utc)
+            existing.status = "generated"
+        else:
+            # Create new BidDocument
+            bid_doc = BidDocument(
+                rfp_id=rfp_id,
+                document_id=bid_document_data.get("bid_id", f"bid-{uuid4().hex[:8]}"),
+                content_json={"sections": sections},
+                status="generated",
+            )
+            db.add(bid_doc)
+
+        db.commit()
+        logger.info(f"Saved {len(sections)} proposal sections for RFP {rfp_id_str}")
+
+    except Exception as e:
+        logger.exception(f"Failed to save proposal sections for RFP {rfp_id_str}: {e}")
+        db.rollback()
 
 
 # Pydantic schemas
@@ -579,6 +703,14 @@ async def generate_bid_document(
             "error": bid_document["error"]
         })
         raise HTTPException(status_code=500, detail=f"Bid generation failed: {bid_document['error']}")
+
+    # Save sections to database for Proposal Copilot
+    save_proposal_sections_to_db(
+        rfp_id=rfp.id,
+        rfp_id_str=rfp.rfp_id,
+        bid_document_data=bid_document,
+        db=db
+    )
 
     # Broadcast successful generation
     await broadcast_rfp_update(rfp.rfp_id, "bid_generated", {
