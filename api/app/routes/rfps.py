@@ -296,15 +296,19 @@ async def get_discovered_rfps(
     limit: int = Query(default=100, ge=1, le=500),
     category: str | None = None,
     min_score: float | None = Query(default=None, ge=0.0, le=100.0),
+    search: str | None = Query(default=None, description="Search term for title, description, agency, NAICS code"),
+    sortBy: str = Query(default="score", description="Sort by: score, deadline, or recent"),
     db: Session = Depends(get_db)
 ):
-    """Get list of discovered RFPs."""
+    """Get list of discovered RFPs with search and filtering."""
     service = RFPService(db)
     rfps = service.get_discovered_rfps(
         skip=skip,
         limit=limit,
         category=category,
-        min_score=min_score
+        min_score=min_score,
+        search=search,
+        sort_by=sortBy,
     )
     return rfps
 

@@ -4,14 +4,16 @@ import { Card, CardContent } from '@/components/ui/card'
 import { formatDistance } from 'date-fns'
 import { AlertTriangle, Check, Trash2, X } from 'lucide-react'
 import GenerateBidButton from './GenerateBidButton'
+import { HighlightedText } from '../hooks/useRfpSearch'
 
 interface RFPCardProps {
   rfp: any
   onTriageDecision: (rfpId: string, decision: string) => void
   onDelete?: (rfpId: string) => void
+  searchTerm?: string
 }
 
-export default function RFPCard({ rfp, onTriageDecision, onDelete }: RFPCardProps) {
+export default function RFPCard({ rfp, onTriageDecision, onDelete, searchTerm = '' }: RFPCardProps) {
   return (
     <Card>
       <CardContent className="p-6">
@@ -19,7 +21,11 @@ export default function RFPCard({ rfp, onTriageDecision, onDelete }: RFPCardProp
           <div className="flex-1">
             <div className="flex items-start gap-2">
               <h3 className="text-lg font-medium text-gray-900">
-                {rfp.title}
+                {searchTerm ? (
+                  <HighlightedText text={rfp.title} searchTerm={searchTerm} />
+                ) : (
+                  rfp.title
+                )}
               </h3>
               {onDelete && (
                 <Button
@@ -37,11 +43,30 @@ export default function RFPCard({ rfp, onTriageDecision, onDelete }: RFPCardProp
               )}
             </div>
             <p className="mt-1 text-sm text-gray-500">
-              {rfp.agency} • {rfp.office}
+              {searchTerm ? (
+                <>
+                  <HighlightedText text={rfp.agency || ''} searchTerm={searchTerm} />
+                  {rfp.office && (
+                    <>
+                      {' • '}
+                      <HighlightedText text={rfp.office} searchTerm={searchTerm} />
+                    </>
+                  )}
+                </>
+              ) : (
+                <>
+                  {rfp.agency}
+                  {rfp.office && ` • ${rfp.office}`}
+                </>
+              )}
             </p>
             {rfp.description && (
               <p className="mt-2 text-sm text-gray-700 line-clamp-2">
-                {rfp.description}
+                {searchTerm ? (
+                  <HighlightedText text={rfp.description} searchTerm={searchTerm} />
+                ) : (
+                  rfp.description
+                )}
               </p>
             )}
           </div>
@@ -64,10 +89,21 @@ export default function RFPCard({ rfp, onTriageDecision, onDelete }: RFPCardProp
         <div className="mt-4 flex items-center justify-between">
           <div className="flex items-center space-x-2 text-sm text-gray-500">
             <Badge variant="secondary">
-              {rfp.category || 'General'}
+              {searchTerm ? (
+                <HighlightedText text={rfp.category || 'General'} searchTerm={searchTerm} />
+              ) : (
+                rfp.category || 'General'
+              )}
             </Badge>
             {rfp.naics_code && (
-              <span>NAICS: {rfp.naics_code}</span>
+              <span>
+                NAICS:{' '}
+                {searchTerm ? (
+                  <HighlightedText text={rfp.naics_code} searchTerm={searchTerm} />
+                ) : (
+                  rfp.naics_code
+                )}
+              </span>
             )}
           </div>
 

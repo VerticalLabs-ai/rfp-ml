@@ -32,17 +32,51 @@ class RFPService:
         limit: int = 100,
         category: str | None = None,
         min_score: float | None = None,
+        search: str | None = None,
+        sort_by: str = "score",
     ) -> list[RFPOpportunity]:
-        """Get list of discovered RFPs with filtering."""
+        """Get list of discovered RFPs with filtering and search.
+
+        Args:
+            skip: Number of records to skip (pagination)
+            limit: Max records to return
+            category: Filter by category
+            min_score: Filter by minimum triage score
+            search: Search term to match against title, description, agency, naics_code
+            sort_by: Sort order - 'score', 'deadline', or 'recent'
+        """
+        from sqlalchemy import or_
+
         query = self.db.query(RFPOpportunity)
 
-        if category:
+        # Search filter - search across multiple fields
+        if search and search.strip():
+            search_term = f"%{search.strip().lower()}%"
+            query = query.filter(
+                or_(
+                    RFPOpportunity.title.ilike(search_term),
+                    RFPOpportunity.description.ilike(search_term),
+                    RFPOpportunity.agency.ilike(search_term),
+                    RFPOpportunity.naics_code.ilike(search_term),
+                    RFPOpportunity.category.ilike(search_term),
+                    RFPOpportunity.office.ilike(search_term),
+                    RFPOpportunity.solicitation_number.ilike(search_term),
+                )
+            )
+
+        if category and category != "all":
             query = query.filter(RFPOpportunity.category == category)
 
         if min_score is not None:
             query = query.filter(RFPOpportunity.triage_score >= min_score)
 
-        query = query.order_by(RFPOpportunity.triage_score.desc())
+        # Apply sorting
+        if sort_by == "deadline":
+            query = query.order_by(RFPOpportunity.response_deadline.asc().nullslast())
+        elif sort_by == "recent":
+            query = query.order_by(RFPOpportunity.created_at.desc().nullslast())
+        else:  # Default to score
+            query = query.order_by(RFPOpportunity.triage_score.desc().nullslast())
 
         return query.offset(skip).limit(limit).all()
 
