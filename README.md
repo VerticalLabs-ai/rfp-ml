@@ -8,7 +8,7 @@ An intelligent, end-to-end automated system for discovering, analyzing, and gene
 
 - **Autonomous RFP Discovery**: Automatically discovers and filters relevant government RFPs from multiple sources
 - **Intelligent Triage**: Scores and prioritizes opportunities based on alignment with business objectives
-- **RAG-Powered Context Retrieval**: Semantic search across historical RFP data using FAISS vector indexing
+- **RAG-Powered Context Retrieval**: Semantic search across historical RFP data using ChromaDB vector storage
 - **Compliance Matrix Generation**: Automatically extracts requirements and generates compliant responses
 - **AI-Powered Pricing**: Generates competitive pricing with margin compliance based on historical data
 - **Go/No-Go Decision Engine**: Data-driven decision analysis for bid opportunities
@@ -74,7 +74,7 @@ The system follows a modular pipeline architecture:
 ### Core Components
 
 - **Discovery Agent** (`src/agents/discovery_agent.py`): Autonomous RFP discovery and triage
-- **RAG Engine** (`src/rag/rag_engine.py`): Vector-based semantic search using sentence transformers
+- **RAG Engine** (`src/rag/chroma_rag_engine.py`): ChromaDB-based vector search with automatic persistence
 - **Compliance Matrix** (`src/compliance/compliance_matrix.py`): Requirement extraction and response generation
 - **Pricing Engine** (`src/pricing/pricing_engine.py`): AI-powered competitive pricing
 - **Go/No-Go Engine** (`src/decision/go_nogo_engine.py`): Decision analysis and scoring
@@ -132,7 +132,7 @@ uv pip install -r requirements_api.txt
 **Core ML & LLM Stack (`requirements.txt`):**
 
 - **LLM Integration**: `openai>=1.3.0`, `transformers>=4.30.0`, `torch>=2.0.0`
-- **Vector Search & RAG**: `faiss-cpu>=1.7.0`, `langchain>=0.1.0`, `sentence-transformers>=2.2.2`
+- **Vector Search & RAG**: `chromadb>=1.0.0`, `langchain>=0.1.0`, `sentence-transformers>=2.2.2`
 - **Data Processing**: `pandas>=1.5.0`, `numpy<2.0.0`, `scikit-learn>=1.2.0`
 - **Utilities**: `pydantic>=2.0.0`, `jinja2>=3.1.0`, `requests>=2.28.0`
 
@@ -267,21 +267,27 @@ triaged_rfps = agent.triage_rfps(discovered_rfps)
 
 ### RAG Engine
 
-Semantic search across historical RFP data:
+Semantic search across historical RFP data using ChromaDB:
 
 ```python
-from src.rag.rag_engine import RAGEngine
+from src.rag.chroma_rag_engine import get_rag_engine
 
-rag = RAGEngine()
-rag.build_index()  # One-time index build
+# Get singleton engine (auto-initialized)
+rag = get_rag_engine()
 
 # Retrieve similar RFPs
-results = rag.retrieve("bottled water delivery services", k=5)
+results = rag.retrieve("bottled water delivery services", top_k=5)
 for result in results:
-    print(f"Score: {result['score']:.3f}")
-    print(f"Category: {result['metadata']['category']}")
-    print(f"Title: {result['metadata']['title']}\n")
+    print(f"Score: {result['similarity']:.3f}")
+    print(f"Content: {result['content'][:100]}...")
+    print(f"Metadata: {result['metadata']}\n")
+
+# Check engine status
+stats = rag.get_statistics()
+print(f"Total documents: {stats['total_documents']}")
 ```
+
+**Note:** ChromaDB automatically persists data to `data/chroma/`. No manual index building required.
 
 ### Compliance Matrix Generation
 

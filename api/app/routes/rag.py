@@ -6,6 +6,7 @@ Provides endpoints for:
 - Triggering index rebuild
 - Adding documents incrementally
 """
+
 import logging
 import os
 import sys
@@ -16,7 +17,9 @@ from fastapi import APIRouter, BackgroundTasks, HTTPException
 from pydantic import BaseModel, Field
 
 # Add project root to path
-project_root = os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(__file__)))))
+project_root = os.path.dirname(
+    os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(__file__))))
+)
 if project_root not in sys.path:
     sys.path.insert(0, project_root)
 
@@ -39,6 +42,7 @@ def _get_rag_engine():
     """Get ChromaDB RAG engine singleton."""
     try:
         from src.rag.chroma_rag_engine import get_rag_engine
+
         return get_rag_engine()
     except Exception as e:
         logger.error(f"Failed to get RAG engine: {e}")
@@ -47,6 +51,7 @@ def _get_rag_engine():
 
 class RAGStatusResponse(BaseModel):
     """Response model for RAG status."""
+
     is_available: bool
     is_building: bool
     build_progress: float = Field(description="Build progress 0-100")
@@ -57,6 +62,7 @@ class RAGStatusResponse(BaseModel):
 
 class RAGHealthResponse(BaseModel):
     """Response model for RAG health check."""
+
     healthy: bool
     issues: list[str] = []
     recommendations: list[str] = []
@@ -64,6 +70,7 @@ class RAGHealthResponse(BaseModel):
 
 class RebuildResponse(BaseModel):
     """Response for rebuild request."""
+
     status: str
     message: str
     job_id: str | None = None
@@ -71,6 +78,7 @@ class RebuildResponse(BaseModel):
 
 class AddDocumentsRequest(BaseModel):
     """Request to add documents incrementally."""
+
     documents: list[str] = Field(..., min_length=1)
     document_ids: list[str] = Field(..., min_length=1)
     metadata: list[dict] = Field(default_factory=list)
@@ -78,6 +86,7 @@ class AddDocumentsRequest(BaseModel):
 
 class AddDocumentsResponse(BaseModel):
     """Response for add documents request."""
+
     added: int
     total_documents: int
 
@@ -92,6 +101,7 @@ def _run_rebuild_in_background(force: bool = True):
 
     try:
         from src.rag.chroma_rag_engine import get_rag_engine
+
         engine = get_rag_engine()
         engine.build_index(force_rebuild=force)
         _build_state["progress"] = 100
@@ -103,7 +113,9 @@ def _run_rebuild_in_background(force: bool = True):
             end = datetime.fromisoformat(_build_state["completed_at"])
             _build_state["last_build_duration_seconds"] = (end - start).total_seconds()
 
-        logger.info(f"RAG index rebuild completed: {engine.collection.count()} documents")
+        logger.info(
+            f"RAG index rebuild completed: {engine.collection.count()} documents"
+        )
     except Exception as e:
         _build_state["error"] = str(e)
         logger.error(f"RAG index rebuild failed: {e}")
@@ -128,12 +140,16 @@ async def get_rag_status() -> RAGStatusResponse:
             is_available=False,
             is_building=_build_state["is_building"],
             build_progress=_build_state["progress"],
-            last_build={
-                "started_at": _build_state["started_at"],
-                "completed_at": _build_state["completed_at"],
-                "error": _build_state["error"],
-                "duration_seconds": _build_state["last_build_duration_seconds"],
-            } if _build_state["started_at"] else None,
+            last_build=(
+                {
+                    "started_at": _build_state["started_at"],
+                    "completed_at": _build_state["completed_at"],
+                    "error": _build_state["error"],
+                    "duration_seconds": _build_state["last_build_duration_seconds"],
+                }
+                if _build_state["started_at"]
+                else None
+            ),
         )
 
     try:
@@ -147,15 +163,23 @@ async def get_rag_status() -> RAGStatusResponse:
     return RAGStatusResponse(
         is_available=engine.is_built,
         is_building=_build_state["is_building"],
-        build_progress=_build_state["progress"] if _build_state["is_building"] else (100 if engine.is_built else 0),
+        build_progress=(
+            _build_state["progress"]
+            if _build_state["is_building"]
+            else (100 if engine.is_built else 0)
+        ),
         index_info=index_info,
         statistics=statistics,
-        last_build={
-            "started_at": _build_state["started_at"],
-            "completed_at": _build_state["completed_at"],
-            "error": _build_state["error"],
-            "duration_seconds": _build_state["last_build_duration_seconds"],
-        } if _build_state["started_at"] else None,
+        last_build=(
+            {
+                "started_at": _build_state["started_at"],
+                "completed_at": _build_state["completed_at"],
+                "error": _build_state["error"],
+                "duration_seconds": _build_state["last_build_duration_seconds"],
+            }
+            if _build_state["started_at"]
+            else None
+        ),
     )
 
 
@@ -195,7 +219,10 @@ async def check_rag_health() -> RAGHealthResponse:
         return RAGHealthResponse(
             healthy=False,
             issues=["RAG engine failed to initialize"],
-            recommendations=["Check logs for initialization errors", "Verify dependencies are installed"],
+            recommendations=[
+                "Check logs for initialization errors",
+                "Verify dependencies are installed",
+            ],
         )
 
     try:
@@ -204,7 +231,9 @@ async def check_rag_health() -> RAGHealthResponse:
         # Check document count
         if index_info["vectors"]["total"] == 0:
             issues.append("Collection has no documents")
-            recommendations.append("Rebuild index or add documents via POST /rag/rebuild")
+            recommendations.append(
+                "Rebuild index or add documents via POST /rag/rebuild"
+            )
 
         # Check embedding availability
         stats = engine.get_statistics()
@@ -331,10 +360,10 @@ async def delete_index() -> dict:
         if engine:
             count_before = engine.collection.count()
             engine.delete_collection()
-            # Recreate empty collection
+            # Recreate empty collection using engine's method
             engine.collection = engine.client.get_or_create_collection(
-                name="rfp_documents",
-                metadata={"hnsw:space": "cosine"}
+                name=engine.collection.name,  # Use original name
+                metadata={"hnsw:space": "cosine"},
             )
             return {
                 "status": "deleted",

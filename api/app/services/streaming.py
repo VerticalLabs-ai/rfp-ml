@@ -79,7 +79,7 @@ class StreamingService:
         prompt: str,
         system_message: str | None = None,
         task_type: str = "generation",
-        model: str = ClaudeModel.SONNET_4_5.value,
+        model: str = ClaudeModel.HAIKU_4_5.value,
         max_tokens: int = 16000,
         enable_thinking: bool = False,
         thinking_budget: int = 10000,
@@ -291,9 +291,9 @@ Please provide a helpful response:"""
         rfp_id: str,
         section_type: str,
         db_session: Any | None = None,
-        use_thinking: bool = True,
+        use_thinking: bool = False,
         thinking_budget: int = 10000,
-        model: str = "claude-sonnet-4-5-20250929",
+        model: str | None = None,
     ) -> AsyncGenerator[str, None]:
         """
         Stream proposal section generation with full RFP context.
@@ -302,13 +302,23 @@ Please provide a helpful response:"""
             rfp_id: The RFP ID
             section_type: Type of section (executive_summary, technical_approach, etc.)
             db_session: Database session
-            use_thinking: Enable thinking mode for better quality
+            use_thinking: Enable thinking mode (only available for Sonnet/Opus)
             thinking_budget: Tokens for thinking
-            model: Claude model to use (sonnet or opus)
+            model: Claude model to use (haiku, sonnet, opus). Defaults to Haiku.
 
         Yields:
             SSE-formatted data chunks
         """
+        # Default to Haiku if no model specified
+        if model is None:
+            model = ClaudeModel.HAIKU_4_5.value
+
+        # Haiku doesn't support extended thinking - auto-disable if Haiku selected
+        is_haiku = "haiku" in model.lower()
+        if is_haiku and use_thinking:
+            logger.info("Thinking mode not supported for Haiku, disabling")
+            use_thinking = False
+
         # Get RFP, company profile, Q&A, and documents
         rfp_data = {}
         company_profile = {}

@@ -6,21 +6,22 @@ Provides endpoints for:
 - Processing documents and adding to RAG index
 - Listing and deleting uploaded documents
 """
+
 import logging
 import os
 import sys
 import uuid
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import List
 
-from fastapi import APIRouter, File, HTTPException, UploadFile, BackgroundTasks
-from pydantic import BaseModel, Field
-
-from app.dependencies import DBDep, RFPDep
+from app.dependencies import RFPDep
+from fastapi import APIRouter, BackgroundTasks, File, HTTPException, UploadFile
+from pydantic import BaseModel
 
 # Add project root to path
-project_root = os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(__file__)))))
+project_root = os.path.dirname(
+    os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(__file__))))
+)
 if project_root not in sys.path:
     sys.path.insert(0, project_root)
 
@@ -28,12 +29,13 @@ logger = logging.getLogger(__name__)
 router = APIRouter()
 
 # Allowed file extensions
-ALLOWED_EXTENSIONS = {'.pdf', '.docx', '.doc', '.txt', '.md', '.xlsx', '.xls'}
+ALLOWED_EXTENSIONS = {".pdf", ".docx", ".doc", ".txt", ".md", ".xlsx", ".xls"}
 MAX_FILE_SIZE = 50 * 1024 * 1024  # 50MB
 
 
 class UploadedDocument(BaseModel):
     """Response model for uploaded document."""
+
     id: str
     filename: str
     file_type: str
@@ -46,12 +48,14 @@ class UploadedDocument(BaseModel):
 
 class DocumentListResponse(BaseModel):
     """Response model for document list."""
-    documents: List[UploadedDocument]
+
+    documents: list[UploadedDocument]
     total: int
 
 
 class ProcessingStatus(BaseModel):
     """Status of document processing."""
+
     document_id: str
     status: str  # pending, processing, completed, failed
     progress: float = 0
@@ -76,11 +80,12 @@ def extract_text_from_file(filepath: Path) -> str:
     suffix = filepath.suffix.lower()
 
     try:
-        if suffix == '.txt' or suffix == '.md':
-            text = filepath.read_text(encoding='utf-8')
-        elif suffix == '.pdf':
+        if suffix == ".txt" or suffix == ".md":
+            text = filepath.read_text(encoding="utf-8")
+        elif suffix == ".pdf":
             try:
                 import fitz  # PyMuPDF
+
                 doc = fitz.open(str(filepath))
                 for page in doc:
                     text += page.get_text()
@@ -89,6 +94,7 @@ def extract_text_from_file(filepath: Path) -> str:
                 logger.warning("PyMuPDF not installed, trying pdfplumber")
                 try:
                     import pdfplumber
+
                     with pdfplumber.open(str(filepath)) as pdf:
                         for page in pdf.pages:
                             page_text = page.extract_text()
@@ -96,35 +102,31 @@ def extract_text_from_file(filepath: Path) -> str:
                                 text += page_text + "\n"
                 except ImportError:
                     raise HTTPException(
-                        status_code=500,
-                        detail="PDF processing libraries not available"
+                        status_code=500, detail="PDF processing libraries not available"
                     )
-        elif suffix in {'.docx', '.doc'}:
+        elif suffix in {".docx", ".doc"}:
             try:
                 from docx import Document
+
                 doc = Document(str(filepath))
                 text = "\n".join([para.text for para in doc.paragraphs])
             except ImportError:
                 raise HTTPException(
-                    status_code=500,
-                    detail="DOCX processing library not available"
+                    status_code=500, detail="DOCX processing library not available"
                 )
-        elif suffix in {'.xlsx', '.xls'}:
+        elif suffix in {".xlsx", ".xls"}:
             try:
                 import pandas as pd
+
                 df = pd.read_excel(str(filepath))
                 text = df.to_string()
             except ImportError:
                 raise HTTPException(
-                    status_code=500,
-                    detail="Excel processing library not available"
+                    status_code=500, detail="Excel processing library not available"
                 )
     except Exception as e:
         logger.error(f"Failed to extract text from {filepath}: {e}")
-        raise HTTPException(
-            status_code=500,
-            detail=f"Failed to extract text: {str(e)}"
-        )
+        raise HTTPException(status_code=500, detail=f"Failed to extract text: {str(e)}")
 
     return text
 
@@ -161,7 +163,7 @@ def process_document_for_rag(
         words = text.split()
 
         for i in range(0, len(words), chunk_size - overlap):
-            chunk = " ".join(words[i:i + chunk_size])
+            chunk = " ".join(words[i : i + chunk_size])
             if chunk.strip():
                 chunks.append(chunk)
 
@@ -171,7 +173,10 @@ def process_document_for_rag(
         # Add to RAG index
         try:
             from src.rag.chroma_rag_engine import get_rag_engine
+
             rag_engine = get_rag_engine()
+            if not rag_engine:
+                raise RuntimeError("RAG engine not available")
 
             # Create document IDs and metadata for each chunk
             doc_ids = [f"{document_id}_chunk_{i}" for i in range(len(chunks))]
@@ -228,7 +233,7 @@ async def upload_document(
     if file_ext not in ALLOWED_EXTENSIONS:
         raise HTTPException(
             status_code=400,
-            detail=f"File type not allowed. Supported: {', '.join(ALLOWED_EXTENSIONS)}"
+            detail=f"File type not allowed. Supported: {', '.join(ALLOWED_EXTENSIONS)}",
         )
 
     # Read file content
@@ -238,14 +243,11 @@ async def upload_document(
     if file_size > MAX_FILE_SIZE:
         raise HTTPException(
             status_code=400,
-            detail=f"File too large. Maximum size: {MAX_FILE_SIZE // (1024*1024)}MB"
+            detail=f"File too large. Maximum size: {MAX_FILE_SIZE // (1024 * 1024)}MB",
         )
 
     if file_size == 0:
-        raise HTTPException(
-            status_code=400,
-            detail="Empty file"
-        )
+        raise HTTPException(status_code=400, detail="Empty file")
 
     # Generate document ID and save file
     document_id = f"doc-{uuid.uuid4().hex[:12]}"
@@ -267,7 +269,7 @@ async def upload_document(
     return UploadedDocument(
         id=document_id,
         filename=filename,
-        file_type=file_ext.lstrip('.'),
+        file_type=file_ext.lstrip("."),
         file_size=file_size,
         uploaded_at=datetime.now(timezone.utc).isoformat(),
         status="processing",
@@ -286,18 +288,20 @@ async def list_uploaded_documents(rfp: RFPDep):
                 doc_id = filepath.stem
                 status = _processing_status.get(doc_id)
 
-                documents.append(UploadedDocument(
-                    id=doc_id,
-                    filename=filepath.name,
-                    file_type=filepath.suffix.lstrip('.'),
-                    file_size=filepath.stat().st_size,
-                    uploaded_at=datetime.fromtimestamp(
-                        filepath.stat().st_mtime, tz=timezone.utc
-                    ).isoformat(),
-                    status=status.status if status else "completed",
-                    chunks_count=status.chunks_created if status else None,
-                    error=status.error if status else None,
-                ))
+                documents.append(
+                    UploadedDocument(
+                        id=doc_id,
+                        filename=filepath.name,
+                        file_type=filepath.suffix.lstrip("."),
+                        file_size=filepath.stat().st_size,
+                        uploaded_at=datetime.fromtimestamp(
+                            filepath.stat().st_mtime, tz=timezone.utc
+                        ).isoformat(),
+                        status=status.status if status else "completed",
+                        chunks_count=status.chunks_created if status else None,
+                        error=status.error if status else None,
+                    )
+                )
 
     return DocumentListResponse(
         documents=sorted(documents, key=lambda d: d.uploaded_at, reverse=True),

@@ -43,7 +43,8 @@ def migrate():
     print("\n1. Initializing ChromaDB engine...")
     try:
         engine = get_rag_engine()
-        print(f"   ChromaDB path: {engine._persist_directory}")
+        stats = engine.get_statistics()
+        print(f"   ChromaDB path: {stats.get('persist_directory', 'unknown')}")
     except Exception as e:
         print(f"   ERROR: {e}")
         sys.exit(1)
@@ -55,12 +56,14 @@ def migrate():
     print(f"   Documents: {stats['total_documents']}")
 
     # Build if empty
-    if stats['total_documents'] == 0:
+    if stats["total_documents"] == 0:
         print("\n3. Collection is empty, building from parquet files...")
         try:
             engine.build_index(force_rebuild=True)
             new_stats = engine.get_statistics()
-            print(f"   Build complete: {new_stats['total_documents']} documents indexed")
+            print(
+                f"   Build complete: {new_stats['total_documents']} documents indexed"
+            )
         except Exception as e:
             print(f"   ERROR during build: {e}")
             sys.exit(1)
@@ -84,10 +87,12 @@ def migrate():
     print(f"  - Collection: {final_stats['collection_name']}")
     print(f"  - Total documents: {final_stats['total_documents']}")
     print(f"  - Persist directory: {final_stats['persist_directory']}")
-    print(f"  - Status: {'SUCCESS' if final_stats['total_documents'] > 0 else 'EMPTY (run rebuild)'}")
+    print(
+        f"  - Status: {'SUCCESS' if final_stats['total_documents'] > 0 else 'EMPTY (run rebuild)'}"
+    )
     print("=" * 60)
 
-    return final_stats['total_documents'] > 0
+    return final_stats["total_documents"] > 0
 
 
 def force_rebuild():
@@ -95,6 +100,7 @@ def force_rebuild():
     print("Force rebuilding ChromaDB index...")
 
     from src.rag.chroma_rag_engine import get_rag_engine
+
     engine = get_rag_engine()
 
     print(f"Current documents: {engine.collection.count()}")
@@ -110,7 +116,9 @@ if __name__ == "__main__":
     import argparse
 
     parser = argparse.ArgumentParser(description="Migrate RAG system to ChromaDB")
-    parser.add_argument("--force", action="store_true", help="Force rebuild even if documents exist")
+    parser.add_argument(
+        "--force", action="store_true", help="Force rebuild even if documents exist"
+    )
     args = parser.parse_args()
 
     if args.force:

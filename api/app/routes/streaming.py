@@ -66,11 +66,13 @@ async def stream_section_generation(
     rfp_id: str,
     section_type: str,
     db: DBDep,
-    use_thinking: Annotated[bool, Query(description="Enable thinking mode")] = True,
+    use_thinking: Annotated[
+        bool, Query(description="Enable thinking mode (only Sonnet/Opus)")
+    ] = False,
     thinking_budget: Annotated[int, Query(ge=1000, le=50000)] = 10000,
     model: Annotated[
-        str, Query(description="Model: haiku, sonnet, opus, or full model ID")
-    ] = "sonnet",
+        str, Query(description="Model: haiku (default), sonnet, opus")
+    ] = "haiku",
 ) -> StreamingResponse:
     """
     Stream proposal section generation for an RFP.
@@ -229,6 +231,7 @@ async def get_streaming_status() -> dict:
     - anthropic_available: Whether Anthropic client is configured
     - rag_available: Whether RAG engine is available
     - ready: Whether streaming is fully operational
+    - models: Available models and their capabilities
     """
     import os
 
@@ -246,6 +249,25 @@ async def get_streaming_status() -> dict:
         "anthropic_available": anthropic_available,
         "rag_available": rag_available,
         "ready": anthropic_available,
+        "models": {
+            "haiku": {
+                "id": ClaudeModel.HAIKU_4_5.value,
+                "description": "Fast, cost-effective (default)",
+                "thinking_supported": False,
+            },
+            "sonnet": {
+                "id": ClaudeModel.SONNET_4_5.value,
+                "description": "Balanced speed and quality",
+                "thinking_supported": True,
+            },
+            "opus": {
+                "id": ClaudeModel.OPUS_4_5.value,
+                "description": "Highest quality, premium",
+                "thinking_supported": True,
+            },
+        },
+        "default_model": "haiku",
+        "default_thinking": False,
         "supported_sections": [
             "executive_summary",
             "technical_approach",

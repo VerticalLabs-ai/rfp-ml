@@ -6,10 +6,11 @@ This replaces the FAISS-based implementation with ChromaDB for:
 - Automatic index management
 - Simpler API with better error handling
 """
+
 import logging
 import threading
+import uuid
 from pathlib import Path
-from typing import Any, Optional
 
 logger = logging.getLogger(__name__)
 
@@ -56,14 +57,12 @@ class ChromaRAGEngine:
 
             # ChromaDB with persistent storage
             self.client = chromadb.PersistentClient(
-                path=persist_directory,
-                settings=Settings(anonymized_telemetry=False)
+                path=persist_directory, settings=Settings(anonymized_telemetry=False)
             )
 
             # Create or get collection with cosine similarity
             self.collection = self.client.get_or_create_collection(
-                name="rfp_documents",
-                metadata={"hnsw:space": "cosine"}
+                name="rfp_documents", metadata={"hnsw:space": "cosine"}
             )
 
             self._persist_directory = persist_directory
@@ -74,7 +73,9 @@ class ChromaRAGEngine:
 
         except ImportError as e:
             logger.error(f"ChromaDB not installed: {e}")
-            raise ImportError("chromadb package required. Install with: pip install chromadb>=1.0.0")
+            raise ImportError(
+                "chromadb package required. Install with: pip install chromadb>=1.0.0"
+            ) from e
         except Exception as e:
             logger.error(f"Failed to initialize ChromaDB: {e}")
             raise
@@ -85,7 +86,8 @@ class ChromaRAGEngine:
         if self._embedding_model is None:
             try:
                 from sentence_transformers import SentenceTransformer
-                self._embedding_model = SentenceTransformer('all-MiniLM-L6-v2')
+
+                self._embedding_model = SentenceTransformer("all-MiniLM-L6-v2")
                 logger.info("Loaded embedding model: all-MiniLM-L6-v2")
             except ImportError:
                 logger.error("sentence-transformers not installed")
@@ -94,14 +96,10 @@ class ChromaRAGEngine:
 
     @property
     def is_built(self) -> bool:
-        """ChromaDB is always ready - persistence is automatic."""
-        return True
+        """Returns True if the collection has documents."""
+        return self.collection.count() > 0
 
-    def add_documents(
-        self,
-        documents: list[dict],
-        ids: list[str] = None
-    ) -> int:
+    def add_documents(self, documents: list[dict], ids: list[str] = None) -> int:
         """
         Add documents to the collection.
 
@@ -128,8 +126,7 @@ class ChromaRAGEngine:
 
         # Generate IDs if not provided
         if ids is None:
-            existing_count = self.collection.count()
-            valid_ids = [f"doc_{existing_count + i}" for i in range(len(valid_docs))]
+            valid_ids = [str(uuid.uuid4()) for _ in range(len(valid_docs))]
         else:
             valid_ids = [ids[i] for i in valid_indices]
 
@@ -161,20 +158,19 @@ class ChromaRAGEngine:
                 ids=batch_ids,
                 embeddings=batch_embeddings,
                 documents=batch_texts,
-                metadatas=batch_metas
+                metadatas=batch_metas,
             )
 
             total_added += len(batch_texts)
-            logger.info(f"Added batch {batch_start}-{batch_end} ({len(batch_texts)} docs)")
+            logger.info(
+                f"Added batch {batch_start}-{batch_end} ({len(batch_texts)} docs)"
+            )
 
         logger.info(f"Added {total_added} documents to collection")
         return total_added
 
     def retrieve(
-        self,
-        query: str,
-        top_k: int = 5,
-        similarity_threshold: float = 0.3
+        self, query: str, top_k: int = 5, similarity_threshold: float = 0.3
     ) -> list[dict]:
         """
         Retrieve relevant documents for a query.
@@ -199,7 +195,7 @@ class ChromaRAGEngine:
         results = self.collection.query(
             query_embeddings=query_embedding,
             n_results=n_results,
-            include=["documents", "metadatas", "distances"]
+            include=["documents", "metadatas", "distances"],
         )
 
         # Convert distances to similarities and filter by threshold
@@ -209,25 +205,32 @@ class ChromaRAGEngine:
         if not results["documents"] or not results["documents"][0]:
             return []
 
-        for i, (doc, meta, dist) in enumerate(zip(
-            results["documents"][0],
-            results["metadatas"][0],
-            results["distances"][0]
-        )):
+        for i, (doc, meta, dist) in enumerate(
+            zip(
+                results["documents"][0],
+                results["metadatas"][0],
+                results["distances"][0],
+                strict=True,
+            )
+        ):
             # For cosine distance, similarity = 1 - distance
             # ChromaDB with hnsw:space=cosine returns squared L2 distance of normalized vectors
             # which equals 2 * (1 - cosine_similarity)
             similarity = 1 - (dist / 2)
 
             if similarity >= similarity_threshold:
-                retrieved.append({
-                    "content": doc,
-                    "metadata": meta,
-                    "similarity": round(similarity, 4),
-                    "document_id": results["ids"][0][i]
-                })
+                retrieved.append(
+                    {
+                        "content": doc,
+                        "metadata": meta,
+                        "similarity": round(similarity, 4),
+                        "document_id": results["ids"][0][i],
+                    }
+                )
 
-        logger.info(f"Retrieved {len(retrieved)} documents for query (threshold={similarity_threshold})")
+        logger.info(
+            f"Retrieved {len(retrieved)} documents for query (threshold={similarity_threshold})"
+        )
         return retrieved
 
     def get_statistics(self) -> dict:
@@ -237,7 +240,7 @@ class ChromaRAGEngine:
             "collection_name": self.collection.name,
             "persist_directory": self._persist_directory,
             "is_built": True,
-            "embedding_available": self._embedding_model is not None or True,  # Will lazy load
+            "embedding_available": True,  # Always True - model lazy-loads on first use
             "total_vectors": self.collection.count(),  # Compatibility with old API
         }
 
@@ -294,12 +297,11 @@ class ChromaRAGEngine:
         # Clear existing collection
         try:
             self.client.delete_collection("rfp_documents")
-        except Exception:
-            pass  # Collection may not exist
+        except Exception as e:
+            logger.debug(f"Collection deletion skipped (may not exist): {e}")
 
         self.collection = self.client.create_collection(
-            name="rfp_documents",
-            metadata={"hnsw:space": "cosine"}
+            name="rfp_documents", metadata={"hnsw:space": "cosine"}
         )
 
         # Load and index all parquet files
@@ -321,19 +323,23 @@ class ChromaRAGEngine:
                 for idx, row in df.iterrows():
                     content = self._extract_content(row)
                     if content and content.strip():
-                        documents.append({
-                            "content": content,
-                            "title": str(row.get("title", "")),
-                            "agency": str(row.get("agency", "")),
-                            "naics_code": str(row.get("naics_code", "")),
-                            "source_file": parquet_file.name,
-                        })
+                        documents.append(
+                            {
+                                "content": content,
+                                "title": str(row.get("title", "")),
+                                "agency": str(row.get("agency", "")),
+                                "naics_code": str(row.get("naics_code", "")),
+                                "source_file": parquet_file.name,
+                            }
+                        )
                         ids.append(f"{parquet_file.stem}_{idx}")
 
                 if documents:
                     self.add_documents(documents, ids)
                     total_docs += len(documents)
-                    logger.info(f"Indexed {len(documents)} docs from {parquet_file.name}")
+                    logger.info(
+                        f"Indexed {len(documents)} docs from {parquet_file.name}"
+                    )
 
             except Exception as e:
                 logger.error(f"Failed to process {parquet_file}: {e}")
@@ -342,9 +348,16 @@ class ChromaRAGEngine:
 
     def _extract_content(self, row) -> str:
         """Extract searchable content from a dataframe row."""
+        import pandas as pd  # Ensure availability
+
         fields = [
-            "title", "description", "agency", "requirements",
-            "scope", "solicitation_number", "naics_code"
+            "title",
+            "description",
+            "agency",
+            "requirements",
+            "scope",
+            "solicitation_number",
+            "naics_code",
         ]
         parts = []
         for field in fields:
@@ -362,7 +375,7 @@ class ChromaRAGEngine:
 
 
 # Thread-safe singleton instance
-_engine_instance: Optional[ChromaRAGEngine] = None
+_engine_instance: ChromaRAGEngine | None = None
 _engine_lock = threading.Lock()
 
 

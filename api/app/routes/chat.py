@@ -9,6 +9,7 @@ Features:
 - RAG-powered context retrieval
 - Streaming support via SSE
 """
+
 import logging
 import uuid
 from datetime import datetime, timezone
@@ -24,6 +25,7 @@ router = APIRouter()
 
 class ChatMessage(BaseModel):
     """A single chat message."""
+
     role: str = Field(..., description="Message role: 'user' or 'assistant'")
     content: str = Field(..., description="Message content")
     timestamp: str | None = None
@@ -31,17 +33,21 @@ class ChatMessage(BaseModel):
 
 class ChatRequest(BaseModel):
     """Request body for chat endpoint."""
-    message: str = Field(..., min_length=1, max_length=2000, description="User's question")
+
+    message: str = Field(
+        ..., min_length=1, max_length=2000, description="User's question"
+    )
     session_id: str | None = Field(None, description="Session ID for persistence")
     history: list[ChatMessage] = Field(
         default_factory=list,
         max_length=20,
-        description="Previous conversation messages (used if no session_id)"
+        description="Previous conversation messages (used if no session_id)",
     )
 
 
 class SessionResponse(BaseModel):
     """Response for session operations."""
+
     session_id: str
     rfp_id: str
     title: str | None
@@ -52,12 +58,14 @@ class SessionResponse(BaseModel):
 
 class SessionListResponse(BaseModel):
     """Response for listing sessions."""
+
     sessions: list[SessionResponse]
     total: int
 
 
 class Citation(BaseModel):
     """A citation from retrieved documents."""
+
     document_id: str
     content_snippet: str
     source: str
@@ -66,6 +74,7 @@ class Citation(BaseModel):
 
 class ChatResponse(BaseModel):
     """Response from the chat endpoint."""
+
     answer: str
     citations: list[Citation]
     confidence: float
@@ -92,7 +101,7 @@ def build_chat_prompt(
     context: str,
     history: list[ChatMessage],
     rfp_title: str,
-    rfp_agency: str | None
+    rfp_agency: str | None,
 ) -> str:
     """Build a prompt for the LLM with context and history."""
     # Build conversation history string
@@ -124,22 +133,31 @@ Provide a helpful, accurate response based on the context above. If citing speci
 
 
 def extract_citations(
-    retrieved_docs: list[Any],
-    max_citations: int = 3
+    retrieved_docs: list[Any], max_citations: int = 3
 ) -> list[Citation]:
     """Extract citations from retrieved documents."""
     citations = []
     for doc in retrieved_docs[:max_citations]:
         # Get a snippet of the content
-        content = doc.content if hasattr(doc, 'content') else str(doc)
+        content = doc.content if hasattr(doc, "content") else str(doc)
         snippet = content[:200] + "..." if len(content) > 200 else content
 
-        citations.append(Citation(
-            document_id=doc.document_id if hasattr(doc, 'document_id') else "unknown",
-            content_snippet=snippet,
-            source=doc.source_dataset if hasattr(doc, 'source_dataset') else "RFP Document",
-            similarity_score=doc.similarity_score if hasattr(doc, 'similarity_score') else 0.0
-        ))
+        citations.append(
+            Citation(
+                document_id=(
+                    doc.document_id if hasattr(doc, "document_id") else "unknown"
+                ),
+                content_snippet=snippet,
+                source=(
+                    doc.source_dataset
+                    if hasattr(doc, "source_dataset")
+                    else "RFP Document"
+                ),
+                similarity_score=(
+                    doc.similarity_score if hasattr(doc, "similarity_score") else 0.0
+                ),
+            )
+        )
     return citations
 
 
@@ -155,7 +173,9 @@ async def chat_with_rfp(rfp: RFPDep, request: ChatRequest, db: DBDep):
     persists messages to it. Otherwise, uses the history from the request.
     """
     import time
-    from app.models.database import ChatSession, ChatMessage as DBChatMessage
+
+    from app.models.database import ChatMessage as DBChatMessage
+    from app.models.database import ChatSession
 
     start_time = time.time()
     session = None
@@ -164,11 +184,15 @@ async def chat_with_rfp(rfp: RFPDep, request: ChatRequest, db: DBDep):
     try:
         # Load session if session_id is provided
         if request.session_id:
-            session = db.query(ChatSession).filter(
-                ChatSession.session_id == request.session_id,
-                ChatSession.rfp_id == rfp.id,
-                ChatSession.is_active == True,
-            ).first()
+            session = (
+                db.query(ChatSession)
+                .filter(
+                    ChatSession.session_id == request.session_id,
+                    ChatSession.rfp_id == rfp.id,
+                    ChatSession.is_active is True,
+                )
+                .first()
+            )
 
             if session:
                 # Load history from session (last 10 messages for context)
@@ -182,22 +206,25 @@ async def chat_with_rfp(rfp: RFPDep, request: ChatRequest, db: DBDep):
                     for m in db_messages
                 ]
             else:
-                logger.warning(f"Session {request.session_id} not found, using request history")
+                logger.warning(
+                    f"Session {request.session_id} not found, using request history"
+                )
 
         # Import RAG and LLM components
-        from src.rag.chroma_rag_engine import get_rag_engine
         from src.config.llm_adapter import create_llm_interface
+        from src.rag.chroma_rag_engine import get_rag_engine
 
         # Initialize components
         rag_engine = get_rag_engine()
+        if not rag_engine:
+            raise HTTPException(status_code=503, detail="RAG engine not available")
         llm = create_llm_interface()
 
         # ChromaDB is always ready (persistence is automatic)
         if rag_engine.collection.count() == 0:
             logger.warning("RAG collection is empty")
             raise HTTPException(
-                status_code=503,
-                detail="RAG index is empty. Please rebuild the index."
+                status_code=503, detail="RAG index is empty. Please rebuild the index."
             )
 
         # Enhance query with RFP context for better retrieval
@@ -221,7 +248,7 @@ async def chat_with_rfp(rfp: RFPDep, request: ChatRequest, db: DBDep):
                 context=rag_context.context_text,
                 history=history,
                 rfp_title=rfp.title,
-                rfp_agency=rfp.agency
+                rfp_agency=rfp.agency,
             )
 
             # Generate response using LLM
@@ -240,7 +267,9 @@ async def chat_with_rfp(rfp: RFPDep, request: ChatRequest, db: DBDep):
                 # Fallback: Summarize retrieved content
                 answer = "Based on the available documents:\n\n"
                 for i, doc in enumerate(rag_context.retrieved_documents[:3], 1):
-                    content = doc.content[:300] if len(doc.content) > 300 else doc.content
+                    content = (
+                        doc.content[:300] if len(doc.content) > 300 else doc.content
+                    )
                     answer += f"{i}. {content}\n\n"
                 confidence = 0.5
 
@@ -278,7 +307,9 @@ async def chat_with_rfp(rfp: RFPDep, request: ChatRequest, db: DBDep):
                 db.commit()
             except Exception:
                 db.rollback()
-                logger.exception(f"Failed to persist chat messages for session {session.session_id}")
+                logger.exception(
+                    f"Failed to persist chat messages for session {session.session_id}"
+                )
 
         return ChatResponse(
             answer=answer,
@@ -294,8 +325,7 @@ async def chat_with_rfp(rfp: RFPDep, request: ChatRequest, db: DBDep):
     except Exception as e:
         logger.error(f"Chat error for RFP {rfp.rfp_id}: {e}")
         raise HTTPException(
-            status_code=500,
-            detail=f"Failed to process chat request: {str(e)}"
+            status_code=500, detail=f"Failed to process chat request: {str(e)}"
         )
 
 
@@ -313,23 +343,26 @@ async def get_chat_suggestions(rfp: RFPDep):
     specific_suggestions = []
 
     if rfp.naics_code:
-        specific_suggestions.append(f"What NAICS code ({rfp.naics_code}) experience is required?")
+        specific_suggestions.append(
+            f"What NAICS code ({rfp.naics_code}) experience is required?"
+        )
 
     if rfp.agency:
         specific_suggestions.append(f"What is {rfp.agency}'s evaluation process?")
 
     if rfp.response_deadline:
-        specific_suggestions.append("What documents must be included in the submission?")
+        specific_suggestions.append(
+            "What documents must be included in the submission?"
+        )
 
     if rfp.category:
-        specific_suggestions.append(f"What are typical requirements for {rfp.category} contracts?")
+        specific_suggestions.append(
+            f"What are typical requirements for {rfp.category} contracts?"
+        )
 
     # Combine and limit
     all_suggestions = specific_suggestions + suggestions
-    return {
-        "rfp_id": rfp.rfp_id,
-        "suggestions": all_suggestions[:10]
-    }
+    return {"rfp_id": rfp.rfp_id, "suggestions": all_suggestions[:10]}
 
 
 @router.post("/{rfp_id}/sessions")
@@ -378,10 +411,11 @@ async def list_chat_sessions(
     """
     from app.models.database import ChatSession
 
-    query = db.query(ChatSession).filter(
-        ChatSession.rfp_id == rfp.id,
-        ChatSession.is_active == True
-    ).order_by(ChatSession.updated_at.desc())
+    query = (
+        db.query(ChatSession)
+        .filter(ChatSession.rfp_id == rfp.id, ChatSession.is_active is True)
+        .order_by(ChatSession.updated_at.desc())
+    )
 
     total = query.count()
     sessions = query.offset(skip).limit(limit).all()
@@ -394,7 +428,9 @@ async def list_chat_sessions(
                 title=s.title,
                 message_count=s.message_count,
                 created_at=s.created_at.isoformat(),
-                last_message_at=s.last_message_at.isoformat() if s.last_message_at else None,
+                last_message_at=(
+                    s.last_message_at.isoformat() if s.last_message_at else None
+                ),
             )
             for s in sessions
         ],
@@ -413,10 +449,14 @@ async def get_chat_session(
     """
     from app.models.database import ChatSession
 
-    session = db.query(ChatSession).filter(
-        ChatSession.session_id == session_id,
-        ChatSession.rfp_id == rfp.id,
-    ).first()
+    session = (
+        db.query(ChatSession)
+        .filter(
+            ChatSession.session_id == session_id,
+            ChatSession.rfp_id == rfp.id,
+        )
+        .first()
+    )
 
     if not session:
         raise HTTPException(status_code=404, detail="Session not found")
@@ -439,10 +479,14 @@ async def delete_chat_session(
     """
     from app.models.database import ChatSession
 
-    session = db.query(ChatSession).filter(
-        ChatSession.session_id == session_id,
-        ChatSession.rfp_id == rfp.id,
-    ).first()
+    session = (
+        db.query(ChatSession)
+        .filter(
+            ChatSession.session_id == session_id,
+            ChatSession.rfp_id == rfp.id,
+        )
+        .first()
+    )
 
     if not session:
         raise HTTPException(status_code=404, detail="Session not found")
@@ -465,31 +509,38 @@ async def get_chat_status(rfp: RFPDep):
         "chat_available": False,
         "rag_status": "unknown",
         "llm_status": "unknown",
-        "message": ""
+        "message": "",
     }
 
     try:
         from src.rag.chroma_rag_engine import get_rag_engine
+
         rag = get_rag_engine()
-        doc_count = rag.collection.count()
-        status["rag_status"] = "ready" if doc_count > 0 else "empty"
-        status["rag_documents"] = doc_count
+        if rag:
+            doc_count = rag.collection.count()
+            status["rag_status"] = "ready" if doc_count > 0 else "empty"
+            status["rag_documents"] = doc_count
+        else:
+            status["rag_status"] = "not_initialized"
+            status["rag_documents"] = 0
     except Exception as e:
         status["rag_status"] = f"error: {str(e)}"
 
     try:
         from src.config.llm_adapter import create_llm_interface
+
         llm = create_llm_interface()
         llm_status = llm.get_status()
-        status["llm_status"] = "ready" if llm_status.get("current_backend") else "not_configured"
+        status["llm_status"] = (
+            "ready" if llm_status.get("current_backend") else "not_configured"
+        )
         status["llm_backend"] = llm_status.get("current_backend", "unknown")
     except Exception as e:
         status["llm_status"] = f"error: {str(e)}"
 
     # Determine overall availability
     status["chat_available"] = (
-        status["rag_status"] == "ready" and
-        status["llm_status"] == "ready"
+        status["rag_status"] == "ready" and status["llm_status"] == "ready"
     )
 
     if status["chat_available"]:

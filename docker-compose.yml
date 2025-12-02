@@ -33,14 +33,29 @@ services:
     environment:
       - PYTHONPATH=/app:/app/api
     working_dir: /app/api
-    command: ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000", "--reload"]
+    command:
+      [
+        "uvicorn",
+        "app.main:app",
+        "--host",
+        "0.0.0.0",
+        "--port",
+        "8000",
+        "--reload",
+      ]
     restart: unless-stopped
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
       interval: 30s
       timeout: 10s
       retries: 5
-      start_period: 60s  # Increased for RAG initialization
+      # RAG initialization timing:
+      # - Warm start (existing ChromaDB): ~10 seconds ✅
+      # - Cold start (rebuild from parquet): 4-12 minutes ⚠️
+      # Set to 10 minutes to accommodate worst-case cold start scenarios
+      # Note: RAG rebuild happens synchronously in lifespan() startup
+      # Future improvement: Consider async RAG initialization for faster startup
+      start_period: 600s # 10 minutes for cold start RAG rebuild
     networks:
       - rfp_network
 

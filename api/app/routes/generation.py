@@ -5,6 +5,7 @@ Provides GovGPT-style AI writing assistance for proposal sections with
 slash-command functionality, context-aware content generation, and
 style-matched output.
 """
+
 import logging
 import os
 import shutil
@@ -17,7 +18,9 @@ from fastapi import APIRouter, File, HTTPException, UploadFile
 from pydantic import BaseModel, Field, field_validator
 
 # Add project root
-sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "../../../")))
+sys.path.insert(
+    0, os.path.abspath(os.path.join(os.path.dirname(__file__), "../../../"))
+)
 
 from app.core.config import settings
 from app.dependencies import RFPDep
@@ -42,6 +45,7 @@ def get_llm_manager():
 
 class WriterCommand(str, Enum):
     """Available AI Writer slash commands matching GovGPT functionality."""
+
     EXECUTIVE_SUMMARY = "executive-summary"
     TECHNICAL_APPROACH = "technical-approach"
     PAST_PERFORMANCE = "past-performance"
@@ -75,7 +79,7 @@ Create a 3-4 paragraph executive summary that:
 4. Includes relevant past performance highlights
 
 Maintain a professional, confident tone. Maximum {max_words} words.""",
-        "default_max_words": 400
+        "default_max_words": 400,
     },
     WriterCommand.TECHNICAL_APPROACH: {
         "name": "Technical Approach",
@@ -95,7 +99,7 @@ Create a comprehensive technical approach that includes:
 5. Deliverables and milestones
 
 Use clear, technical language appropriate for evaluators. Maximum {max_words} words.""",
-        "default_max_words": 600
+        "default_max_words": 600,
     },
     WriterCommand.PAST_PERFORMANCE: {
         "name": "Past Performance",
@@ -115,7 +119,7 @@ Create past performance narratives that:
 5. Reference positive CPARs or customer testimonials
 
 Use the STAR format (Situation, Task, Action, Result). Maximum {max_words} words.""",
-        "default_max_words": 500
+        "default_max_words": 500,
     },
     WriterCommand.MANAGEMENT_APPROACH: {
         "name": "Management Approach",
@@ -135,7 +139,7 @@ Create a management approach that covers:
 5. Contract management procedures
 
 Include an organizational chart description. Maximum {max_words} words.""",
-        "default_max_words": 450
+        "default_max_words": 450,
     },
     WriterCommand.STAFFING_PLAN: {
         "name": "Staffing Plan",
@@ -155,7 +159,7 @@ Create a staffing plan that includes:
 5. Contingency staffing plans
 
 Align with labor category requirements. Maximum {max_words} words.""",
-        "default_max_words": 400
+        "default_max_words": 400,
     },
     WriterCommand.QUALITY_CONTROL: {
         "name": "Quality Control Plan",
@@ -175,7 +179,7 @@ Create a QC/QA plan that addresses:
 5. Continuous improvement methodology
 
 Reference applicable standards (ISO, CMMI, etc.). Maximum {max_words} words.""",
-        "default_max_words": 400
+        "default_max_words": 400,
     },
     WriterCommand.RISK_MITIGATION: {
         "name": "Risk Mitigation",
@@ -195,7 +199,7 @@ Create a risk management plan that:
 5. Includes a risk matrix or summary
 
 Use standard risk management terminology. Maximum {max_words} words.""",
-        "default_max_words": 400
+        "default_max_words": 400,
     },
     WriterCommand.TRANSITION_PLAN: {
         "name": "Transition Plan",
@@ -215,7 +219,7 @@ Create a comprehensive transition plan covering:
 5. Transition-out planning for contract end
 
 Include specific milestones and deliverables. Maximum {max_words} words.""",
-        "default_max_words": 450
+        "default_max_words": 450,
     },
     WriterCommand.COMPLIANCE_MATRIX: {
         "name": "Compliance Matrix",
@@ -235,7 +239,7 @@ Create a compliance narrative that:
 5. References supporting documentation
 
 Use clear, direct compliance language. Maximum {max_words} words.""",
-        "default_max_words": 350
+        "default_max_words": 350,
     },
     WriterCommand.PRICING_NARRATIVE: {
         "name": "Pricing Narrative",
@@ -255,7 +259,7 @@ Create a pricing narrative that explains:
 5. Assumptions and exclusions
 
 Maintain compliance with FAR pricing requirements. Maximum {max_words} words.""",
-        "default_max_words": 400
+        "default_max_words": 400,
     },
     WriterCommand.COVER_LETTER: {
         "name": "Cover Letter",
@@ -275,7 +279,7 @@ Create a professional cover letter that:
 5. Provides point of contact information
 
 Keep it concise and professional. Maximum {max_words} words.""",
-        "default_max_words": 250
+        "default_max_words": 250,
     },
     WriterCommand.CAPABILITY_STATEMENT: {
         "name": "Capability Statement",
@@ -295,7 +299,7 @@ Create a one-page capability statement including:
 5. Contact information and certifications
 
 Format for easy scanning. Maximum {max_words} words.""",
-        "default_max_words": 350
+        "default_max_words": 350,
     },
 }
 
@@ -322,15 +326,26 @@ class RefineRequest(BaseModel):
 
 class AIWriterRequest(BaseModel):
     """Request for AI Writer command execution."""
+
     command: WriterCommand = Field(..., description="The writer command to execute")
-    context: str = Field(default="", max_length=2000, description="Additional context or requirements")
-    max_words: int | None = Field(default=None, ge=50, le=2000, description="Maximum words for output")
-    tone: str = Field(default="professional", description="Writing tone: professional, formal, conversational")
-    include_citations: bool = Field(default=False, description="Include source citations if available")
+    context: str = Field(
+        default="", max_length=2000, description="Additional context or requirements"
+    )
+    max_words: int | None = Field(
+        default=None, ge=50, le=2000, description="Maximum words for output"
+    )
+    tone: str = Field(
+        default="professional",
+        description="Writing tone: professional, formal, conversational",
+    )
+    include_citations: bool = Field(
+        default=False, description="Include source citations if available"
+    )
 
 
 class AIWriterResponse(BaseModel):
     """Response from AI Writer command."""
+
     command: str
     section_name: str
     content: str
@@ -343,16 +358,23 @@ class AIWriterResponse(BaseModel):
 
 class ExpandRequest(BaseModel):
     """Request to expand a section or outline."""
+
     text: str = Field(..., min_length=10, max_length=5000)
-    expansion_type: str = Field(default="detailed", description="Type: detailed, bullets, examples")
+    expansion_type: str = Field(
+        default="detailed", description="Type: detailed, bullets, examples"
+    )
     target_length: int = Field(default=300, ge=50, le=1000)
 
 
 class SummarizeRequest(BaseModel):
     """Request to summarize content."""
+
     text: str = Field(..., min_length=50, max_length=10000)
-    summary_type: str = Field(default="executive", description="Type: executive, bullets, technical")
+    summary_type: str = Field(
+        default="executive", description="Type: executive, bullets, technical"
+    )
     max_length: int = Field(default=150, ge=50, le=500)
+
 
 @router.post("/style/upload")
 async def upload_style_reference(file: UploadFile = File(...)):
@@ -364,7 +386,10 @@ async def upload_style_reference(file: UploadFile = File(...)):
     ext = os.path.splitext(file.filename)[1].lower()
 
     if ext not in allowed_extensions:
-        raise HTTPException(status_code=400, detail=f"Unsupported file type. Allowed: {allowed_extensions}")
+        raise HTTPException(
+            status_code=400,
+            detail=f"Unsupported file type. Allowed: {allowed_extensions}",
+        )
 
     try:
         # Save temp file
@@ -385,10 +410,14 @@ async def upload_style_reference(file: UploadFile = File(...)):
         # Cleanup
         os.remove(temp_path)
 
-        return {"message": f"Successfully ingested {file.filename}", "chars_processed": len(text)}
+        return {
+            "message": f"Successfully ingested {file.filename}",
+            "chars_processed": len(text),
+        }
 
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Processing failed: {str(e)}")
+
 
 @router.post("/refine")
 async def refine_text(data: RefineRequest):
@@ -411,6 +440,7 @@ async def refine_text(data: RefineRequest):
 # AI Writer / Proposal Copilot Endpoints (GovGPT Parity)
 # =============================================================================
 
+
 @router.get("/writer/commands")
 async def list_writer_commands():
     """
@@ -421,17 +451,16 @@ async def list_writer_commands():
     """
     commands = []
     for cmd, config in WRITER_COMMANDS.items():
-        commands.append({
-            "command": cmd.value,
-            "name": config["name"],
-            "description": config["description"],
-            "default_max_words": config["default_max_words"],
-            "shortcut": f"/{cmd.value}"
-        })
-    return {
-        "commands": commands,
-        "total": len(commands)
-    }
+        commands.append(
+            {
+                "command": cmd.value,
+                "name": config["name"],
+                "description": config["description"],
+                "default_max_words": config["default_max_words"],
+                "shortcut": f"/{cmd.value}",
+            }
+        )
+    return {"commands": commands, "total": len(commands)}
 
 
 @router.post("/{rfp_id}/writer", response_model=AIWriterResponse)
@@ -443,13 +472,13 @@ async def execute_writer_command(rfp: RFPDep, request: AIWriterRequest):
     Supports all standard proposal sections with RAG-enhanced context retrieval.
     """
     import time
+
     start_time = time.time()
 
     command_config = WRITER_COMMANDS.get(request.command)
     if not command_config:
         raise HTTPException(
-            status_code=400,
-            detail=f"Unknown command: {request.command.value}"
+            status_code=400, detail=f"Unknown command: {request.command.value}"
         )
 
     max_words = request.max_words or command_config["default_max_words"]
@@ -461,16 +490,18 @@ async def execute_writer_command(rfp: RFPDep, request: AIWriterRequest):
         prompt = command_config["prompt_template"].format(
             rfp_title=rfp.title,
             agency=rfp.agency or "Government Agency",
-            rfp_description=rfp.description[:1500] if rfp.description else "Not specified",
+            rfp_description=(
+                rfp.description[:1500] if rfp.description else "Not specified"
+            ),
             user_context=request.context,
-            max_words=max_words
+            max_words=max_words,
         )
 
         # Add tone modification if not professional
         if request.tone != "professional":
             tone_instructions = {
                 "formal": "\n\nUse a formal, traditional government proposal style.",
-                "conversational": "\n\nUse a more conversational yet professional tone."
+                "conversational": "\n\nUse a more conversational yet professional tone.",
             }
             prompt += tone_instructions.get(request.tone, "")
 
@@ -479,14 +510,16 @@ async def execute_writer_command(rfp: RFPDep, request: AIWriterRequest):
         if request.include_citations:
             try:
                 from src.rag.chroma_rag_engine import get_rag_engine
+
                 rag = get_rag_engine()
-                if rag.collection.count() > 0:
+                if rag and rag.collection.count() > 0:
                     results = rag.retrieve(
-                        f"{rfp.title} {request.command.value}",
-                        top_k=3
+                        f"{rfp.title} {request.command.value}", top_k=3
                     )
                     if results:
-                        context_text = "\n\n".join([r["content"][:500] for r in results])
+                        context_text = "\n\n".join(
+                            [r["content"][:500] for r in results]
+                        )
                         rag_context = "\n\nReference material:\n" + context_text[:1000]
                         prompt += rag_context
             except Exception as e:
@@ -497,15 +530,20 @@ async def execute_writer_command(rfp: RFPDep, request: AIWriterRequest):
             prompt,
             task_type="bid_generation",
             max_tokens=max_words * 2,
-            temperature=0.7
+            temperature=0.7,
         )
 
-        content = result.strip() if isinstance(result, str) else result.get("content", "")
+        content = (
+            result.strip() if isinstance(result, str) else result.get("content", "")
+        )
         word_count = len(content.split())
 
         # Calculate confidence
         confidence = 0.85 if word_count >= max_words * 0.5 else 0.6
-        if any(term in content.lower() for term in ["experience", "qualified", "comply", "deliver"]):
+        if any(
+            term in content.lower()
+            for term in ["experience", "qualified", "comply", "deliver"]
+        ):
             confidence += 0.1
         confidence = min(confidence, 1.0)
 
@@ -523,7 +561,7 @@ async def execute_writer_command(rfp: RFPDep, request: AIWriterRequest):
             confidence_score=round(confidence, 2),
             generation_method="llm",
             rfp_id=rfp.rfp_id,
-            suggestions=suggestions
+            suggestions=suggestions,
         )
 
     except Exception as e:
@@ -538,7 +576,7 @@ async def execute_writer_command(rfp: RFPDep, request: AIWriterRequest):
             confidence_score=0.5,
             generation_method="template",
             rfp_id=rfp.rfp_id,
-            suggestions=[]
+            suggestions=[],
         )
 
 
@@ -579,26 +617,30 @@ Bullet points:""",
 RFP Context: {rfp.title}
 Add 2-3 specific examples that demonstrate capability. Target: {request.target_length} words.
 
-With examples:"""
+With examples:""",
         }
 
-        prompt = expansion_prompts.get(request.expansion_type, expansion_prompts["detailed"])
+        prompt = expansion_prompts.get(
+            request.expansion_type, expansion_prompts["detailed"]
+        )
 
         result = llm_manager.llm_manager.generate_text(
             prompt,
             task_type="bid_generation",
             max_tokens=request.target_length * 2,
-            temperature=0.7
+            temperature=0.7,
         )
 
-        expanded = result.strip() if isinstance(result, str) else result.get("content", "")
+        expanded = (
+            result.strip() if isinstance(result, str) else result.get("content", "")
+        )
 
         return {
             "original_text": request.text,
             "expanded_text": expanded,
             "expansion_type": request.expansion_type,
             "word_count": len(expanded.split()),
-            "rfp_id": rfp.rfp_id
+            "rfp_id": rfp.rfp_id,
         }
 
     except Exception as e:
@@ -643,7 +685,7 @@ Key Points:""",
 RFP: {rfp.title}
 Maximum {request.max_length} words. Preserve technical details and specifications.
 
-Technical Summary:"""
+Technical Summary:""",
         }
 
         prompt = summary_prompts.get(request.summary_type, summary_prompts["executive"])
@@ -652,18 +694,22 @@ Technical Summary:"""
             prompt,
             task_type="bid_generation",
             max_tokens=request.max_length * 2,
-            temperature=0.5
+            temperature=0.5,
         )
 
-        summary = result.strip() if isinstance(result, str) else result.get("content", "")
+        summary = (
+            result.strip() if isinstance(result, str) else result.get("content", "")
+        )
 
         return {
             "original_length": len(request.text.split()),
             "summary": summary,
             "summary_type": request.summary_type,
             "summary_length": len(summary.split()),
-            "compression_ratio": round(len(summary.split()) / len(request.text.split()), 2),
-            "rfp_id": rfp.rfp_id
+            "compression_ratio": round(
+                len(summary.split()) / len(request.text.split()), 2
+            ),
+            "rfp_id": rfp.rfp_id,
         }
 
     except Exception as e:
@@ -703,17 +749,19 @@ Improved:"""
             prompt,
             task_type="refinement",
             max_tokens=len(data.text.split()) * 2 + 200,
-            temperature=0.7
+            temperature=0.7,
         )
 
-        improved = result.strip() if isinstance(result, str) else result.get("content", "")
+        improved = (
+            result.strip() if isinstance(result, str) else result.get("content", "")
+        )
 
         return {
             "original_text": data.text,
             "improved_text": improved,
             "instruction": data.instruction,
             "rfp_id": rfp.rfp_id,
-            "word_count_change": len(improved.split()) - len(data.text.split())
+            "word_count_change": len(improved.split()) - len(data.text.split()),
         }
 
     except Exception as e:
@@ -725,7 +773,7 @@ Improved:"""
             "instruction": data.instruction,
             "rfp_id": rfp.rfp_id,
             "word_count_change": 0,
-            "error": str(e)
+            "error": str(e),
         }
 
 
@@ -735,22 +783,22 @@ def _generate_suggestions(command: WriterCommand, rfp: Any) -> list[str]:
         WriterCommand.EXECUTIVE_SUMMARY: [
             "Try /technical-approach next",
             "Add /past-performance to strengthen credibility",
-            "Consider /cover-letter for submission"
+            "Consider /cover-letter for submission",
         ],
         WriterCommand.TECHNICAL_APPROACH: [
             "Add /quality-control for completeness",
             "Include /risk-mitigation section",
-            "Generate /staffing-plan for resources"
+            "Generate /staffing-plan for resources",
         ],
         WriterCommand.PAST_PERFORMANCE: [
             "Add /capability-statement",
             "Consider /management-approach",
-            "Include specific metrics and outcomes"
+            "Include specific metrics and outcomes",
         ],
         WriterCommand.MANAGEMENT_APPROACH: [
             "Add /staffing-plan details",
             "Include /quality-control procedures",
-            "Consider /transition-plan"
+            "Consider /transition-plan",
         ],
     }
     return suggestion_map.get(command, ["Review and customize the generated content"])
