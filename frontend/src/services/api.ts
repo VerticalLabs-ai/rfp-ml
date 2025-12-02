@@ -98,11 +98,24 @@ export const api = {
     apiClient.get('/rfps/recent', { params: { limit } }).then(res => res.data),
 
   // Pipeline endpoints
-  getPipelineStatus: () =>
-    apiClient.get('/pipeline/status').then(res => res.data),
+  getPipelineStatus: (options?: { skip?: number; limit?: number; useCache?: boolean }) =>
+    apiClient.get('/pipeline/status', {
+      params: {
+        skip: options?.skip ?? 0,
+        limit: options?.limit ?? 50,
+        use_cache: options?.useCache ?? true
+      },
+      timeout: 15000  // 15 second timeout
+    }).then(res => res.data),
 
   getRFPPipeline: (rfpId: string) =>
     apiClient.get(`/pipeline/${rfpId}`).then(res => res.data),
+
+  getPipelineMetrics: () =>
+    apiClient.get('/pipeline/metrics/performance').then(res => res.data),
+
+  clearPipelineCache: () =>
+    apiClient.delete('/pipeline/cache').then(res => res.data),
 
   // Decision endpoints
   getPendingDecisions: () =>

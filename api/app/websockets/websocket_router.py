@@ -186,3 +186,21 @@ async def broadcast_submission_update(submission_id: str, status: str, data: dic
         "timestamp": str(asyncio.get_event_loop().time())
     }
     await manager.broadcast(message)
+
+
+async def broadcast_pipeline_update(event: str, rfp_data: dict = None, stages: dict = None):
+    """Broadcast pipeline update to all connected clients.
+
+    Args:
+        event: Type of pipeline event (rfp_added, rfp_moved, rfp_removed, stages_updated)
+        rfp_data: Data about the affected RFP
+        stages: Updated stage counts
+    """
+    message = {
+        "type": "pipeline_update",
+        "event": event,
+        "rfp": rfp_data or {},
+        "stages": stages or {},
+        "timestamp": str(asyncio.get_event_loop().time())
+    }
+    await manager.broadcast(message)

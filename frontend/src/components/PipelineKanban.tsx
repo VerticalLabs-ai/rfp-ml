@@ -4,9 +4,9 @@ interface RFP {
   id: number;
   rfp_id: string;
   title: string;
-  agency: string;
+  agency: string | null;
   current_stage: string;
-  triage_score?: number;
+  triage_score?: number | null;
 }
 
 interface PipelineKanbanProps {
@@ -47,8 +47,10 @@ export default function PipelineKanban({ rfps }: PipelineKanbanProps) {
                   className="block bg-white dark:bg-gray-800 rounded p-3 shadow-sm hover:shadow-md transition"
                 >
                   <h4 className="font-medium text-sm line-clamp-2">{rfp.title}</h4>
-                  <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">{rfp.agency}</p>
-                  {rfp.triage_score && (
+                  {rfp.agency && (
+                    <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">{rfp.agency}</p>
+                  )}
+                  {rfp.triage_score != null && (
                     <p className="text-xs font-semibold mt-2">
                       Score: {rfp.triage_score.toFixed(1)}
                     </p>
