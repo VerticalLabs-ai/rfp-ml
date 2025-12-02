@@ -92,6 +92,11 @@ async def stream_section_generation(
     - company_qualifications
     - management_approach
     - pricing_narrative
+    - past_performance
+    - staffing_plan
+    - quality_assurance
+    - risk_mitigation
+    - compliance_matrix
     """
     valid_sections = [
         "executive_summary",

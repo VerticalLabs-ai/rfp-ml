@@ -56,7 +56,9 @@ import { useStreaming } from '@/hooks/useStreaming'
 const PROPOSAL_SECTIONS = [
   { id: 'executive_summary', name: 'Executive Summary', required: true },
   { id: 'technical_approach', name: 'Technical Approach', required: true },
+  { id: 'company_qualifications', name: 'Company Qualifications', required: true },
   { id: 'management_approach', name: 'Management Approach', required: true },
+  { id: 'pricing_narrative', name: 'Pricing Narrative', required: true },
   { id: 'past_performance', name: 'Past Performance', required: true },
   { id: 'staffing_plan', name: 'Staffing Plan', required: false },
   { id: 'quality_assurance', name: 'Quality Assurance', required: false },
