@@ -1,24 +1,29 @@
-import * as React from 'react'
-import { useCallback, useState, useEffect, useRef } from 'react'
 import { useMutation, useQuery } from '@tanstack/react-query'
 import {
-  Search,
-  Sparkles,
-  X,
-  Filter,
-  MapPin,
   Building2,
-  DollarSign,
-  Tag,
-  Loader2,
   ChevronDown,
   Clock,
+  DollarSign,
+  Filter,
+  Loader2,
+  MapPin,
+  Search,
+  Sparkles,
+  Tag,
+  X,
 } from 'lucide-react'
+import * as React from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 
-import { Button } from '@/components/ui/button'
-import { Input } from '@/components/ui/input'
 import { Badge } from '@/components/ui/badge'
+import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
+import { Input } from '@/components/ui/input'
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from '@/components/ui/popover'
 import {
   Select,
   SelectContent,
@@ -26,11 +31,6 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select'
-import {
-  Popover,
-  PopoverContent,
-  PopoverTrigger,
-} from '@/components/ui/popover'
 import { cn } from '@/lib/utils'
 import { apiClient } from '@/services/api'
 
@@ -131,7 +131,8 @@ export function NaturalLanguageSearch({
       try {
         const response = await apiClient.get<ExampleQueriesResponse>('/discovery/search/examples')
         return response.data
-      } catch {
+      } catch (error) {
+        console.warn('Failed to fetch search examples, using fallback:', error)
         return { examples: FALLBACK_EXAMPLES, categories: [] }
       }
     },

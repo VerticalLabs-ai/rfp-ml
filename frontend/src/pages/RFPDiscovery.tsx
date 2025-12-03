@@ -15,16 +15,16 @@ import { Button } from '@/components/ui/button'
 import { Card, CardContent } from '@/components/ui/card'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { Activity, Link2, Search, SearchX, Sparkles, List } from 'lucide-react'
+import { Activity, Link2, List, Search, SearchX, Sparkles } from 'lucide-react'
 import { useCallback, useEffect, useState } from 'react'
 import toast from 'react-hot-toast'
 import { useNavigate, useSearchParams } from 'react-router-dom'
 import AddRFPDialog from '../components/AddRFPDialog'
 import DiscoveryButton from '../components/DiscoveryButton'
 import FilterBar from '../components/FilterBar'
-import RFPCard from '../components/RFPCard'
 import { ImportRFPDialog } from '../components/ImportRFPDialog'
 import { NaturalLanguageSearch } from '../components/NaturalLanguageSearch'
+import RFPCard from '../components/RFPCard'
 import { useRfpSearch } from '../hooks/useRfpSearch'
 import { api } from '../services/api'
 
@@ -239,6 +239,7 @@ export default function RFPDiscovery() {
                 Found <strong>{rfps.length}</strong> result{rfps.length !== 1 ? 's' : ''} for "<strong>{debouncedSearchTerm}</strong>"
               </span>
               <button
+                type="button"
                 onClick={handleClearSearch}
                 className="text-primary-600 hover:underline ml-2"
               >

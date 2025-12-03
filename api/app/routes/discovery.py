@@ -6,14 +6,15 @@ Provides endpoints for:
 - Natural language query parsing
 - Advanced filtering with extracted parameters
 """
+
 import logging
 from dataclasses import dataclass
 from typing import Annotated, Any, Literal
 
+from app.config.search_examples import EXAMPLE_QUERIES
+from app.dependencies import DBDep
 from fastapi import APIRouter, HTTPException, Query
 from pydantic import BaseModel, Field
-
-from app.dependencies import DBDep
 
 logger = logging.getLogger(__name__)
 
@@ -27,15 +28,23 @@ router = APIRouter()
 class SearchRequest(BaseModel):
     """Request for semantic search."""
 
-    query: str = Field(..., min_length=1, max_length=500, description="Natural language search query")
+    query: str = Field(
+        ..., min_length=1, max_length=500, description="Natural language search query"
+    )
     search_type: Literal["hybrid", "semantic", "keyword"] = Field(
         default="hybrid",
-        description="Search type: semantic (RAG), keyword (TF-IDF), or hybrid"
+        description="Search type: semantic (RAG), keyword (TF-IDF), or hybrid",
     )
-    top_k: int = Field(default=20, ge=1, le=100, description="Number of results to return")
+    top_k: int = Field(
+        default=20, ge=1, le=100, description="Number of results to return"
+    )
     skip: int = Field(default=0, ge=0, description="Number of results to skip")
-    min_score: float = Field(default=0.0, ge=0.0, le=1.0, description="Minimum relevance score")
-    filters: dict[str, Any] = Field(default_factory=dict, description="Additional filters")
+    min_score: float = Field(
+        default=0.0, ge=0.0, le=1.0, description="Minimum relevance score"
+    )
+    filters: dict[str, Any] = Field(
+        default_factory=dict, description="Additional filters"
+    )
 
 
 class SearchResultItem(BaseModel):
@@ -89,6 +98,7 @@ def get_rag_engine():
         return _rag_engine_instance
     try:
         from src.rag.chroma_rag_engine import get_rag_engine as get_chroma_engine
+
         _rag_engine_instance = get_chroma_engine()
         return _rag_engine_instance
     except Exception:
@@ -103,6 +113,7 @@ def get_nl_parser():
         return _nl_parser_instance
     try:
         from src.discovery.nl_parser import get_nl_parser as get_parser
+
         _nl_parser_instance = get_parser()
         return _nl_parser_instance
     except Exception:
@@ -113,6 +124,7 @@ def get_nl_parser():
 @dataclass
 class ParsedQueryFallback:
     """Fallback parsed query when parser is unavailable."""
+
     original_query: str
     semantic_query: str
     extracted_filters: dict
@@ -153,8 +165,8 @@ async def search_rfps(
             semantic_query=request.query,
             extracted_filters={},
             keywords=request.query.split(),
-            intent='search',
-            confidence=0.5
+            intent="search",
+            confidence=0.5,
         )
 
     # Combine parsed filters with explicit filters
@@ -167,19 +179,23 @@ async def search_rfps(
     rag_engine = get_rag_engine()
     rfp_id_scores: dict[str, float] = {}
 
-    if rag_engine and rag_engine.is_built and request.search_type in ("semantic", "hybrid"):
+    if (
+        rag_engine
+        and rag_engine.is_built
+        and request.search_type in ("semantic", "hybrid")
+    ):
         try:
             # Retrieve relevant documents from RAG
             rag_results = rag_engine.retrieve(
                 query=parsed.semantic_query,
-                k=request.top_k * 2  # Get more for filtering
+                k=request.top_k * 2,  # Get more for filtering
             )
 
             # Extract RFP IDs and scores from RAG results
             for result in rag_results:
-                metadata = result.get('metadata', {})
-                rfp_id = metadata.get('rfp_id') or metadata.get('solicitation_number')
-                score = result.get('similarity_score', result.get('score', 0.5))
+                metadata = result.get("metadata", {})
+                rfp_id = metadata.get("rfp_id") or metadata.get("solicitation_number")
+                score = result.get("similarity_score", result.get("score", 0.5))
 
                 if rfp_id and score >= request.min_score:
                     if rfp_id not in rfp_id_scores or score > rfp_id_scores[rfp_id]:
@@ -198,16 +214,20 @@ async def search_rfps(
             if parsed.semantic_query:
                 search_term = f"%{parsed.semantic_query}%"
                 query = query.filter(
-                    (RFPOpportunity.title.ilike(search_term)) |
-                    (RFPOpportunity.description.ilike(search_term))
+                    (RFPOpportunity.title.ilike(search_term))
+                    | (RFPOpportunity.description.ilike(search_term))
                 )
 
             # Apply extracted filters
             if combined_filters.get("location"):
                 location = combined_filters["location"]
                 query = query.filter(
-                    (RFPOpportunity.rfp_metadata["pop_state"].astext == location) |
-                    (RFPOpportunity.rfp_metadata["location"].astext.ilike(f"%{location}%"))
+                    (RFPOpportunity.rfp_metadata["pop_state"].astext == location)
+                    | (
+                        RFPOpportunity.rfp_metadata["location"].astext.ilike(
+                            f"%{location}%"
+                        )
+                    )
                 )
 
             if combined_filters.get("agency"):
@@ -221,18 +241,30 @@ async def search_rfps(
             if combined_filters.get("amount_range"):
                 amount_range = combined_filters["amount_range"]
                 if "min" in amount_range:
-                    query = query.filter(RFPOpportunity.award_amount >= amount_range["min"])
+                    query = query.filter(
+                        RFPOpportunity.award_amount >= amount_range["min"]
+                    )
                 if "max" in amount_range:
-                    query = query.filter(RFPOpportunity.award_amount <= amount_range["max"])
+                    query = query.filter(
+                        RFPOpportunity.award_amount <= amount_range["max"]
+                    )
 
             if combined_filters.get("category"):
-                query = query.filter(RFPOpportunity.category == combined_filters["category"])
+                query = query.filter(
+                    RFPOpportunity.category == combined_filters["category"]
+                )
 
             if combined_filters.get("min_triage_score"):
-                query = query.filter(RFPOpportunity.triage_score >= combined_filters["min_triage_score"])
+                query = query.filter(
+                    RFPOpportunity.triage_score >= combined_filters["min_triage_score"]
+                )
 
             # Get keyword results
-            keyword_results = query.order_by(RFPOpportunity.triage_score.desc().nullslast()).limit(request.top_k * 2).all()
+            keyword_results = (
+                query.order_by(RFPOpportunity.triage_score.desc().nullslast())
+                .limit(request.top_k * 2)
+                .all()
+            )
 
             for rfp in keyword_results:
                 # Assign keyword match score (lower than semantic)
@@ -244,16 +276,20 @@ async def search_rfps(
                     rfp_id_scores[rfp.rfp_id] = keyword_score
                 elif request.search_type == "hybrid":
                     # Boost score for hybrid matches
-                    rfp_id_scores[rfp.rfp_id] = min(1.0, rfp_id_scores[rfp.rfp_id] + 0.2)
+                    rfp_id_scores[rfp.rfp_id] = min(
+                        1.0, rfp_id_scores[rfp.rfp_id] + 0.2
+                    )
 
         except Exception:
             logger.exception("Database search failed")
 
     # Fetch full RFP data for matched IDs
     if rfp_id_scores:
-        matched_rfps = db.query(RFPOpportunity).filter(
-            RFPOpportunity.rfp_id.in_(rfp_id_scores.keys())
-        ).all()
+        matched_rfps = (
+            db.query(RFPOpportunity)
+            .filter(RFPOpportunity.rfp_id.in_(rfp_id_scores.keys()))
+            .all()
+        )
 
         # Build results with scores
         for rfp in matched_rfps:
@@ -261,31 +297,35 @@ async def search_rfps(
             if score >= request.min_score:
                 # Generate match highlights
                 highlights = _generate_highlights(
-                    rfp.title,
-                    rfp.description,
-                    parsed.keywords
+                    rfp.title, rfp.description, parsed.keywords
                 )
 
-                results.append(SearchResultItem(
-                    rfp_id=rfp.rfp_id,
-                    title=rfp.title or "Untitled",
-                    agency=rfp.agency,
-                    description=rfp.description[:500] if rfp.description else None,
-                    naics_code=rfp.naics_code,
-                    category=rfp.category,
-                    award_amount=rfp.award_amount,
-                    response_deadline=rfp.response_deadline.isoformat() if rfp.response_deadline else None,
-                    triage_score=rfp.triage_score,
-                    relevance_score=round(score, 3),
-                    match_highlights=highlights,
-                ))
+                results.append(
+                    SearchResultItem(
+                        rfp_id=rfp.rfp_id,
+                        title=rfp.title or "Untitled",
+                        agency=rfp.agency,
+                        description=rfp.description[:500] if rfp.description else None,
+                        naics_code=rfp.naics_code,
+                        category=rfp.category,
+                        award_amount=rfp.award_amount,
+                        response_deadline=(
+                            rfp.response_deadline.isoformat()
+                            if rfp.response_deadline
+                            else None
+                        ),
+                        triage_score=rfp.triage_score,
+                        relevance_score=round(score, 3),
+                        match_highlights=highlights,
+                    )
+                )
 
         # Sort by relevance score
         results.sort(key=lambda x: x.relevance_score, reverse=True)
 
     # Apply pagination
     total = len(results)
-    results = results[request.skip:request.skip + request.top_k]
+    results = results[request.skip : request.skip + request.top_k]
 
     return SearchResponse(
         results=results,
@@ -309,43 +349,6 @@ class ExampleQueriesResponse(BaseModel):
     categories: list[str]
 
 
-# Example queries demonstrating NL search capabilities
-EXAMPLE_QUERIES = [
-    {
-        "query": "IT contracts for small businesses in Texas",
-        "description": "Location + set-aside + industry filter",
-    },
-    {
-        "query": "Construction projects over $1M closing this month",
-        "description": "Industry + amount + deadline filter",
-    },
-    {
-        "query": "Healthcare tenders from VA",
-        "description": "Industry + agency filter",
-    },
-    {
-        "query": "Woman-owned small business set-asides for software development",
-        "description": "Set-aside + industry filter",
-    },
-    {
-        "query": "Cybersecurity services for DOD under $500k",
-        "description": "Industry + agency + amount filter",
-    },
-    {
-        "query": "Professional services in California for 8(a) firms",
-        "description": "Industry + location + set-aside filter",
-    },
-    {
-        "query": "Engineering contracts from Army in Virginia",
-        "description": "Industry + agency + location filter",
-    },
-    {
-        "query": "Logistics support for GSA over $2M",
-        "description": "Industry + agency + amount filter",
-    },
-]
-
-
 @router.get("/search/suggestions")
 async def get_search_suggestions(
     q: Annotated[str, Query(min_length=1, max_length=100)] = "",
@@ -363,40 +366,58 @@ async def get_search_suggestions(
     if q and len(q) >= 2:
         q_lower = q.lower()
 
-        # Smart suggestions based on query content
+        # Category-based suggestion templates
+        suggestion_templates = {
+            "it_tech": {
+                "keywords": ["it", "tech", "software", "cyber"],
+                "suggestions": [
+                    f"{q} for DOD",
+                    f"{q} in California",
+                    f"{q} small business set-aside",
+                    f"{q} over $500k",
+                ],
+            },
+            "construction": {
+                "keywords": ["construct", "build", "engineer"],
+                "suggestions": [
+                    f"{q} over $1M",
+                    f"{q} in Texas",
+                    f"{q} for Army",
+                    f"{q} closing this month",
+                ],
+            },
+            "healthcare": {
+                "keywords": ["health", "medical", "clinical"],
+                "suggestions": [
+                    f"{q} from VA",
+                    f"{q} from HHS",
+                    f"{q} small business",
+                    f"{q} in Maryland",
+                ],
+            },
+        }
+
+        # Generic fallback
+        generic_suggestions = [
+            f"{q} contracts",
+            f"{q} services",
+            f"{q} in California",
+            f"{q} for DOD",
+            f"{q} small business",
+        ]
+
         suggestions_list = []
 
-        # Check for industry keywords and suggest completions
-        if any(kw in q_lower for kw in ["it", "tech", "software", "cyber"]):
-            suggestions_list.extend([
-                f"{q} for DOD",
-                f"{q} in California",
-                f"{q} small business set-aside",
-                f"{q} over $500k",
-            ])
-        elif any(kw in q_lower for kw in ["construct", "build", "engineer"]):
-            suggestions_list.extend([
-                f"{q} over $1M",
-                f"{q} in Texas",
-                f"{q} for Army",
-                f"{q} closing this month",
-            ])
-        elif any(kw in q_lower for kw in ["health", "medical", "clinical"]):
-            suggestions_list.extend([
-                f"{q} from VA",
-                f"{q} from HHS",
-                f"{q} small business",
-                f"{q} in Maryland",
-            ])
-        else:
-            # Generic suggestions
-            suggestions_list.extend([
-                f"{q} contracts",
-                f"{q} services",
-                f"{q} in California",
-                f"{q} for DOD",
-                f"{q} small business",
-            ])
+        # Find matching category
+        matched = False
+        for category_data in suggestion_templates.values():
+            if any(kw in q_lower for kw in category_data["keywords"]):
+                suggestions_list.extend(category_data["suggestions"])
+                matched = True
+                break
+
+        if not matched:
+            suggestions_list.extend(generic_suggestions)
 
         suggestions = suggestions_list[:5]
 
@@ -461,18 +482,14 @@ async def parse_query(
     """
     parser = get_nl_parser()
     if not parser:
-        raise HTTPException(
-            status_code=503,
-            detail="Query parser not available"
-        )
+        raise HTTPException(status_code=503, detail="Query parser not available")
 
     try:
         parsed = parser.parse(q)
     except Exception as e:
         logger.exception("Failed to parse query")
         raise HTTPException(
-            status_code=400,
-            detail=f"Failed to parse query: {e}"
+            status_code=400, detail=f"Failed to parse query: {e}"
         ) from e
 
     return ParsedQueryInfo(
@@ -489,7 +506,7 @@ def _generate_highlights(
     title: str | None,
     description: str | None,
     keywords: list[str],
-    max_highlights: int = 3
+    max_highlights: int = 3,
 ) -> list[str]:
     """Generate highlighted snippets showing keyword matches."""
     highlights = []
@@ -502,7 +519,7 @@ def _generate_highlights(
         return highlights
 
     # Find sentences containing keywords
-    sentences = text.replace('\n', ' ').split('.')
+    sentences = text.replace("\n", " ").split(".")
 
     for sentence in sentences:
         sentence = sentence.strip()
