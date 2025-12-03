@@ -1,5 +1,5 @@
 import { Link, useLocation } from 'react-router-dom'
-import { LayoutDashboard, Search, GitBranch, CheckSquare, Send, Zap, TrendingUp, Settings, Building2 } from 'lucide-react'
+import { Bookmark, LayoutDashboard, Search, GitBranch, CheckSquare, Send, Zap, TrendingUp, Settings, Building2 } from 'lucide-react'
 import { WebSocketStatus } from '@/components/WebSocketStatus'
 import { RAGStatus } from '@/components/RAGStatus'
 import { useWebSocket } from '@/hooks/useWebSocket'
@@ -11,6 +11,7 @@ interface LayoutProps {
 const navigation = [
   { name: 'Dashboard', path: '/dashboard', icon: LayoutDashboard },
   { name: 'RFP Discovery', path: '/discovery', icon: Search },
+  { name: 'Saved', path: '/saved', icon: Bookmark },
   { name: 'Forecasts', path: '/forecasts', icon: TrendingUp },
   { name: 'Pipeline', path: '/pipeline', icon: GitBranch },
   { name: 'Decisions', path: '/decisions', icon: CheckSquare },
