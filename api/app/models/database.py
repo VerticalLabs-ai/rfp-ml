@@ -16,6 +16,7 @@ from sqlalchemy import (
     Integer,
     String,
     Text,
+    UniqueConstraint,
     func,
 )
 from sqlalchemy.ext.declarative import declarative_base
@@ -149,6 +150,7 @@ class RFPOpportunity(Base):
         cascade="all, delete-orphan",
         order_by="ComplianceRequirement.order_index",
     )
+    saved_by_users = relationship("SavedRfp", back_populates="rfp", cascade="all, delete-orphan")
 
     def to_dict(self):
         return {
@@ -990,4 +992,46 @@ class ChatMessage(Base):
             "confidence": self.confidence,
             "processing_time_ms": self.processing_time_ms,
             "created_at": self.created_at.isoformat() if self.created_at else None,
+        }
+
+
+class SavedRfp(Base):
+    """User's saved/bookmarked RFPs for later review."""
+
+    __tablename__ = "saved_rfps"
+
+    id = Column(Integer, primary_key=True, index=True)
+    rfp_id = Column(Integer, ForeignKey("rfp_opportunities.id", ondelete="CASCADE"), nullable=False, index=True)
+
+    # User identification (simple string for now, can be FK to users table later)
+    user_id = Column(String, nullable=False, default="default", index=True)
+
+    # Organization
+    notes = Column(Text, nullable=True)
+    tags = Column(JSON, default=list)  # ["priority", "review-needed", "healthcare"]
+    folder = Column(String, nullable=True)  # Optional folder/category
+
+    # Timestamps
+    saved_at = Column(DateTime, default=datetime.utcnow)
+    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+
+    # Relationships
+    rfp = relationship("RFPOpportunity", back_populates="saved_by_users")
+
+    # Unique constraint: user can only save an RFP once
+    __table_args__ = (
+        UniqueConstraint('user_id', 'rfp_id', name='unique_user_rfp'),
+        {"sqlite_autoincrement": True},
+    )
+
+    def to_dict(self):
+        return {
+            "id": self.id,
+            "rfp_id": self.rfp_id,
+            "user_id": self.user_id,
+            "notes": self.notes,
+            "tags": self.tags,
+            "folder": self.folder,
+            "saved_at": self.saved_at.isoformat() if self.saved_at else None,
+            "updated_at": self.updated_at.isoformat() if self.updated_at else None,
         }
