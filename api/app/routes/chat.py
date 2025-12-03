@@ -10,6 +10,8 @@ Features:
 - Streaming support via SSE
 """
 
+import asyncio
+import json
 import logging
 import uuid
 from datetime import datetime, timezone
@@ -17,6 +19,7 @@ from typing import Any
 
 from app.dependencies import DBDep, RFPDep
 from fastapi import APIRouter, HTTPException, Query
+from fastapi.responses import StreamingResponse
 from pydantic import BaseModel, Field
 
 logger = logging.getLogger(__name__)
@@ -327,6 +330,156 @@ async def chat_with_rfp(rfp: RFPDep, request: ChatRequest, db: DBDep):
         raise HTTPException(
             status_code=500, detail=f"Failed to process chat request: {str(e)}"
         )
+
+
+@router.post("/{rfp_id}/chat/stream")
+async def stream_chat_with_rfp(rfp: RFPDep, request: ChatRequest, db: DBDep):
+    """
+    Stream chat response using Server-Sent Events (SSE).
+
+    Yields chunks as they are generated for real-time UI updates.
+    """
+    import time
+
+    from app.models.database import ChatMessage as DBChatMessage
+    from app.models.database import ChatSession
+
+    start_time = time.time()
+    session = None
+    history = request.history
+
+    # Load session if provided
+    if request.session_id:
+        session = (
+            db.query(ChatSession)
+            .filter(
+                ChatSession.session_id == request.session_id,
+                ChatSession.rfp_id == rfp.id,
+                ChatSession.is_active is True,
+            )
+            .first()
+        )
+        if session:
+            db_messages = session.messages[-10:]
+            history = [
+                ChatMessage(
+                    role=m.role,
+                    content=m.content,
+                    timestamp=m.created_at.isoformat() if m.created_at else None,
+                )
+                for m in db_messages
+            ]
+
+    async def generate():
+        nonlocal session
+        try:
+            from src.config.llm_adapter import create_llm_interface
+            from src.rag.chroma_rag_engine import get_rag_engine
+
+            rag_engine = get_rag_engine()
+            if not rag_engine or rag_engine.collection.count() == 0:
+                yield f"data: {json.dumps({'type': 'error', 'content': 'RAG engine not available'})}\n\n"
+                return
+
+            llm = create_llm_interface()
+
+            # Send thinking status
+            yield f"data: {json.dumps({'type': 'status', 'content': 'Searching documents...'})}\n\n"
+            await asyncio.sleep(0.1)
+
+            # Retrieve context
+            enhanced_query = f"{rfp.title} {rfp.agency or ''} {request.message}"
+            rag_context = rag_engine.generate_context(enhanced_query, k=5)
+
+            if not rag_context.retrieved_documents:
+                error_msg = {
+                    "type": "content",
+                    "content": "I couldn't find specific information about that in the available documents.",
+                }
+                yield f"data: {json.dumps(error_msg)}\n\n"
+                yield f"data: {json.dumps({'type': 'done', 'citations': []})}\n\n"
+                return
+
+            yield f"data: {json.dumps({'type': 'status', 'content': 'Generating response...'})}\n\n"
+            await asyncio.sleep(0.1)
+
+            # Build prompt
+            prompt = build_chat_prompt(
+                question=request.message,
+                context=rag_context.context_text,
+                history=history,
+                rfp_title=rfp.title,
+                rfp_agency=rfp.agency,
+            )
+
+            # Generate response (for now, non-streaming from LLM, chunked to client)
+            try:
+                llm_result = llm.generate_text(prompt, use_case="chat")
+                answer = llm_result.get("content", llm_result.get("text", ""))
+
+                # Stream response in chunks for UI effect
+                chunk_size = 50
+                for i in range(0, len(answer), chunk_size):
+                    chunk = answer[i : i + chunk_size]
+                    yield f"data: {json.dumps({'type': 'content', 'content': chunk})}\n\n"
+                    await asyncio.sleep(0.02)  # Small delay for streaming effect
+
+                # Calculate confidence
+                avg_score = sum(
+                    doc.similarity_score for doc in rag_context.retrieved_documents
+                ) / len(rag_context.retrieved_documents)
+                confidence = min(avg_score * 1.2, 1.0)
+
+                # Extract citations
+                citations_list = extract_citations(rag_context.retrieved_documents)
+
+                # Save to session if exists
+                if session:
+                    try:
+                        user_msg = DBChatMessage(
+                            session_id=session.id,
+                            role="user",
+                            content=request.message,
+                        )
+                        db.add(user_msg)
+
+                        assistant_msg = DBChatMessage(
+                            session_id=session.id,
+                            role="assistant",
+                            content=answer,
+                            citations=[c.model_dump() for c in citations_list],
+                            confidence=round(confidence, 2),
+                        )
+                        db.add(assistant_msg)
+
+                        session.message_count += 2
+                        session.last_message_at = datetime.now(timezone.utc)
+                        session.updated_at = datetime.now(timezone.utc)
+                        db.commit()
+                    except Exception:
+                        db.rollback()
+
+                processing_time = int((time.time() - start_time) * 1000)
+
+                yield f"data: {json.dumps({'type': 'done', 'citations': [c.model_dump() for c in citations_list], 'confidence': round(confidence, 2), 'processing_time_ms': processing_time})}\n\n"
+
+            except Exception as e:
+                logger.error(f"LLM generation error: {e}")
+                yield f"data: {json.dumps({'type': 'error', 'content': str(e)})}\n\n"
+
+        except Exception as e:
+            logger.error(f"Stream error: {e}")
+            yield f"data: {json.dumps({'type': 'error', 'content': 'An error occurred'})}\n\n"
+
+    return StreamingResponse(
+        generate(),
+        media_type="text/event-stream",
+        headers={
+            "Cache-Control": "no-cache",
+            "Connection": "keep-alive",
+            "X-Accel-Buffering": "no",
+        },
+    )
 
 
 @router.get("/{rfp_id}/chat/suggestions")
