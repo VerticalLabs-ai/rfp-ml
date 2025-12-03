@@ -974,3 +974,229 @@ async def get_background_task_status(task_id: str):
         "task_id": task_id,
         **status
     }
+
+
+# ============================================================================
+# Compliance Matrix Endpoints
+# ============================================================================
+
+@router.get("/{rfp_id}/compliance-matrix")
+async def get_compliance_matrix(rfp: RFPDep, db: DBDep):
+    """
+    Get the compliance matrix for an RFP.
+    Returns extracted requirements and compliance status.
+    """
+    from app.models.database import ComplianceMatrix
+
+    matrix = db.query(ComplianceMatrix).filter(ComplianceMatrix.rfp_id == rfp.id).first()
+
+    if not matrix:
+        # Return empty structure if no matrix exists yet
+        return {
+            "requirements_extracted": 0,
+            "requirements_met": 0,
+            "compliance_score": 0.0,
+            "requirements": [],
+            "created_at": None,
+            "updated_at": None,
+        }
+
+    # Parse matrix_data which contains the requirements
+    requirements = []
+    if matrix.matrix_data:
+        raw_requirements = matrix.matrix_data.get("requirements", [])
+        for i, req in enumerate(raw_requirements):
+            requirements.append({
+                "id": req.get("id", f"REQ-{i+1}"),
+                "requirement_text": req.get("text", req.get("requirement_text", "")),
+                "category": req.get("category", "general"),
+                "priority": req.get("priority", "medium"),
+                "status": req.get("status", "pending"),
+                "response_notes": req.get("response", req.get("response_notes")),
+                "source_section": req.get("source_section"),
+            })
+
+    return {
+        "requirements_extracted": matrix.requirements_extracted or len(requirements),
+        "requirements_met": matrix.requirements_met or 0,
+        "compliance_score": matrix.compliance_score or 0.0,
+        "requirements": requirements,
+        "created_at": matrix.created_at.isoformat() if matrix.created_at else None,
+        "updated_at": matrix.updated_at.isoformat() if matrix.updated_at else None,
+    }
+
+
+# ============================================================================
+# Activity Log Endpoints
+# ============================================================================
+
+@router.get("/{rfp_id}/activity")
+async def get_activity_log(rfp: RFPDep, db: DBDep):
+    """
+    Get the activity log (pipeline events) for an RFP.
+    Returns all stage transitions and actions.
+    """
+    from app.models.database import PipelineEvent
+
+    events = (
+        db.query(PipelineEvent)
+        .filter(PipelineEvent.rfp_id == rfp.id)
+        .order_by(PipelineEvent.timestamp.desc())
+        .all()
+    )
+
+    return [
+        {
+            "id": event.id,
+            "from_stage": event.from_stage.value if event.from_stage else None,
+            "to_stage": event.to_stage.value if event.to_stage else None,
+            "timestamp": event.timestamp.isoformat() if event.timestamp else None,
+            "user": event.user,
+            "automated": event.automated,
+            "notes": event.notes,
+            "event_metadata": event.event_metadata or {},
+        }
+        for event in events
+    ]
+
+
+# ============================================================================
+# Archive Endpoint
+# ============================================================================
+
+@router.post("/{rfp_id}/archive")
+async def archive_rfp(rfp: RFPDep, db: DBDep):
+    """
+    Archive an RFP. Sets the stage to 'rejected' with archive metadata.
+    """
+    from app.models.database import PipelineEvent
+
+    old_stage = rfp.current_stage
+
+    # Update RFP stage
+    rfp.current_stage = PipelineStage.REJECTED
+    rfp.rfp_metadata = rfp.rfp_metadata or {}
+    rfp.rfp_metadata["archived"] = True
+    rfp.rfp_metadata["archived_at"] = datetime.utcnow().isoformat()
+
+    # Create pipeline event
+    event = PipelineEvent(
+        rfp_id=rfp.id,
+        from_stage=old_stage,
+        to_stage=PipelineStage.REJECTED,
+        timestamp=datetime.utcnow(),
+        automated=False,
+        notes="RFP archived by user",
+    )
+    db.add(event)
+    db.commit()
+
+    return {"message": "RFP archived successfully", "rfp_id": rfp.rfp_id}
+
+
+# ============================================================================
+# AI Chat Endpoints
+# ============================================================================
+
+class ChatMessage(BaseModel):
+    """Chat message input."""
+    message: str
+    conversation_id: str | None = None
+
+
+@router.post("/{rfp_id}/chat")
+async def send_chat_message(rfp: RFPDep, chat: ChatMessage, db: DBDep):
+    """
+    Send a chat message about the RFP and get an AI response.
+    Uses the RFP context to provide relevant answers.
+    """
+    try:
+        # Build context from RFP data
+        context_parts = [
+            f"RFP Title: {rfp.title}",
+            f"Agency: {rfp.agency or 'Not specified'}",
+            f"Description: {rfp.description or 'No description'}",
+        ]
+
+        if rfp.naics_code:
+            context_parts.append(f"NAICS Code: {rfp.naics_code}")
+
+        if rfp.response_deadline:
+            context_parts.append(f"Deadline: {rfp.response_deadline.strftime('%Y-%m-%d')}")
+
+        # Get Q&A items for additional context
+        qa_items = rfp.qa_items[:5] if rfp.qa_items else []
+        if qa_items:
+            context_parts.append("\nRelevant Q&A:")
+            for qa in qa_items:
+                context_parts.append(f"Q: {qa.question_text}")
+                if qa.answer_text:
+                    context_parts.append(f"A: {qa.answer_text}")
+
+        context = "\n".join(context_parts)
+
+        # Try to use Claude for response
+        try:
+            from src.config.claude_llm_config import create_claude_client, ClaudeModel
+
+            client = create_claude_client()
+            response = client.messages.create(
+                model=ClaudeModel.SONNET_4_5.value,
+                max_tokens=1024,
+                system=f"""You are an AI assistant helping with government RFP (Request for Proposal) analysis.
+You have access to the following RFP context:
+
+{context}
+
+Provide helpful, concise answers about this RFP. Focus on:
+- Key requirements and compliance considerations
+- Potential risks and opportunities
+- Strategic recommendations
+Keep responses brief (2-3 paragraphs max) and actionable.""",
+                messages=[
+                    {"role": "user", "content": chat.message}
+                ]
+            )
+
+            ai_response = response.content[0].text
+
+        except Exception as e:
+            logger.warning(f"Claude API failed, using fallback: {e}")
+            # Fallback response
+            ai_response = f"""I can help you analyze this RFP for "{rfp.title}".
+
+Based on the available information:
+- Agency: {rfp.agency or 'Not specified'}
+- Deadline: {rfp.response_deadline.strftime('%Y-%m-%d') if rfp.response_deadline else 'Not specified'}
+
+For more detailed analysis, please ensure the Claude API is properly configured. You asked: "{chat.message[:100]}..."
+
+Please try specific questions about requirements, compliance, or strategy."""
+
+        return {
+            "message_id": str(uuid4()),
+            "response": ai_response,
+            "conversation_id": chat.conversation_id or str(uuid4()),
+        }
+
+    except Exception as e:
+        logger.error(f"Chat error: {e}")
+        raise HTTPException(status_code=500, detail=f"Chat failed: {str(e)}")
+
+
+@router.get("/{rfp_id}/chat")
+async def get_chat_history(
+    rfp: RFPDep,
+    conversation_id: str | None = None,
+    db: DBDep = None
+):
+    """
+    Get chat history for an RFP (placeholder - would need persistent storage).
+    Currently returns empty as chat history is stored client-side.
+    """
+    # In a production system, you would store chat history in the database
+    # For now, chat history is maintained client-side
+    return {
+        "messages": [],
+        "conversation_id": conversation_id,
+    }

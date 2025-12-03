@@ -2,7 +2,8 @@ import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent } from '@/components/ui/card'
 import { formatDistance } from 'date-fns'
-import { AlertTriangle, Check, Trash2, X } from 'lucide-react'
+import { AlertTriangle, Check, ChevronRight, Trash2, X } from 'lucide-react'
+import { useNavigate } from 'react-router-dom'
 import GenerateBidButton from './GenerateBidButton'
 import { HighlightedText } from '../hooks/useRfpSearch'
 
@@ -14,13 +15,31 @@ interface RFPCardProps {
 }
 
 export default function RFPCard({ rfp, onTriageDecision, onDelete, searchTerm = '' }: RFPCardProps) {
+  const navigate = useNavigate()
+
+  const handleCardClick = (e: React.MouseEvent) => {
+    // Don't navigate if clicking on a button or interactive element
+    const target = e.target as HTMLElement
+    if (
+      target.closest('button') ||
+      target.closest('a') ||
+      target.closest('[role="button"]')
+    ) {
+      return
+    }
+    navigate(`/rfps/${rfp.rfp_id}`)
+  }
+
   return (
-    <Card>
+    <Card
+      className="cursor-pointer transition-all hover:shadow-md hover:border-primary-200 group"
+      onClick={handleCardClick}
+    >
       <CardContent className="p-6">
         <div className="flex items-start justify-between">
           <div className="flex-1">
             <div className="flex items-start gap-2">
-              <h3 className="text-lg font-medium text-gray-900">
+              <h3 className="text-lg font-medium text-gray-900 group-hover:text-primary-600 transition-colors">
                 {searchTerm ? (
                   <HighlightedText text={rfp.title} searchTerm={searchTerm} />
                 ) : (
@@ -107,7 +126,7 @@ export default function RFPCard({ rfp, onTriageDecision, onDelete, searchTerm = 
             )}
           </div>
 
-          <div className="flex space-x-2">
+          <div className="flex items-center space-x-2">
             <GenerateBidButton rfpId={rfp.rfp_id} rfpTitle={rfp.title} />
             <Button
               onClick={() => onTriageDecision(rfp.rfp_id, 'approve')}
@@ -133,6 +152,10 @@ export default function RFPCard({ rfp, onTriageDecision, onDelete, searchTerm = 
               <X className="w-4 h-4 mr-1" />
               Reject
             </Button>
+            <div className="ml-2 flex items-center text-gray-400 group-hover:text-primary-500 transition-colors">
+              <span className="text-xs mr-1 hidden sm:inline">View</span>
+              <ChevronRight className="w-4 h-4" />
+            </div>
           </div>
         </div>
       </CardContent>

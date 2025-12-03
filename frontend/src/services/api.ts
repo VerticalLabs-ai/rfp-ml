@@ -317,6 +317,28 @@ export const api = {
 
   getSearchSuggestions: (q: string) =>
     apiClient.get('/discovery/search/suggestions', { params: { q } }).then(res => res.data),
+
+  // Compliance Matrix endpoints
+  getComplianceMatrix: (rfpId: string) =>
+    apiClient.get(`/rfps/${rfpId}/compliance-matrix`).then(res => res.data),
+
+  // Activity Log / Pipeline Events endpoints
+  getActivityLog: (rfpId: string) =>
+    apiClient.get(`/rfps/${rfpId}/activity`).then(res => res.data),
+
+  // RFP Stage management endpoints
+  advanceStage: (rfpId: string) =>
+    apiClient.post(`/rfps/${rfpId}/advance-stage`).then(res => res.data),
+
+  archiveRFP: (rfpId: string) =>
+    apiClient.post(`/rfps/${rfpId}/archive`).then(res => res.data),
+
+  // AI Chat endpoints
+  sendChatMessage: (rfpId: string, message: string, conversationId?: string) =>
+    apiClient.post(`/rfps/${rfpId}/chat`, { message, conversation_id: conversationId }).then(res => res.data),
+
+  getChatHistory: (rfpId: string, conversationId?: string) =>
+    apiClient.get(`/rfps/${rfpId}/chat`, { params: { conversation_id: conversationId } }).then(res => res.data),
 }
 
 

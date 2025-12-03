@@ -23,6 +23,18 @@ import {
   Upload,
   Trash2,
   FileUp,
+  Archive,
+  Edit3,
+  Send,
+  Bot,
+  User,
+  CalendarDays,
+  Shield,
+  History,
+  Play,
+  XCircle,
+  ChevronRight,
+  MoreVertical,
 } from 'lucide-react'
 import { toast } from 'sonner'
 import { format, formatDistanceToNow } from 'date-fns'
@@ -32,6 +44,9 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Badge } from '@/components/ui/badge'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { Skeleton } from '@/components/ui/skeleton'
+import { Input } from '@/components/ui/input'
+import { Progress } from '@/components/ui/progress'
+import { ScrollArea } from '@/components/ui/scroll-area'
 import {
   Select,
   SelectContent,
@@ -39,6 +54,29 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select'
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu'
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog'
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from '@/components/ui/table'
 import { api } from '@/services/api'
 import PricingTable from '@/components/PricingTable'
 
@@ -80,6 +118,34 @@ interface CompanyProfile {
   id: number
   name: string
   is_default: boolean
+}
+
+interface ComplianceRequirement {
+  id: string
+  requirement_text: string
+  category: string
+  priority: 'high' | 'medium' | 'low'
+  status: 'met' | 'partial' | 'not_met' | 'pending'
+  response_notes?: string
+  source_section?: string
+}
+
+interface ActivityEvent {
+  id: number
+  from_stage: string | null
+  to_stage: string
+  timestamp: string
+  user: string | null
+  automated: boolean
+  notes: string | null
+  event_metadata: Record<string, any>
+}
+
+interface ChatMessage {
+  id: string
+  role: 'user' | 'assistant'
+  content: string
+  timestamp: string
 }
 
 type GenerationMode = 'template' | 'claude_standard' | 'claude_enhanced' | 'claude_premium'
@@ -167,6 +233,16 @@ export default function RFPDetail() {
   const [copied, setCopied] = useState(false)
   const [generationMode, setGenerationMode] = useState<GenerationMode>('claude_enhanced')
 
+  // Chat state
+  const [chatMessage, setChatMessage] = useState('')
+  const [chatMessages, setChatMessages] = useState<ChatMessage[]>([])
+  const [isChatOpen, setIsChatOpen] = useState(false)
+  const chatScrollRef = useRef<HTMLDivElement>(null)
+
+  // Dialog state
+  const [showArchiveDialog, setShowArchiveDialog] = useState(false)
+  const [showDeleteDialog, setShowDeleteDialog] = useState(false)
+
   // Fetch RFP data
   const { data: rfp, isLoading: rfpLoading, error: rfpError } = useQuery({
     queryKey: ['rfp', rfpId],
@@ -198,6 +274,20 @@ export default function RFPDetail() {
   const { data: uploadedDocs, isLoading: uploadedDocsLoading } = useQuery({
     queryKey: ['uploaded-documents', rfpId],
     queryFn: () => api.getUploadedDocuments(rfpId!),
+    enabled: !!rfpId,
+  })
+
+  // Fetch compliance matrix
+  const { data: complianceMatrix, isLoading: complianceLoading } = useQuery({
+    queryKey: ['rfp-compliance', rfpId],
+    queryFn: () => api.getComplianceMatrix(rfpId!),
+    enabled: !!rfpId,
+  })
+
+  // Fetch activity log
+  const { data: activityLog, isLoading: activityLoading } = useQuery({
+    queryKey: ['rfp-activity', rfpId],
+    queryFn: () => api.getActivityLog(rfpId!),
     enabled: !!rfpId,
   })
 
@@ -298,6 +388,81 @@ export default function RFPDetail() {
       toast.error('Delete failed', { description: error.message })
     },
   })
+
+  // Archive RFP mutation
+  const archiveMutation = useMutation({
+    mutationFn: () => api.archiveRFP(rfpId!),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['rfp', rfpId] })
+      queryClient.invalidateQueries({ queryKey: ['rfp-activity', rfpId] })
+      toast.success('RFP archived successfully')
+      setShowArchiveDialog(false)
+    },
+    onError: (error: Error) => {
+      toast.error('Archive failed', { description: error.message })
+    },
+  })
+
+  // Delete RFP mutation
+  const deleteMutation = useMutation({
+    mutationFn: () => api.deleteRFP(rfpId!),
+    onSuccess: () => {
+      toast.success('RFP deleted successfully')
+      navigate('/discovery')
+    },
+    onError: (error: Error) => {
+      toast.error('Delete failed', { description: error.message })
+    },
+  })
+
+  // Advance stage mutation
+  const advanceStageMutation = useMutation({
+    mutationFn: () => api.advanceStage(rfpId!),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['rfp', rfpId] })
+      queryClient.invalidateQueries({ queryKey: ['rfp-activity', rfpId] })
+      toast.success('Stage advanced successfully')
+    },
+    onError: (error: Error) => {
+      toast.error('Failed to advance stage', { description: error.message })
+    },
+  })
+
+  // Chat mutation
+  const chatMutation = useMutation({
+    mutationFn: (message: string) => api.sendChatMessage(rfpId!, message),
+    onSuccess: (data) => {
+      setChatMessages(prev => [
+        ...prev,
+        {
+          id: `user-${Date.now()}`,
+          role: 'user',
+          content: chatMessage,
+          timestamp: new Date().toISOString(),
+        },
+        {
+          id: data.message_id || `assistant-${Date.now()}`,
+          role: 'assistant',
+          content: data.response,
+          timestamp: new Date().toISOString(),
+        },
+      ])
+      setChatMessage('')
+      // Scroll to bottom
+      setTimeout(() => {
+        chatScrollRef.current?.scrollTo({ top: chatScrollRef.current.scrollHeight, behavior: 'smooth' })
+      }, 100)
+    },
+    onError: (error: Error) => {
+      toast.error('Chat failed', { description: error.message })
+    },
+  })
+
+  // Handle sending chat message
+  const handleSendMessage = () => {
+    if (!chatMessage.trim()) return
+    chatMutation.mutate(chatMessage)
+  }
 
   // Handle file upload
   const handleFileUpload = useCallback((files: FileList | null) => {
@@ -509,8 +674,94 @@ export default function RFPDetail() {
             <Wand2 className="h-4 w-4 mr-2" />
             AI Copilot
           </Button>
+          {/* Actions Dropdown Menu */}
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button variant="outline" size="sm">
+                <MoreVertical className="h-4 w-4" />
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end">
+              <DropdownMenuItem onClick={() => navigate(`/rfps/${rfpId}/copilot`)}>
+                <Edit3 className="h-4 w-4 mr-2" />
+                Edit Proposal
+              </DropdownMenuItem>
+              <DropdownMenuItem
+                onClick={() => advanceStageMutation.mutate()}
+                disabled={advanceStageMutation.isPending}
+              >
+                <Play className="h-4 w-4 mr-2" />
+                Advance to Next Stage
+              </DropdownMenuItem>
+              <DropdownMenuItem onClick={() => navigate('/pipeline')}>
+                <ChevronRight className="h-4 w-4 mr-2" />
+                View in Pipeline
+              </DropdownMenuItem>
+              <DropdownMenuSeparator />
+              <DropdownMenuItem onClick={() => setShowArchiveDialog(true)}>
+                <Archive className="h-4 w-4 mr-2" />
+                Archive RFP
+              </DropdownMenuItem>
+              <DropdownMenuItem
+                onClick={() => setShowDeleteDialog(true)}
+                className="text-red-600"
+              >
+                <Trash2 className="h-4 w-4 mr-2" />
+                Delete RFP
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
         </div>
       </div>
+
+      {/* Archive Confirmation Dialog */}
+      <Dialog open={showArchiveDialog} onOpenChange={setShowArchiveDialog}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Archive RFP</DialogTitle>
+            <DialogDescription>
+              This will archive the RFP "{rfp.title}". Archived RFPs can be restored later.
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setShowArchiveDialog(false)}>
+              Cancel
+            </Button>
+            <Button
+              onClick={() => archiveMutation.mutate()}
+              disabled={archiveMutation.isPending}
+            >
+              {archiveMutation.isPending && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
+              Archive
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Delete Confirmation Dialog */}
+      <Dialog open={showDeleteDialog} onOpenChange={setShowDeleteDialog}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Delete RFP</DialogTitle>
+            <DialogDescription>
+              This action cannot be undone. This will permanently delete the RFP "{rfp.title}" and all associated documents, Q&A, and proposals.
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setShowDeleteDialog(false)}>
+              Cancel
+            </Button>
+            <Button
+              variant="destructive"
+              onClick={() => deleteMutation.mutate()}
+              disabled={deleteMutation.isPending}
+            >
+              {deleteMutation.isPending && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
+              Delete
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       {/* Deadline Banner */}
       {deadlineDate && (
@@ -536,7 +787,7 @@ export default function RFPDetail() {
 
       {/* Main Content Tabs */}
       <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-4">
-        <TabsList>
+        <TabsList className="flex-wrap h-auto gap-1">
           <TabsTrigger value="overview">Overview</TabsTrigger>
           <TabsTrigger value="documents" className="gap-2">
             <FileText className="h-4 w-4" />
@@ -555,6 +806,18 @@ export default function RFPDetail() {
               <span className="h-2 w-2 bg-blue-500 rounded-full" />
             )}
           </TabsTrigger>
+          <TabsTrigger value="compliance" className="gap-2">
+            <Shield className="h-4 w-4" />
+            Compliance
+            {complianceMatrix?.compliance_score !== undefined && (
+              <Badge
+                variant={complianceMatrix.compliance_score >= 80 ? 'default' : complianceMatrix.compliance_score >= 60 ? 'secondary' : 'destructive'}
+                className="ml-1"
+              >
+                {Math.round(complianceMatrix.compliance_score)}%
+              </Badge>
+            )}
+          </TabsTrigger>
           <TabsTrigger value="proposal" className="gap-2" disabled={!generatedBid}>
             <FileOutput className="h-4 w-4" />
             Proposal
@@ -566,28 +829,47 @@ export default function RFPDetail() {
             <DollarSign className="h-4 w-4" />
             Pricing
           </TabsTrigger>
+          <TabsTrigger value="activity" className="gap-2">
+            <History className="h-4 w-4" />
+            Activity
+            {activityLog?.length > 0 && (
+              <Badge variant="secondary" className="ml-1">{activityLog.length}</Badge>
+            )}
+          </TabsTrigger>
         </TabsList>
 
         {/* Overview Tab */}
         <TabsContent value="overview" className="space-y-4">
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          {/* Description Section */}
+          {rfp.description && (
+            <Card>
+              <CardHeader>
+                <CardTitle>Description</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <p className="whitespace-pre-wrap">{rfp.description}</p>
+              </CardContent>
+            </Card>
+          )}
+
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
             {/* RFP Details Card */}
             <Card>
               <CardHeader>
                 <CardTitle>RFP Details</CardTitle>
               </CardHeader>
               <CardContent className="space-y-4">
-                {rfp.description && (
-                  <div>
-                    <label className="text-sm font-medium text-muted-foreground">Description</label>
-                    <p className="mt-1">{rfp.description}</p>
-                  </div>
-                )}
                 <div className="grid grid-cols-2 gap-4">
                   {rfp.naics_code && (
                     <div>
                       <label className="text-sm font-medium text-muted-foreground">NAICS Code</label>
                       <p className="mt-1 font-mono">{rfp.naics_code}</p>
+                    </div>
+                  )}
+                  {rfp.rfp_metadata?.psc_codes?.length > 0 && (
+                    <div>
+                      <label className="text-sm font-medium text-muted-foreground">PSC Codes</label>
+                      <p className="mt-1 font-mono">{rfp.rfp_metadata.psc_codes.join(', ')}</p>
                     </div>
                   )}
                   {rfp.category && (
@@ -599,19 +881,72 @@ export default function RFPDetail() {
                   {rfp.estimated_value && (
                     <div>
                       <label className="text-sm font-medium text-muted-foreground">Estimated Value</label>
-                      <p className="mt-1 font-semibold">${rfp.estimated_value.toLocaleString()}</p>
+                      <p className="mt-1 font-semibold text-green-600">${rfp.estimated_value.toLocaleString()}</p>
                     </div>
                   )}
-                  {rfp.posted_date && (
+                  {rfp.award_amount && (
                     <div>
-                      <label className="text-sm font-medium text-muted-foreground">Posted Date</label>
-                      <p className="mt-1">{format(new Date(rfp.posted_date), 'PPP')}</p>
+                      <label className="text-sm font-medium text-muted-foreground">Award Amount</label>
+                      <p className="mt-1 font-semibold text-green-600">${rfp.award_amount.toLocaleString()}</p>
                     </div>
                   )}
                 </div>
+
+                {/* Set-Asides */}
+                {rfp.rfp_metadata?.set_asides?.length > 0 && (
+                  <div className="pt-2 border-t">
+                    <label className="text-sm font-medium text-muted-foreground">Set-Asides</label>
+                    <div className="mt-1 flex flex-wrap gap-1">
+                      {rfp.rfp_metadata.set_asides.map((setAside: string, i: number) => (
+                        <Badge key={i} variant="outline" className="text-xs">
+                          {setAside}
+                        </Badge>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
                 {rfp.last_scraped_at && (
                   <div className="text-xs text-muted-foreground pt-2 border-t">
                     Last updated: {formatDistanceToNow(new Date(rfp.last_scraped_at), { addSuffix: true })}
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+
+            {/* Timeline Card */}
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <CalendarDays className="h-5 w-5" />
+                  Key Dates
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-3">
+                {rfp.posted_date && (
+                  <div className="flex items-center justify-between">
+                    <span className="text-sm text-muted-foreground">Posted</span>
+                    <span className="text-sm font-medium">{format(new Date(rfp.posted_date), 'PPP')}</span>
+                  </div>
+                )}
+                {rfp.rfp_metadata?.qa_deadline && (
+                  <div className="flex items-center justify-between">
+                    <span className="text-sm text-muted-foreground">Q&A Deadline</span>
+                    <span className="text-sm font-medium">{format(new Date(rfp.rfp_metadata.qa_deadline), 'PPP')}</span>
+                  </div>
+                )}
+                {rfp.response_deadline && (
+                  <div className="flex items-center justify-between">
+                    <span className="text-sm text-muted-foreground">Response Due</span>
+                    <span className={`text-sm font-medium ${isDeadlinePast ? 'text-red-500' : deadlineUrgent ? 'text-orange-500' : ''}`}>
+                      {format(new Date(rfp.response_deadline), 'PPP')}
+                    </span>
+                  </div>
+                )}
+                {rfp.award_date && (
+                  <div className="flex items-center justify-between">
+                    <span className="text-sm text-muted-foreground">Expected Award</span>
+                    <span className="text-sm font-medium">{format(new Date(rfp.award_date), 'PPP')}</span>
                   </div>
                 )}
               </CardContent>
@@ -1144,7 +1479,332 @@ export default function RFPDetail() {
         <TabsContent value="pricing">
           <PricingTable rfpId={rfpId!} />
         </TabsContent>
+
+        {/* Compliance Matrix Tab */}
+        <TabsContent value="compliance">
+          <Card>
+            <CardHeader>
+              <div className="flex items-center justify-between">
+                <div>
+                  <CardTitle className="flex items-center gap-2">
+                    <Shield className="h-5 w-5" />
+                    Compliance Matrix
+                  </CardTitle>
+                  <CardDescription>
+                    Extracted requirements and compliance status tracking
+                  </CardDescription>
+                </div>
+                {complianceMatrix && (
+                  <div className="text-right">
+                    <div className="text-2xl font-bold">
+                      {complianceMatrix.requirements_met}/{complianceMatrix.requirements_extracted}
+                    </div>
+                    <div className="text-sm text-muted-foreground">Requirements Met</div>
+                  </div>
+                )}
+              </div>
+            </CardHeader>
+            <CardContent>
+              {complianceLoading ? (
+                <div className="space-y-4">
+                  <Skeleton className="h-12 w-full" />
+                  <Skeleton className="h-12 w-full" />
+                  <Skeleton className="h-12 w-full" />
+                </div>
+              ) : complianceMatrix?.requirements?.length > 0 ? (
+                <div className="space-y-4">
+                  {/* Compliance Score Progress */}
+                  <div className="space-y-2">
+                    <div className="flex justify-between text-sm">
+                      <span>Compliance Score</span>
+                      <span className="font-medium">{Math.round(complianceMatrix.compliance_score || 0)}%</span>
+                    </div>
+                    <Progress value={complianceMatrix.compliance_score || 0} className="h-2" />
+                  </div>
+
+                  {/* Requirements Table */}
+                  <Table>
+                    <TableHeader>
+                      <TableRow>
+                        <TableHead className="w-12">#</TableHead>
+                        <TableHead>Requirement</TableHead>
+                        <TableHead className="w-24">Category</TableHead>
+                        <TableHead className="w-24">Priority</TableHead>
+                        <TableHead className="w-24">Status</TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {complianceMatrix.requirements.map((req: ComplianceRequirement, idx: number) => (
+                        <TableRow key={req.id || idx}>
+                          <TableCell className="font-mono text-xs">{idx + 1}</TableCell>
+                          <TableCell>
+                            <p className="text-sm">{req.requirement_text}</p>
+                            {req.response_notes && (
+                              <p className="text-xs text-muted-foreground mt-1">{req.response_notes}</p>
+                            )}
+                          </TableCell>
+                          <TableCell>
+                            <Badge variant="outline" className="text-xs">
+                              {req.category}
+                            </Badge>
+                          </TableCell>
+                          <TableCell>
+                            <Badge
+                              variant={req.priority === 'high' ? 'destructive' : req.priority === 'medium' ? 'default' : 'secondary'}
+                              className="text-xs"
+                            >
+                              {req.priority}
+                            </Badge>
+                          </TableCell>
+                          <TableCell>
+                            <Badge
+                              className={`text-xs ${
+                                req.status === 'met' ? 'bg-green-100 text-green-800' :
+                                req.status === 'partial' ? 'bg-yellow-100 text-yellow-800' :
+                                req.status === 'not_met' ? 'bg-red-100 text-red-800' :
+                                'bg-gray-100 text-gray-800'
+                              }`}
+                            >
+                              {req.status === 'met' && <CheckCircle2 className="h-3 w-3 mr-1" />}
+                              {req.status === 'not_met' && <XCircle className="h-3 w-3 mr-1" />}
+                              {req.status.replace('_', ' ')}
+                            </Badge>
+                          </TableCell>
+                        </TableRow>
+                      ))}
+                    </TableBody>
+                  </Table>
+                </div>
+              ) : (
+                <div className="text-center py-8 text-muted-foreground">
+                  <Shield className="h-12 w-12 mx-auto mb-4 opacity-50" />
+                  <p>No compliance matrix available</p>
+                  <p className="text-sm mt-1">
+                    Generate a proposal to create a compliance matrix
+                  </p>
+                </div>
+              )}
+            </CardContent>
+          </Card>
+        </TabsContent>
+
+        {/* Activity Log Tab */}
+        <TabsContent value="activity">
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <History className="h-5 w-5" />
+                Activity Log
+              </CardTitle>
+              <CardDescription>
+                Track all actions and stage transitions for this RFP
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              {activityLoading ? (
+                <div className="space-y-4">
+                  <Skeleton className="h-12 w-full" />
+                  <Skeleton className="h-12 w-full" />
+                  <Skeleton className="h-12 w-full" />
+                </div>
+              ) : activityLog?.length > 0 ? (
+                <div className="relative">
+                  {/* Timeline Line */}
+                  <div className="absolute left-4 top-0 bottom-0 w-0.5 bg-gray-200 dark:bg-gray-700" />
+
+                  <div className="space-y-4">
+                    {activityLog.map((event: ActivityEvent, idx: number) => (
+                      <div key={event.id || idx} className="relative flex gap-4 pl-8">
+                        {/* Timeline Dot */}
+                        <div className={`absolute left-2.5 w-3 h-3 rounded-full border-2 ${
+                          event.automated ? 'bg-blue-500 border-blue-500' : 'bg-green-500 border-green-500'
+                        }`} />
+
+                        <div className="flex-1 bg-muted/50 rounded-lg p-4">
+                          <div className="flex items-center justify-between mb-2">
+                            <div className="flex items-center gap-2">
+                              {event.from_stage && (
+                                <>
+                                  <Badge variant="outline" className="text-xs">
+                                    {event.from_stage.replace(/_/g, ' ')}
+                                  </Badge>
+                                  <ChevronRight className="h-4 w-4 text-muted-foreground" />
+                                </>
+                              )}
+                              <Badge className="text-xs">
+                                {event.to_stage.replace(/_/g, ' ')}
+                              </Badge>
+                            </div>
+                            <span className="text-xs text-muted-foreground">
+                              {formatDistanceToNow(new Date(event.timestamp), { addSuffix: true })}
+                            </span>
+                          </div>
+
+                          <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                            {event.automated ? (
+                              <span className="flex items-center gap-1">
+                                <Bot className="h-4 w-4" />
+                                Automated
+                              </span>
+                            ) : (
+                              <span className="flex items-center gap-1">
+                                <User className="h-4 w-4" />
+                                {event.user || 'Unknown user'}
+                              </span>
+                            )}
+                          </div>
+
+                          {event.notes && (
+                            <p className="text-sm mt-2">{event.notes}</p>
+                          )}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              ) : (
+                <div className="text-center py-8 text-muted-foreground">
+                  <History className="h-12 w-12 mx-auto mb-4 opacity-50" />
+                  <p>No activity recorded yet</p>
+                  <p className="text-sm mt-1">
+                    Actions on this RFP will appear here
+                  </p>
+                </div>
+              )}
+            </CardContent>
+          </Card>
+        </TabsContent>
       </Tabs>
+
+      {/* Floating AI Chat Panel */}
+      <div className="fixed bottom-6 right-6 z-50">
+        {isChatOpen ? (
+          <Card className="w-96 shadow-xl border-2">
+            <CardHeader className="pb-2">
+              <div className="flex items-center justify-between">
+                <CardTitle className="text-lg flex items-center gap-2">
+                  <Bot className="h-5 w-5 text-purple-500" />
+                  RFP Assistant
+                </CardTitle>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => setIsChatOpen(false)}
+                >
+                  <XCircle className="h-4 w-4" />
+                </Button>
+              </div>
+              <CardDescription className="text-xs">
+                Ask questions about this RFP
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="p-0">
+              {/* Chat Messages */}
+              <ScrollArea className="h-64 px-4" ref={chatScrollRef}>
+                {chatMessages.length === 0 ? (
+                  <div className="text-center py-8 text-muted-foreground text-sm">
+                    <Bot className="h-8 w-8 mx-auto mb-2 opacity-50" />
+                    <p>How can I help with this RFP?</p>
+                    <div className="mt-3 space-y-1">
+                      <button
+                        className="block w-full text-xs text-left p-2 rounded hover:bg-muted"
+                        onClick={() => {
+                          setChatMessage("Summarize the key requirements")
+                          handleSendMessage()
+                        }}
+                      >
+                        Summarize key requirements
+                      </button>
+                      <button
+                        className="block w-full text-xs text-left p-2 rounded hover:bg-muted"
+                        onClick={() => {
+                          setChatMessage("What are the compliance risks?")
+                          handleSendMessage()
+                        }}
+                      >
+                        What are the compliance risks?
+                      </button>
+                      <button
+                        className="block w-full text-xs text-left p-2 rounded hover:bg-muted"
+                        onClick={() => {
+                          setChatMessage("Create a win theme strategy")
+                          handleSendMessage()
+                        }}
+                      >
+                        Create a win theme strategy
+                      </button>
+                    </div>
+                  </div>
+                ) : (
+                  <div className="space-y-3 py-2">
+                    {chatMessages.map((msg) => (
+                      <div
+                        key={msg.id}
+                        className={`flex gap-2 ${msg.role === 'user' ? 'justify-end' : 'justify-start'}`}
+                      >
+                        {msg.role === 'assistant' && (
+                          <Bot className="h-6 w-6 text-purple-500 flex-shrink-0" />
+                        )}
+                        <div
+                          className={`max-w-[80%] p-2 rounded-lg text-sm ${
+                            msg.role === 'user'
+                              ? 'bg-purple-500 text-white'
+                              : 'bg-muted'
+                          }`}
+                        >
+                          {msg.content}
+                        </div>
+                        {msg.role === 'user' && (
+                          <User className="h-6 w-6 text-gray-400 flex-shrink-0" />
+                        )}
+                      </div>
+                    ))}
+                    {chatMutation.isPending && (
+                      <div className="flex gap-2">
+                        <Bot className="h-6 w-6 text-purple-500 flex-shrink-0" />
+                        <div className="bg-muted p-2 rounded-lg">
+                          <Loader2 className="h-4 w-4 animate-spin" />
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                )}
+              </ScrollArea>
+
+              {/* Chat Input */}
+              <div className="p-4 border-t flex gap-2">
+                <Input
+                  placeholder="Ask about this RFP..."
+                  value={chatMessage}
+                  onChange={(e) => setChatMessage(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter' && !e.shiftKey) {
+                      e.preventDefault()
+                      handleSendMessage()
+                    }
+                  }}
+                  disabled={chatMutation.isPending}
+                />
+                <Button
+                  size="sm"
+                  onClick={handleSendMessage}
+                  disabled={!chatMessage.trim() || chatMutation.isPending}
+                >
+                  <Send className="h-4 w-4" />
+                </Button>
+              </div>
+            </CardContent>
+          </Card>
+        ) : (
+          <Button
+            size="lg"
+            className="rounded-full h-14 w-14 shadow-lg bg-purple-500 hover:bg-purple-600"
+            onClick={() => setIsChatOpen(true)}
+          >
+            <Bot className="h-6 w-6" />
+          </Button>
+        )}
+      </div>
     </div>
   )
 }
