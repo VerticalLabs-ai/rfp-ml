@@ -32,7 +32,7 @@ def broadcast_alert(notification: dict):
 
         asyncio.run(broadcast_alert_notification(notification))
     except Exception as e:
-        logger.warning(f"Failed to broadcast alert: {e}")
+        logger.warning("Failed to broadcast alert: %s", e)
 
 
 @shared_task(bind=True, name="api.app.worker.tasks.alerts.evaluate_alert_rules")
@@ -49,7 +49,7 @@ def evaluate_alert_rules(self, rfp_id: str | None = None) -> dict:
     Returns:
         Dict with evaluation results
     """
-    logger.info(f"Evaluating alert rules - RFP: {rfp_id or 'all'}")
+    logger.info("Evaluating alert rules - RFP: %s", rfp_id or "all")
 
     try:
         from datetime import datetime, timedelta, timezone
@@ -173,7 +173,7 @@ def evaluate_alert_rules(self, rfp_id: str | None = None) -> dict:
                             )
 
                 except Exception as e:
-                    logger.error(f"Error evaluating rule {rule.id}: {e}")
+                    logger.error("Error evaluating rule %d: %s", rule.id, e)
                     continue
 
             db.commit()
@@ -332,7 +332,7 @@ def send_alert_email(self, notification_id: int, recipients: list[str]) -> dict:
                 return {"status": "error", "error": "Failed to send email"}
 
     except Exception as e:
-        logger.error(f"Email send failed: {e}")
+        logger.error("Email send failed: %s", e)
         return {"status": "error", "error": str(e)}
 
 
@@ -409,7 +409,7 @@ def _send_via_sendgrid(
         )
         return response.status_code == 202
     except Exception as e:
-        logger.error(f"SendGrid send failed: {e}")
+        logger.error("SendGrid send failed: %s", e)
         return False
 
 
@@ -434,5 +434,5 @@ def _send_via_smtp(
 
         return True
     except Exception as e:
-        logger.error(f"SMTP send failed: {e}")
+        logger.error("SMTP send failed: %s", e)
         return False

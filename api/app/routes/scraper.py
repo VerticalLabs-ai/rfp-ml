@@ -124,7 +124,7 @@ async def scrape_rfp(
 
     try:
         # Scrape the RFP
-        logger.info(f"Starting scrape of URL: {url}")
+        logger.info("Starting scrape of URL: %s", url)
         scraped_rfp = await scraper.scrape(url)
 
         # Generate unique RFP ID
@@ -211,7 +211,7 @@ async def scrape_rfp(
     except HTTPException:
         raise
     except Exception as e:
-        logger.error(f"Error scraping RFP: {e}")
+        logger.error("Error scraping RFP: %s", e)
         raise HTTPException(status_code=500, detail=f"Scraping failed: {e!s}") from e
 
 
@@ -248,7 +248,9 @@ async def _download_and_save_documents(
 
             session.commit()
             logger.info(
-                f"Saved {len(scraped_rfp.documents)} document records for RFP {rfp_id}"
+                "Saved %d document records for RFP %s",
+                len(scraped_rfp.documents),
+                rfp_id,
             )
 
         # Then attempt to download the files
@@ -274,11 +276,13 @@ async def _download_and_save_documents(
 
             session.commit()
             logger.info(
-                f"Updated {len(downloaded_docs)} documents with download info for RFP {rfp_id}"
+                "Updated %d documents with download info for RFP %s",
+                len(downloaded_docs),
+                rfp_id,
             )
 
     except Exception as e:
-        logger.error(f"Error processing documents for RFP {rfp_id}: {e}")
+        logger.error("Error processing documents for RFP %s: %s", rfp_id, e)
 
 
 @router.post("/{rfp_id}/refresh", response_model=RefreshResponse)
@@ -382,7 +386,9 @@ async def refresh_rfp(
                 _download_and_save_documents, scraper, updated_rfp, rfp.id, rfp_id
             )
             logger.info(
-                f"Triggering download: {new_doc_count} new, {docs_needing_download} pending"
+                "Triggering download: %d new, %d pending",
+                new_doc_count,
+                docs_needing_download,
             )
 
         # Check for metadata changes
@@ -414,7 +420,7 @@ async def refresh_rfp(
         )
 
     except Exception as e:
-        logger.error(f"Error refreshing RFP {rfp_id}: {e}")
+        logger.error("Error refreshing RFP %s: %s", rfp_id, e)
         raise HTTPException(status_code=500, detail=f"Refresh failed: {e!s}") from e
 
 
@@ -531,7 +537,7 @@ async def analyze_qa(rfp_id: str, db: DBDep):
             qa.related_sections = analysis.get("related_sections", [])
             analyzed_count += 1
         except Exception as e:
-            logger.warning(f"Failed to analyze Q&A {qa.id}: {e}")
+            logger.warning("Failed to analyze Q&A %d: %s", qa.id, e)
 
     db.commit()
 

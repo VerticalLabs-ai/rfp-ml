@@ -346,7 +346,7 @@ class ComplianceChecklistGenerator:
         # Collapse multiple whitespace characters (spaces, tabs, newlines) into single spaces
         cleaned = re.sub(r"\s+", " ", cleaned)
 
-        # Remove trailing punctuation that might be artifacts (but keep sentence-ending punctuation)
+        # Remove trailing punctuation artifacts
         cleaned = re.sub(r"[.,;:]+$", "", cleaned).strip()
 
         return cleaned

@@ -4,15 +4,11 @@ Smart Alerts API endpoints.
 Provides GovGPT-style alert management for RFP monitoring with customizable
 rules, multi-channel notifications, and intelligent matching.
 """
+
 import logging
 from datetime import datetime, timedelta, timezone
 from typing import Any
 
-from fastapi import APIRouter, HTTPException, Query
-from pydantic import BaseModel, Field
-from sqlalchemy import and_, func, or_
-
-from app.core.database import get_db
 from app.dependencies import DBDep
 from app.models.database import (
     AlertNotification,
@@ -22,6 +18,9 @@ from app.models.database import (
     NotificationChannel,
     RFPOpportunity,
 )
+from fastapi import APIRouter, HTTPException, Query
+from pydantic import BaseModel, Field
+from sqlalchemy import and_, func, or_
 
 logger = logging.getLogger(__name__)
 router = APIRouter()
@@ -31,8 +30,10 @@ router = APIRouter()
 # Pydantic Models
 # =============================================================================
 
+
 class AlertRuleCreate(BaseModel):
     """Request to create a new alert rule."""
+
     name: str = Field(..., min_length=1, max_length=100)
     description: str | None = None
     alert_type: AlertType
@@ -49,6 +50,7 @@ class AlertRuleCreate(BaseModel):
 
 class AlertRuleUpdate(BaseModel):
     """Request to update an alert rule."""
+
     name: str | None = None
     description: str | None = None
     is_active: bool | None = None
@@ -64,6 +66,7 @@ class AlertRuleUpdate(BaseModel):
 
 class NotificationAction(BaseModel):
     """Action to take on a notification."""
+
     action: str = Field(..., description="Action: mark_read, dismiss, action_taken")
     action_details: str | None = None
 
@@ -72,11 +75,14 @@ class NotificationAction(BaseModel):
 # Alert Rules Endpoints
 # =============================================================================
 
+
 @router.get("/rules")
 async def list_alert_rules(
     db: DBDep,
-    active_only: bool = Query(False, description="Only return active rules"),
-    alert_type: AlertType | None = Query(None, description="Filter by alert type"),
+    active_only: bool = Query(default=False, description="Only return active rules"),
+    alert_type: AlertType | None = Query(
+        default=None, description="Filter by alert type"
+    ),
 ):
     """
     List all alert rules.
@@ -86,7 +92,7 @@ async def list_alert_rules(
     query = db.query(AlertRule)
 
     if active_only:
-        query = query.filter(AlertRule.is_active == True)
+        query = query.filter(AlertRule.is_active.is_(True))
 
     if alert_type:
         query = query.filter(AlertRule.alert_type == alert_type)
@@ -96,7 +102,7 @@ async def list_alert_rules(
     return {
         "rules": [rule.to_dict() for rule in rules],
         "total": len(rules),
-        "active_count": sum(1 for r in rules if r.is_active)
+        "active_count": sum(1 for r in rules if r.is_active),
     }
 
 
@@ -130,7 +136,7 @@ async def create_alert_rule(db: DBDep, data: AlertRuleCreate):
     db.commit()
     db.refresh(rule)
 
-    logger.info(f"Created alert rule: {rule.name} (type: {rule.alert_type.value})")
+    logger.info("Created alert rule: %s (type: %s)", rule.name, rule.alert_type.value)
 
     return rule.to_dict()
 
@@ -165,7 +171,7 @@ async def update_alert_rule(db: DBDep, rule_id: int, data: AlertRuleUpdate):
     db.commit()
     db.refresh(rule)
 
-    logger.info(f"Updated alert rule: {rule.name}")
+    logger.info("Updated alert rule: %s", rule.name)
 
     return rule.to_dict()
 
@@ -183,7 +189,7 @@ async def delete_alert_rule(db: DBDep, rule_id: int):
     db.delete(rule)
     db.commit()
 
-    logger.info(f"Deleted alert rule: {rule.name}")
+    logger.info("Deleted alert rule: %s", rule.name)
 
     return {"message": f"Alert rule '{rule.name}' deleted successfully"}
 
@@ -200,13 +206,13 @@ async def toggle_alert_rule(db: DBDep, rule_id: int):
     db.commit()
 
     status = "activated" if rule.is_active else "deactivated"
-    logger.info(f"Alert rule {rule.name} {status}")
+    logger.info("Alert rule %s %s", rule.name, status)
 
     return {
         "rule_id": rule.id,
         "name": rule.name,
         "is_active": rule.is_active,
-        "message": f"Rule {status}"
+        "message": f"Rule {status}",
     }
 
 
@@ -234,10 +240,10 @@ async def test_alert_rule(db: DBDep, rule_id: int):
                 "rfp_id": rfp.rfp_id,
                 "title": rfp.title,
                 "agency": rfp.agency,
-                "score": rfp.triage_score
+                "score": rfp.triage_score,
             }
             for rfp in matching_rfps[:10]  # Limit to 10 for preview
-        ]
+        ],
     }
 
 
@@ -245,13 +251,14 @@ async def test_alert_rule(db: DBDep, rule_id: int):
 # Notifications Endpoints
 # =============================================================================
 
+
 @router.get("/notifications")
 async def list_notifications(
     db: DBDep,
-    unread_only: bool = Query(False),
-    priority: AlertPriority | None = Query(None),
-    limit: int = Query(50, ge=1, le=200),
-    offset: int = Query(0, ge=0),
+    unread_only: bool = Query(default=False),
+    priority: AlertPriority | None = Query(default=None),
+    limit: int = Query(default=50, ge=1, le=200),
+    offset: int = Query(default=0, ge=0),
 ):
     """
     List alert notifications.
@@ -261,18 +268,17 @@ async def list_notifications(
     query = db.query(AlertNotification)
 
     if unread_only:
-        query = query.filter(AlertNotification.is_read == False)
+        query = query.filter(AlertNotification.is_read.is_(False))
 
     if priority:
         query = query.filter(AlertNotification.priority == priority)
 
     # Filter out dismissed
-    query = query.filter(AlertNotification.is_dismissed == False)
+    query = query.filter(AlertNotification.is_dismissed.is_(False))
 
     total = query.count()
     notifications = (
-        query
-        .order_by(AlertNotification.created_at.desc())
+        query.order_by(AlertNotification.created_at.desc())
         .offset(offset)
         .limit(limit)
         .all()
@@ -281,8 +287,8 @@ async def list_notifications(
     # Get unread count
     unread_count = (
         db.query(AlertNotification)
-        .filter(AlertNotification.is_read == False)
-        .filter(AlertNotification.is_dismissed == False)
+        .filter(AlertNotification.is_read.is_(False))
+        .filter(AlertNotification.is_dismissed.is_(False))
         .count()
     )
 
@@ -291,7 +297,7 @@ async def list_notifications(
         "total": total,
         "unread_count": unread_count,
         "limit": limit,
-        "offset": offset
+        "offset": offset,
     }
 
 
@@ -300,15 +306,15 @@ async def get_notification_count(db: DBDep):
     """Get counts of notifications by status."""
     unread = (
         db.query(AlertNotification)
-        .filter(AlertNotification.is_read == False)
-        .filter(AlertNotification.is_dismissed == False)
+        .filter(AlertNotification.is_read.is_(False))
+        .filter(AlertNotification.is_dismissed.is_(False))
         .count()
     )
 
     by_priority = dict(
         db.query(AlertNotification.priority, func.count(AlertNotification.id))
-        .filter(AlertNotification.is_read == False)
-        .filter(AlertNotification.is_dismissed == False)
+        .filter(AlertNotification.is_read.is_(False))
+        .filter(AlertNotification.is_dismissed.is_(False))
         .group_by(AlertNotification.priority)
         .all()
     )
@@ -320,7 +326,7 @@ async def get_notification_count(db: DBDep):
             "high": by_priority.get(AlertPriority.HIGH, 0),
             "medium": by_priority.get(AlertPriority.MEDIUM, 0),
             "low": by_priority.get(AlertPriority.LOW, 0),
-        }
+        },
     }
 
 
@@ -340,9 +346,7 @@ async def get_notification(db: DBDep, notification_id: int):
 
 @router.post("/notifications/{notification_id}/action")
 async def action_notification(
-    db: DBDep,
-    notification_id: int,
-    data: NotificationAction
+    db: DBDep, notification_id: int, data: NotificationAction
 ):
     """
     Perform an action on a notification.
@@ -382,7 +386,7 @@ async def mark_all_notifications_read(db: DBDep):
     """Mark all unread notifications as read."""
     count = (
         db.query(AlertNotification)
-        .filter(AlertNotification.is_read == False)
+        .filter(AlertNotification.is_read.is_(False))
         .update({"is_read": True, "read_at": datetime.now(timezone.utc)})
     )
     db.commit()
@@ -397,9 +401,9 @@ async def dismiss_all_notifications(db: DBDep, older_than_days: int = Query(7, g
 
     count = (
         db.query(AlertNotification)
-        .filter(AlertNotification.is_read == True)
+        .filter(AlertNotification.is_read.is_(True))
         .filter(AlertNotification.created_at < cutoff)
-        .filter(AlertNotification.is_dismissed == False)
+        .filter(AlertNotification.is_dismissed.is_(False))
         .update({"is_dismissed": True, "dismissed_at": datetime.now(timezone.utc)})
     )
     db.commit()
@@ -411,6 +415,7 @@ async def dismiss_all_notifications(db: DBDep, older_than_days: int = Query(7, g
 # Alert Evaluation Endpoint
 # =============================================================================
 
+
 @router.post("/evaluate")
 async def evaluate_alerts(db: DBDep, rfp_id: str | None = None):
     """
@@ -419,11 +424,7 @@ async def evaluate_alerts(db: DBDep, rfp_id: str | None = None):
     If rfp_id is provided, evaluates only against that RFP.
     Creates notifications for matching rules.
     """
-    active_rules = (
-        db.query(AlertRule)
-        .filter(AlertRule.is_active == True)
-        .all()
-    )
+    active_rules = db.query(AlertRule).filter(AlertRule.is_active.is_(True)).all()
 
     if not active_rules:
         return {"message": "No active alert rules", "notifications_created": 0}
@@ -441,7 +442,9 @@ async def evaluate_alerts(db: DBDep, rfp_id: str | None = None):
 
         # Find matching RFPs
         if rfp_id:
-            rfp = db.query(RFPOpportunity).filter(RFPOpportunity.rfp_id == rfp_id).first()
+            rfp = (
+                db.query(RFPOpportunity).filter(RFPOpportunity.rfp_id == rfp_id).first()
+            )
             matching_rfps = [rfp] if rfp and _matches_criteria(rfp, rule) else []
         else:
             matching_rfps = _find_matching_rfps(db, rule)
@@ -453,14 +456,17 @@ async def evaluate_alerts(db: DBDep, rfp_id: str | None = None):
                 db.query(AlertNotification)
                 .filter(AlertNotification.rule_id == rule.id)
                 .filter(AlertNotification.rfp_id == rfp.id)
-                .filter(AlertNotification.created_at >= datetime.now(timezone.utc) - timedelta(days=1))
+                .filter(
+                    AlertNotification.created_at
+                    >= datetime.now(timezone.utc) - timedelta(days=1)
+                )
                 .first()
             )
 
             if existing:
                 continue
 
-            notification = _create_notification(db, rule, rfp)
+            _create_notification(db, rule, rfp)
             notifications_created += 1
 
             # Update rule stats
@@ -471,13 +477,14 @@ async def evaluate_alerts(db: DBDep, rfp_id: str | None = None):
 
     return {
         "rules_evaluated": len(active_rules),
-        "notifications_created": notifications_created
+        "notifications_created": notifications_created,
     }
 
 
 # =============================================================================
 # Alert Types Info Endpoint
 # =============================================================================
+
 
 @router.get("/types")
 async def list_alert_types():
@@ -491,32 +498,46 @@ async def list_alert_types():
             "name": "New RFP",
             "description": "Alert when new RFPs match specified criteria",
             "criteria_schema": {
-                "keywords": {"type": "array", "description": "Keywords to match in title/description"},
+                "keywords": {
+                    "type": "array",
+                    "description": "Keywords to match in title/description",
+                },
                 "agencies": {"type": "array", "description": "Agencies to match"},
                 "naics_codes": {"type": "array", "description": "NAICS codes to match"},
-            }
+            },
         },
         AlertType.DEADLINE_APPROACHING.value: {
             "name": "Deadline Approaching",
             "description": "Alert when RFP deadlines are approaching",
             "criteria_schema": {
-                "days_before": {"type": "integer", "description": "Days before deadline to alert", "default": 7}
-            }
+                "days_before": {
+                    "type": "integer",
+                    "description": "Days before deadline to alert",
+                    "default": 7,
+                }
+            },
         },
         AlertType.STAGE_CHANGE.value: {
             "name": "Stage Change",
             "description": "Alert when RFPs move to specific pipeline stages",
             "criteria_schema": {
                 "stages": {"type": "array", "description": "Pipeline stages to monitor"}
-            }
+            },
         },
         AlertType.SCORE_THRESHOLD.value: {
             "name": "Score Threshold",
             "description": "Alert when RFP scores exceed threshold",
             "criteria_schema": {
-                "min_score": {"type": "number", "description": "Minimum score to trigger alert"},
-                "score_type": {"type": "string", "enum": ["triage", "overall"], "default": "triage"}
-            }
+                "min_score": {
+                    "type": "number",
+                    "description": "Minimum score to trigger alert",
+                },
+                "score_type": {
+                    "type": "string",
+                    "enum": ["triage", "overall"],
+                    "default": "triage",
+                },
+            },
         },
         AlertType.KEYWORD_MATCH.value: {
             "name": "Keyword Match",
@@ -524,46 +545,49 @@ async def list_alert_types():
             "criteria_schema": {
                 "keywords": {"type": "array", "description": "Keywords to match"},
                 "match_title": {"type": "boolean", "default": True},
-                "match_description": {"type": "boolean", "default": True}
-            }
+                "match_description": {"type": "boolean", "default": True},
+            },
         },
         AlertType.AGENCY_MATCH.value: {
             "name": "Agency Match",
             "description": "Alert for RFPs from specific agencies",
             "criteria_schema": {
                 "agencies": {"type": "array", "description": "Agency names to match"}
-            }
+            },
         },
         AlertType.NAICS_MATCH.value: {
             "name": "NAICS Match",
             "description": "Alert for RFPs with specific NAICS codes",
             "criteria_schema": {
                 "naics_codes": {"type": "array", "description": "NAICS codes to match"}
-            }
+            },
         },
         AlertType.DOCUMENT_UPDATED.value: {
             "name": "Document Updated",
             "description": "Alert when RFP documents are updated",
             "criteria_schema": {
-                "document_types": {"type": "array", "description": "Document types to monitor"}
-            }
+                "document_types": {
+                    "type": "array",
+                    "description": "Document types to monitor",
+                }
+            },
         },
         AlertType.QA_POSTED.value: {
             "name": "Q&A Posted",
             "description": "Alert when new Q&A responses are posted",
-            "criteria_schema": {}
+            "criteria_schema": {},
         },
         AlertType.AWARD_ANNOUNCED.value: {
             "name": "Award Announced",
             "description": "Alert when contract awards are announced",
-            "criteria_schema": {}
+            "criteria_schema": {},
         },
     }
 
     return {
         "alert_types": alert_type_info,
         "priorities": [p.value for p in AlertPriority],
-        "notification_channels": [c.value for c in NotificationChannel]
+        "notification_channels": [c.value for c in NotificationChannel],
     }
 
 
@@ -571,22 +595,24 @@ async def list_alert_types():
 # Helper Functions
 # =============================================================================
 
+
 def _validate_criteria(alert_type: AlertType, criteria: dict[str, Any]):
     """Validate criteria based on alert type."""
     if alert_type == AlertType.DEADLINE_APPROACHING:
         if "days_before" in criteria:
-            if not isinstance(criteria["days_before"], int) or criteria["days_before"] < 1:
+            if (
+                not isinstance(criteria["days_before"], int)
+                or criteria["days_before"] < 1
+            ):
                 raise HTTPException(
-                    status_code=400,
-                    detail="days_before must be a positive integer"
+                    status_code=400, detail="days_before must be a positive integer"
                 )
 
     if alert_type == AlertType.SCORE_THRESHOLD:
         if "min_score" in criteria:
             if not isinstance(criteria["min_score"], (int, float)):
                 raise HTTPException(
-                    status_code=400,
-                    detail="min_score must be a number"
+                    status_code=400, detail="min_score must be a number"
                 )
 
 
@@ -601,7 +627,9 @@ def _check_cooldown(rule: AlertRule) -> bool:
 
 def _check_daily_limit(db, rule: AlertRule) -> bool:
     """Check if rule has exceeded daily limit."""
-    today_start = datetime.now(timezone.utc).replace(hour=0, minute=0, second=0, microsecond=0)
+    today_start = datetime.now(timezone.utc).replace(
+        hour=0, minute=0, second=0, microsecond=0
+    )
 
     today_count = (
         db.query(AlertNotification)
@@ -645,9 +673,9 @@ def _find_matching_rfps(db, rule: AlertRule) -> list[RFPOpportunity]:
         deadline = datetime.now(timezone.utc) + timedelta(days=days_before)
         query = query.filter(
             and_(
-                RFPOpportunity.response_deadline != None,
+                RFPOpportunity.response_deadline is not None,
                 RFPOpportunity.response_deadline <= deadline,
-                RFPOpportunity.response_deadline >= datetime.now(timezone.utc)
+                RFPOpportunity.response_deadline >= datetime.now(timezone.utc),
             )
         )
 
@@ -695,11 +723,7 @@ def _matches_criteria(rfp: RFPOpportunity, rule: AlertRule) -> bool:
     return True
 
 
-def _create_notification(
-    db,
-    rule: AlertRule,
-    rfp: RFPOpportunity
-) -> AlertNotification:
+def _create_notification(db, rule: AlertRule, rfp: RFPOpportunity) -> AlertNotification:
     """Create a notification for a rule/RFP match."""
     # Build notification title and message
     title = _build_notification_title(rule, rfp)
@@ -716,8 +740,8 @@ def _create_notification(
             "rule_name": rule.name,
             "alert_type": rule.alert_type.value,
             "rfp_title": rfp.title,
-            "criteria_matched": rule.criteria
-        }
+            "criteria_matched": rule.criteria,
+        },
     )
 
     db.add(notification)
@@ -745,7 +769,11 @@ def _build_notification_title(rule: AlertRule, rfp: RFPOpportunity) -> str:
 def _build_notification_message(rule: AlertRule, rfp: RFPOpportunity) -> str:
     """Build notification message based on alert type."""
     if rule.alert_type == AlertType.DEADLINE_APPROACHING:
-        days = (rfp.response_deadline - datetime.now(timezone.utc)).days if rfp.response_deadline else 0
+        days = (
+            (rfp.response_deadline - datetime.now(timezone.utc)).days
+            if rfp.response_deadline
+            else 0
+        )
         return f"RFP deadline is in {days} days. Agency: {rfp.agency}. Review and take action."
 
     if rule.alert_type == AlertType.SCORE_THRESHOLD:

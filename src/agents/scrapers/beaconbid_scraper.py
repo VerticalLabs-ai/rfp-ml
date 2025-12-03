@@ -173,7 +173,7 @@ class BeaconBidScraper(BaseScraper):
             logger.error("Stagehand package not installed. Run: pip install stagehand")
             raise ScraperError("Stagehand package not installed") from err
         except Exception as e:
-            logger.error(f"Failed to create Stagehand session: {e}")
+            logger.error("Failed to create Stagehand session: %s", e)
             raise ScraperConnectionError(
                 f"Failed to connect to Browserbase: {e}"
             ) from e
@@ -191,7 +191,7 @@ class BeaconBidScraper(BaseScraper):
         if not self.is_valid_url(url):
             raise ValueError(f"URL not supported by BeaconBid scraper: {url}")
 
-        logger.info(f"Scraping BeaconBid URL: {url}")
+        logger.info("Scraping BeaconBid URL: %s", url)
         stagehand = None
 
         try:
@@ -244,11 +244,11 @@ class BeaconBidScraper(BaseScraper):
             )
 
             scraped_rfp.compute_checksum()
-            logger.info(f"Successfully scraped RFP: {scraped_rfp.title}")
+            logger.info("Successfully scraped RFP: %s", scraped_rfp.title)
             return scraped_rfp
 
         except Exception as e:
-            logger.error(f"Error scraping BeaconBid URL {url}: {e}")
+            logger.error("Error scraping BeaconBid URL %s: %s", url, e)
             raise ScraperParseError(f"Failed to scrape BeaconBid: {e}") from e
 
         finally:
@@ -256,7 +256,7 @@ class BeaconBidScraper(BaseScraper):
                 try:
                     await stagehand.close()
                 except Exception as e:
-                    logger.warning(f"Error closing Stagehand session: {e}")
+                    logger.warning("Error closing Stagehand session: %s", e)
 
     async def _extract_rfp_metadata(self, stagehand: Any) -> dict[str, Any]:
         """
@@ -294,11 +294,11 @@ class BeaconBidScraper(BaseScraper):
             # Extract data from result
             data = result.data if hasattr(result, "data") else result
             data = self._to_dict(data)
-            logger.info(f"Extracted metadata: {data}")
+            logger.info("Extracted metadata: %s", data)
             return data
 
         except Exception as e:
-            logger.error(f"Error extracting metadata: {e}")
+            logger.error("Error extracting metadata: %s", e)
             return {}
 
     async def _extract_documents(
@@ -351,7 +351,7 @@ Look for download links in tables, lists, or attachment sections on the page.
             data = self._to_dict(data)
             doc_list = data.get("documents", [])
 
-            logger.info(f"Stagehand extracted {len(doc_list)} document entries")
+            logger.info("Stagehand extracted %d document entries", len(doc_list))
             print(f"[EXTRACT] Stagehand returned {len(doc_list)} documents:")
             for i, d in enumerate(doc_list):
                 print(
@@ -392,11 +392,11 @@ Look for download links in tables, lists, or attachment sections on the page.
                         f"Could not resolve document URL for {filename}: {raw_url[:100] if raw_url else 'empty'}"
                     )
 
-            logger.info(f"Found {len(documents)} documents")
+            logger.info("Found %d documents", len(documents))
             return documents
 
         except Exception as e:
-            logger.error(f"Error extracting documents: {e}")
+            logger.error("Error extracting documents: %s", e)
             return []
 
     def _resolve_document_url(self, url: str, base_url: str) -> str | None:
@@ -437,7 +437,7 @@ Look for download links in tables, lists, or attachment sections on the page.
             if parsed_resolved.scheme in ("http", "https") and parsed_resolved.netloc:
                 return resolved
         except Exception as e:
-            logger.warning(f"Failed to resolve URL {url}: {e}")
+            logger.warning("Failed to resolve URL %s: %s", url, e)
 
         return None
 
@@ -502,11 +502,11 @@ Look for download links in tables, lists, or attachment sections on the page.
                         )
                     )
 
-            logger.info(f"Found {len(qa_items)} Q&A items")
+            logger.info("Found %d Q&A items", len(qa_items))
             return qa_items
 
         except Exception as e:
-            logger.error(f"Error extracting Q&A: {e}")
+            logger.error("Error extracting Q&A: %s", e)
             return []
 
     async def download_documents(
@@ -607,7 +607,7 @@ Look for download links in tables, lists, or attachment sections on the page.
                 session_id = stagehand._session_id
 
             print(f"[DOWNLOAD] Session ID: {session_id}")
-            logger.info(f"Browserbase session ID: {session_id}")
+            logger.info("Browserbase session ID: %s", session_id)
 
             # Configure CDP for downloads
             browser = getattr(stagehand, "browser", None) or getattr(
@@ -625,7 +625,7 @@ Look for download links in tables, lists, or attachment sections on the page.
                         },
                     )
                 except Exception as cdp_err:
-                    logger.warning(f"Could not configure CDP session: {cdp_err}")
+                    logger.warning("Could not configure CDP session: %s", cdp_err)
 
             # Navigate to the RFP page
             await page.goto(rfp.source_url)
@@ -644,7 +644,7 @@ Look for download links in tables, lists, or attachment sections on the page.
 
         except Exception as e:
             print(f"[DOWNLOAD] Session failed: {e}")
-            logger.error(f"Download session failed: {e}")
+            logger.error("Download session failed: %s", e)
 
         finally:
             # Close the Stagehand session - this triggers upload to Browserbase cloud
@@ -653,7 +653,7 @@ Look for download links in tables, lists, or attachment sections on the page.
                     await stagehand.close()
                     logger.info("Stagehand session closed")
                 except Exception as e:
-                    logger.warning(f"Error closing Stagehand session: {e}")
+                    logger.warning("Error closing Stagehand session: %s", e)
 
         # Wait for upload to Browserbase cloud
         await asyncio.sleep(3)
@@ -672,7 +672,7 @@ Look for download links in tables, lists, or attachment sections on the page.
                 )
             except Exception as e:
                 print(f"[DOWNLOAD] Failed to retrieve package: {e}")
-                logger.exception(f"Failed to retrieve from Browserbase: {e}")
+                logger.exception("Failed to retrieve from Browserbase: %s", e)
         else:
             print("[DOWNLOAD] No session ID - cannot retrieve downloads")
 
@@ -711,7 +711,7 @@ Look for download links in tables, lists, or attachment sections on the page.
 
         bb = Browserbase(api_key=self.browserbase_api_key)
         print("[DOWNLOAD] Browserbase client created, polling for downloads...")
-        logger.info(f"Retrieving downloads from Browserbase session: {session_id}")
+        logger.info("Retrieving downloads from Browserbase session: %s", session_id)
 
         while time.time() < end_time:
             try:
@@ -728,7 +728,7 @@ Look for download links in tables, lists, or attachment sections on the page.
                         print(
                             f"[DOWNLOAD] Retrieved {len(content)} bytes from Browserbase"
                         )
-                        logger.info(f"Retrieved {len(content)} bytes from Browserbase")
+                        logger.info("Retrieved %d bytes from Browserbase", len(content))
 
                         # Extract ZIP contents
                         with zipfile.ZipFile(io.BytesIO(content), "r") as zip_ref:
@@ -736,7 +736,7 @@ Look for download links in tables, lists, or attachment sections on the page.
                             print(
                                 f"[DOWNLOAD] ZIP contains {len(file_names)} files: {file_names}"
                             )
-                            logger.info(f"ZIP contains files: {file_names}")
+                            logger.info("ZIP contains files: %s", file_names)
 
                             for zip_filename in file_names:
                                 # Browserbase adds timestamp suffix: sample-1719265797164.pdf
@@ -818,11 +818,11 @@ Look for download links in tables, lists, or attachment sections on the page.
                         return downloaded_docs
 
             except Exception as e:
-                logger.debug(f"Error fetching downloads (will retry): {e}")
+                logger.debug("Error fetching downloads (will retry): %s", e)
 
             await asyncio.sleep(2)  # Wait before retrying
 
-        logger.warning(f"No downloads found from Browserbase within {retry_seconds}s")
+        logger.warning("No downloads found from Browserbase within %ds", retry_seconds)
         return downloaded_docs
 
     async def _download_single_document(
@@ -938,9 +938,9 @@ Look for download links in tables, lists, or attachment sections on the page.
         }
 
         if has_changes:
-            logger.info(f"Changes detected for {url}")
+            logger.info("Changes detected for %s", url)
         else:
-            logger.info(f"No changes for {url}")
+            logger.info("No changes for %s", url)
 
         return result
 
@@ -1001,9 +1001,13 @@ Look for download links in tables, lists, or attachment sections on the page.
 
         # Detect and extract timezone abbreviation
         for tz_abbr, tz_obj in tz_map.items():
-            if f" {tz_abbr}" in cleaned or cleaned.endswith(tz_abbr):
+            if cleaned.endswith(f" {tz_abbr}"):
                 detected_tz = tz_obj
-                cleaned = cleaned.replace(f" {tz_abbr}", "").replace(tz_abbr, "")
+                cleaned = cleaned[: -len(tz_abbr) - 1]  # Remove " TZ" from end
+                break
+            elif cleaned.endswith(tz_abbr):
+                detected_tz = tz_obj
+                cleaned = cleaned[: -len(tz_abbr)]
                 break
 
         # Remove "at" between date and time
@@ -1057,7 +1061,7 @@ Look for download links in tables, lists, or attachment sections on the page.
                 return float(cleaned[:-1]) * 1_000_000
             return float(cleaned)
         except ValueError:
-            logger.warning(f"Could not parse amount: {amount_str}")
+            logger.warning("Could not parse amount: %s", amount_str)
             return None
 
     def _classify_document_type(self, doc_type: str, filename: str) -> str:

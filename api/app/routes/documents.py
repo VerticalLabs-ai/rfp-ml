@@ -125,9 +125,9 @@ def extract_text_from_file(filepath: Path) -> str:
                     status_code=500, detail="Excel processing library not available"
                 ) from err
     except Exception as e:
-        logger.error(f"Failed to extract text from {filepath}: {e}")
+        logger.exception("Failed to extract text from %s", filepath)
         raise HTTPException(
-            status_code=500, detail=f"Failed to extract text: {str(e)}"
+            status_code=500, detail=f"Failed to extract text: {e!s}"
         ) from e
 
     return text

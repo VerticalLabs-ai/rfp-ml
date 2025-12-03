@@ -172,10 +172,12 @@ def save_proposal_sections_to_db(
             db.add(bid_doc)
 
         db.commit()
-        logger.info(f"Saved {len(sections)} proposal sections for RFP {rfp_id_str}")
+        logger.info("Saved %d proposal sections for RFP %s", len(sections), rfp_id_str)
 
     except Exception as e:
-        logger.exception(f"Failed to save proposal sections for RFP {rfp_id_str}: {e}")
+        logger.exception(
+            "Failed to save proposal sections for RFP %s: %s", rfp_id_str, e
+        )
         db.rollback()
 
 
@@ -402,7 +404,7 @@ async def get_teaming_partners(
             "total_found": len(partners),
         }
     except Exception as e:
-        logger.warning(f"Teaming partner search failed: {e}")
+        logger.warning("Teaming partner search failed: %s", e)
         # Return empty results gracefully if SAM.gov API not configured
         return {
             "rfp_id": rfp.rfp_id,
@@ -493,7 +495,7 @@ async def delete_rfp(rfp_id: str, db: DBDep):
     db.delete(rfp)
     db.commit()
 
-    logger.info(f"Deleted RFP {rfp_id}: {rfp_title}")
+    logger.info("Deleted RFP %s: %s", rfp_id, rfp_title)
 
     return {"message": f"RFP '{rfp_title}' deleted successfully", "rfp_id": rfp_id}
 
@@ -712,7 +714,7 @@ async def generate_bid_document(
                             f"({extracted['total_chars']} chars) for RFP {rfp.rfp_id}"
                         )
         except Exception as e:
-            logger.warning(f"Failed to extract document content: {e}")
+            logger.warning("Failed to extract document content: %s", e)
 
     # Detect compliance signals from RFP data and Q&A
     compliance_signals = None
@@ -728,7 +730,7 @@ async def generate_bid_document(
                     f"Detected compliance signals for {rfp.rfp_id}: {signals.detected_signals}"
                 )
         except Exception as e:
-            logger.warning(f"Failed to detect compliance signals: {e}")
+            logger.warning("Failed to detect compliance signals: %s", e)
 
     # Generate bid document with options and compliance context
     bid_document = await processor.generate_bid_document(
@@ -998,7 +1000,7 @@ async def trigger_async_ingestion(
     from app.services.background_tasks import ingest_documents_task
 
     task_id = str(uuid4())
-    background_tasks.add_task(ingest_documents_task, task_id, file_paths)
+    background_tasks.add_task(ingest_documents_task, task_id, rfp_id, file_paths)
     return {"task_id": task_id, "status": "processing"}
 
 
@@ -1220,7 +1222,7 @@ Keep responses brief (2-3 paragraphs max) and actionable.""",
             ai_response = response.content[0].text
 
         except Exception as e:
-            logger.warning(f"Claude API failed, using fallback: {e}")
+            logger.warning("Claude API failed, using fallback: %s", e)
             # Fallback response
             ai_response = f"""I can help you analyze this RFP for "{rfp.title}".
 

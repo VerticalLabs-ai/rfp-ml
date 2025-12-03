@@ -71,8 +71,8 @@ class StreamingService:
                 self._rag_engine = get_rag_engine()
                 stats = self._rag_engine.get_statistics()
                 logger.info("RAG engine ready: %s documents", stats["total_documents"])
-            except Exception as e:
-                logger.error("Failed to initialize RAG engine: %s", e)
+            except Exception:
+                logger.exception("Failed to initialize RAG engine")
         return self._rag_engine
 
     async def stream_llm_response(
@@ -189,7 +189,7 @@ class StreamingService:
             yield self._format_sse_event("complete", {"status": "success"})
 
         except Exception as e:
-            logger.error("Streaming error: %s", e)
+            logger.exception("Streaming error")
             yield self._format_sse_event("error", {"error": str(e)})
 
     async def stream_chat_response(
@@ -245,8 +245,8 @@ class StreamingService:
                             ),
                         }
                     )
-            except Exception as e:
-                logger.warning("RAG retrieval failed: %s", e)
+            except Exception:
+                logger.exception("RAG retrieval failed")
 
         # Build conversation
         history_text = ""
@@ -486,8 +486,8 @@ Please provide a helpful response:"""
                                     len(doc_parts),
                                     len(document_context),
                                 )
-                except Exception as e:
-                    logger.warning("Document extraction failed: %s", e)
+                except Exception:
+                    logger.exception("Document extraction failed")
 
         # Get RAG context
         rag_context = ""
@@ -501,8 +501,8 @@ Please provide a helpful response:"""
                     rag_context += (
                         f"\n{result.get('content', result.get('text', ''))[:500]}"
                     )
-            except Exception as e:
-                logger.warning("RAG retrieval failed: %s", e)
+            except Exception:
+                logger.exception("RAG retrieval failed")
 
         # Build section generation prompt using Claude LLM config patterns for instructions
         section_instructions = self._get_section_instructions(section_type)

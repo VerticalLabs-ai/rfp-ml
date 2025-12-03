@@ -526,7 +526,7 @@ async def execute_writer_command(rfp: RFPDep, request: AIWriterRequest):
                         rag_context = "\n\nReference material:\n" + context_text[:1000]
                         prompt += rag_context
             except Exception as e:
-                logger.debug(f"RAG context retrieval skipped: {e}")
+                logger.debug("RAG context retrieval skipped: %s", e)
 
         # Generate content
         result = llm_manager.llm_manager.generate_text(
@@ -554,7 +554,7 @@ async def execute_writer_command(rfp: RFPDep, request: AIWriterRequest):
         suggestions = _generate_suggestions(request.command, rfp)
 
         processing_time = int((time.time() - start_time) * 1000)
-        logger.info(f"AI Writer generated {word_count} words in {processing_time}ms")
+        logger.info("AI Writer generated %d words in %dms", word_count, processing_time)
 
         return AIWriterResponse(
             command=request.command.value,
@@ -568,7 +568,7 @@ async def execute_writer_command(rfp: RFPDep, request: AIWriterRequest):
         )
 
     except Exception as e:
-        logger.error(f"AI Writer error for {request.command.value}: {e}")
+        logger.error("AI Writer error for %s: %s", request.command.value, e)
         # Return fallback content
         fallback_content = _generate_fallback_content(request.command, rfp, max_words)
         return AIWriterResponse(
@@ -647,7 +647,7 @@ With examples:""",
         }
 
     except Exception as e:
-        logger.error(f"Content expansion failed: {e}")
+        logger.error("Content expansion failed: %s", e)
         raise HTTPException(status_code=500, detail=f"Expansion failed: {e!s}") from e
 
 
@@ -716,7 +716,7 @@ Technical Summary:""",
         }
 
     except Exception as e:
-        logger.error(f"Content summarization failed: {e}")
+        logger.error("Content summarization failed: %s", e)
         raise HTTPException(
             status_code=500, detail=f"Summarization failed: {e!s}"
         ) from e
@@ -770,7 +770,7 @@ Improved:"""
         }
 
     except Exception as e:
-        logger.error(f"Content improvement failed: {e}")
+        logger.error("Content improvement failed: %s", e)
         # Fallback
         return {
             "original_text": data.text,

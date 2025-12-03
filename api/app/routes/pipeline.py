@@ -7,9 +7,10 @@ Provides:
 - Performance metrics
 - Pagination for large datasets
 """
+
 import logging
 from datetime import datetime, timezone
-from typing import Any, List
+from typing import Any
 
 from app.dependencies import DBDep
 from app.models.database import PipelineEvent, PipelineStage, RFPOpportunity
@@ -27,6 +28,7 @@ _CACHE_TTL = 30  # 30 seconds cache
 
 class PipelineRFPResponse(BaseModel):
     """RFP item in pipeline view."""
+
     id: int
     rfp_id: str
     title: str
@@ -96,6 +98,7 @@ async def get_pipeline_status(
         - cached: Whether data came from cache
     """
     import time
+
     global _pipeline_cache, _cache_timestamp
 
     # Check cache
@@ -108,19 +111,24 @@ async def get_pipeline_status(
         # Count RFPs by stage
         stages = {}
         for stage in PipelineStage:
-            count = db.query(RFPOpportunity).filter(
-                RFPOpportunity.current_stage == stage
-            ).count()
+            count = (
+                db.query(RFPOpportunity)
+                .filter(RFPOpportunity.current_stage == stage)
+                .count()
+            )
             stages[stage.value] = count
 
         # Get RFPs for each stage (with pagination)
         rfps = []
         for stage in PipelineStage:
-            stage_rfps = db.query(RFPOpportunity).filter(
-                RFPOpportunity.current_stage == stage
-            ).order_by(
-                RFPOpportunity.updated_at.desc()
-            ).offset(skip).limit(limit).all()
+            stage_rfps = (
+                db.query(RFPOpportunity)
+                .filter(RFPOpportunity.current_stage == stage)
+                .order_by(RFPOpportunity.updated_at.desc())
+                .offset(skip)
+                .limit(limit)
+                .all()
+            )
 
             for rfp in stage_rfps:
                 rfps.append(rfp_to_pipeline_dict(rfp))
@@ -148,28 +156,32 @@ async def get_pipeline_status(
         raise HTTPException(status_code=500, detail=str(e)) from e
 
 
-@router.get("/{rfp_id}", response_model=List[PipelineEventResponse])
+@router.get("/{rfp_id}", response_model=list[PipelineEventResponse])
 async def get_rfp_pipeline(rfp_id: str, db: DBDep):
     """Get pipeline history for an RFP."""
-    rfp = db.query(RFPOpportunity).filter(
-        RFPOpportunity.rfp_id == rfp_id
-    ).first()
+    rfp = db.query(RFPOpportunity).filter(RFPOpportunity.rfp_id == rfp_id).first()
 
     if not rfp:
         raise HTTPException(status_code=404, detail="RFP not found")
 
-    events = db.query(PipelineEvent).filter(
-        PipelineEvent.rfp_id == rfp.id
-    ).order_by(PipelineEvent.timestamp).all()
+    events = (
+        db.query(PipelineEvent)
+        .filter(PipelineEvent.rfp_id == rfp.id)
+        .order_by(PipelineEvent.timestamp)
+        .all()
+    )
 
-    return [{
-        "from_stage": event.from_stage.value if event.from_stage else "start",
-        "to_stage": event.to_stage.value,
-        "timestamp": event.timestamp,
-        "duration_seconds": event.duration_seconds or 0,
-        "automated": event.automated,
-        "notes": event.notes or ""
-    } for event in events]
+    return [
+        {
+            "from_stage": event.from_stage.value if event.from_stage else "start",
+            "to_stage": event.to_stage.value,
+            "timestamp": event.timestamp,
+            "duration_seconds": event.duration_seconds or 0,
+            "automated": event.automated,
+            "notes": event.notes or "",
+        }
+        for event in events
+    ]
 
 
 @router.get("/metrics/performance")
@@ -178,16 +190,18 @@ async def get_pipeline_metrics(db: DBDep):
     # Average processing time by stage
     from sqlalchemy import func
 
-    avg_times = db.query(
-        PipelineEvent.to_stage,
-        func.avg(PipelineEvent.duration_seconds).label("avg_duration")
-    ).group_by(PipelineEvent.to_stage).all()
+    avg_times = (
+        db.query(
+            PipelineEvent.to_stage,
+            func.avg(PipelineEvent.duration_seconds).label("avg_duration"),
+        )
+        .group_by(PipelineEvent.to_stage)
+        .all()
+    )
 
     metrics = {
-        "avg_stage_duration": {
-            stage.value: duration for stage, duration in avg_times
-        },
-        "calculated_at": datetime.now(timezone.utc)
+        "avg_stage_duration": {stage.value: duration for stage, duration in avg_times},
+        "calculated_at": datetime.now(timezone.utc).isoformat(),
     }
 
     return metrics
