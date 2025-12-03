@@ -21,6 +21,8 @@ from app.schemas.compliance import (
     ReorderRequirements,
     ExtractionRequest,
     ExtractionResult,
+    AIResponseRequest,
+    AIResponseResult,
 )
 
 logger = logging.getLogger(__name__)
@@ -361,3 +363,83 @@ def _simple_requirement_extraction(text: str) -> list[dict]:
                 )
 
     return requirements[:50]  # Limit to 50 requirements
+
+
+@router.post(
+    "/requirements/{requirement_id}/ai-response", response_model=AIResponseResult
+)
+async def generate_ai_response(
+    requirement_id: int,
+    request: Optional[AIResponseRequest] = None,
+    db: Session = Depends(get_db),
+):
+    """Generate an AI-assisted response for a requirement."""
+    requirement = get_requirement_or_404(requirement_id, db)
+    rfp = (
+        db.query(RFPOpportunity)
+        .filter(RFPOpportunity.id == requirement.rfp_id)
+        .first()
+    )
+
+    # Get RAG context if requested
+    supporting_evidence = []
+    rag_context = ""
+
+    include_rag = request.include_rag_context if request else True
+    if include_rag:
+        try:
+            from src.rag.chroma_rag_engine import get_rag_engine
+
+            rag_engine = get_rag_engine()
+            results = rag_engine.retrieve(requirement.requirement_text, top_k=3)
+            supporting_evidence = [r.get("content", "")[:200] for r in results]
+            rag_context = "\n".join([f"- {r.get('content', '')}" for r in results])
+        except Exception as e:
+            logger.warning(f"RAG retrieval failed: {e}")
+
+    # Build prompt
+    prompt = f"""Generate a compliance response for the following RFP requirement.
+
+RFP: {rfp.title if rfp else 'Unknown'}
+Agency: {rfp.agency if rfp else 'Unknown'}
+
+Requirement ID: {requirement.requirement_id}
+Requirement Type: {requirement.requirement_type.value}
+Requirement Text: {requirement.requirement_text}
+
+{f'Relevant Context from Past Proposals:{chr(10)}{rag_context}' if rag_context else ''}
+
+Write a professional compliance response that:
+1. Directly addresses the requirement
+2. Demonstrates capability to meet the requirement
+3. Provides specific examples or evidence where possible
+4. Uses confident, professional language
+
+Response:"""
+
+    # Generate response using streaming service
+    from app.services.streaming import StreamingService
+
+    streaming_service = StreamingService()
+
+    try:
+        response_text = ""
+        async for chunk in streaming_service.stream_llm_response(
+            prompt=prompt,
+            system_message="You are an expert government proposal writer. Generate concise, compliant responses.",
+            task_type="compliance_response",
+            max_tokens=1000,
+        ):
+            response_text += chunk
+    except Exception as e:
+        logger.error(f"LLM generation failed: {e}")
+        raise HTTPException(status_code=500, detail="Failed to generate AI response")
+
+    # Calculate confidence based on RAG match quality
+    confidence = 0.85 if supporting_evidence else 0.70
+
+    return AIResponseResult(
+        response_text=response_text.strip(),
+        confidence_score=confidence,
+        supporting_evidence=supporting_evidence,
+    )
