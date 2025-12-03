@@ -5,6 +5,8 @@ from fastapi import FastAPI
 from fastapi.testclient import TestClient
 from sqlalchemy import create_engine, event
 from sqlalchemy.orm import sessionmaker
+# Import all models to ensure Base.metadata has them for create_all
+from app.models import database as models  # noqa: F401
 from app.models.database import Base, RFPOpportunity
 from app.core.database import get_db
 from app.routes.compliance import router as compliance_router
