@@ -387,6 +387,15 @@ async def stream_chat_with_rfp(rfp: RFPDep, request: ChatRequest, db: DBDep):
             yield f"data: {json.dumps({'type': 'status', 'content': 'Searching documents...'})}\n\n"
             await asyncio.sleep(0.1)
 
+            # Validate message
+            if not request.message or not request.message.strip():
+                yield f"data: {json.dumps({'type': 'error', 'content': 'Message cannot be empty'})}\n\n"
+                return
+
+            if len(request.message) > 5000:
+                yield f"data: {json.dumps({'type': 'error', 'content': 'Message too long (max 5000 chars)'})}\n\n"
+                return
+
             # Retrieve context
             enhanced_query = f"{rfp.title} {rfp.agency or ''} {request.message}"
             rag_context = rag_engine.generate_context(enhanced_query, k=5)
@@ -456,7 +465,8 @@ async def stream_chat_with_rfp(rfp: RFPDep, request: ChatRequest, db: DBDep):
                         session.last_message_at = datetime.now(timezone.utc)
                         session.updated_at = datetime.now(timezone.utc)
                         db.commit()
-                    except Exception:
+                    except Exception as e:
+                        logger.error(f"Failed to save chat to session {session.id}: {e}")
                         db.rollback()
 
                 processing_time = int((time.time() - start_time) * 1000)

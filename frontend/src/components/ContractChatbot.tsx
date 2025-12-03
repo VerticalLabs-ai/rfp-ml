@@ -212,6 +212,9 @@ export function ContractChatbot({ rfpId, rfpTitle, isOpen, onClose }: ContractCh
                   throw new Error(data.content)
                 }
               } catch (e) {
+                if (!(e instanceof SyntaxError)) {
+                  console.error('Unexpected error processing SSE:', e)
+                }
                 // Ignore JSON parse errors for incomplete chunks
               }
             }
@@ -282,6 +285,13 @@ export function ContractChatbot({ rfpId, rfpTitle, isOpen, onClose }: ContractCh
       inputRef.current?.focus()
     }
   }, [isOpen])
+
+  // Cleanup on unmount
+  useEffect(() => {
+    return () => {
+      abortControllerRef.current?.abort()
+    }
+  }, [])
 
   if (!isOpen) return null
 
