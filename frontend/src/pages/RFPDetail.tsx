@@ -32,12 +32,12 @@ import {
   Upload,
   User,
   Wand2,
-  XCircle,
 } from 'lucide-react'
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { useNavigate, useParams, useSearchParams } from 'react-router-dom'
 import { toast } from 'sonner'
 
+import { ComplianceMatrix } from '@/components/ComplianceMatrix'
 import { ContractChatbot } from '@/components/ContractChatbot'
 import PricingTable from '@/components/PricingTable'
 import { Badge } from '@/components/ui/badge'
@@ -58,7 +58,6 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu'
-import { Progress } from '@/components/ui/progress'
 import {
   Select,
   SelectContent,
@@ -67,14 +66,6 @@ import {
   SelectValue,
 } from '@/components/ui/select'
 import { Skeleton } from '@/components/ui/skeleton'
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from '@/components/ui/table'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { api } from '@/services/api'
 
@@ -116,16 +107,6 @@ interface CompanyProfile {
   id: number
   name: string
   is_default: boolean
-}
-
-interface ComplianceRequirement {
-  id: string
-  requirement_text: string
-  category: string
-  priority: 'high' | 'medium' | 'low'
-  status: 'met' | 'partial' | 'not_met' | 'pending'
-  response_notes?: string
-  source_section?: string
 }
 
 interface ActivityEvent {
@@ -263,13 +244,6 @@ export default function RFPDetail() {
   const { data: uploadedDocs, isLoading: uploadedDocsLoading } = useQuery({
     queryKey: ['uploaded-documents', rfpId],
     queryFn: () => api.getUploadedDocuments(rfpId!),
-    enabled: !!rfpId,
-  })
-
-  // Fetch compliance matrix
-  const { data: complianceMatrix, isLoading: complianceLoading } = useQuery({
-    queryKey: ['rfp-compliance', rfpId],
-    queryFn: () => api.getComplianceMatrix(rfpId!),
     enabled: !!rfpId,
   })
 
@@ -762,14 +736,6 @@ export default function RFPDetail() {
           <TabsTrigger value="compliance" className="gap-2">
             <Shield className="h-4 w-4" />
             Compliance
-            {complianceMatrix?.compliance_score !== undefined && (
-              <Badge
-                variant={complianceMatrix.compliance_score >= 80 ? 'default' : complianceMatrix.compliance_score >= 60 ? 'secondary' : 'destructive'}
-                className="ml-1"
-              >
-                {Math.round(complianceMatrix.compliance_score)}%
-              </Badge>
-            )}
           </TabsTrigger>
           <TabsTrigger value="proposal" className="gap-2" disabled={!generatedBid}>
             <FileOutput className="h-4 w-4" />
@@ -1434,109 +1400,7 @@ export default function RFPDetail() {
 
         {/* Compliance Matrix Tab */}
         <TabsContent value="compliance">
-          <Card>
-            <CardHeader>
-              <div className="flex items-center justify-between">
-                <div>
-                  <CardTitle className="flex items-center gap-2">
-                    <Shield className="h-5 w-5" />
-                    Compliance Matrix
-                  </CardTitle>
-                  <CardDescription>
-                    Extracted requirements and compliance status tracking
-                  </CardDescription>
-                </div>
-                {complianceMatrix && (
-                  <div className="text-right">
-                    <div className="text-2xl font-bold">
-                      {complianceMatrix.requirements_met}/{complianceMatrix.requirements_extracted}
-                    </div>
-                    <div className="text-sm text-muted-foreground">Requirements Met</div>
-                  </div>
-                )}
-              </div>
-            </CardHeader>
-            <CardContent>
-              {complianceLoading ? (
-                <div className="space-y-4">
-                  <Skeleton className="h-12 w-full" />
-                  <Skeleton className="h-12 w-full" />
-                  <Skeleton className="h-12 w-full" />
-                </div>
-              ) : complianceMatrix?.requirements?.length > 0 ? (
-                <div className="space-y-4">
-                  {/* Compliance Score Progress */}
-                  <div className="space-y-2">
-                    <div className="flex justify-between text-sm">
-                      <span>Compliance Score</span>
-                      <span className="font-medium">{Math.round(complianceMatrix.compliance_score || 0)}%</span>
-                    </div>
-                    <Progress value={complianceMatrix.compliance_score || 0} className="h-2" />
-                  </div>
-
-                  {/* Requirements Table */}
-                  <Table>
-                    <TableHeader>
-                      <TableRow>
-                        <TableHead className="w-12">#</TableHead>
-                        <TableHead>Requirement</TableHead>
-                        <TableHead className="w-24">Category</TableHead>
-                        <TableHead className="w-24">Priority</TableHead>
-                        <TableHead className="w-24">Status</TableHead>
-                      </TableRow>
-                    </TableHeader>
-                    <TableBody>
-                      {complianceMatrix.requirements.map((req: ComplianceRequirement, idx: number) => (
-                        <TableRow key={req.id || idx}>
-                          <TableCell className="font-mono text-xs">{idx + 1}</TableCell>
-                          <TableCell>
-                            <p className="text-sm">{req.requirement_text}</p>
-                            {req.response_notes && (
-                              <p className="text-xs text-muted-foreground mt-1">{req.response_notes}</p>
-                            )}
-                          </TableCell>
-                          <TableCell>
-                            <Badge variant="outline" className="text-xs">
-                              {req.category}
-                            </Badge>
-                          </TableCell>
-                          <TableCell>
-                            <Badge
-                              variant={req.priority === 'high' ? 'destructive' : req.priority === 'medium' ? 'default' : 'secondary'}
-                              className="text-xs"
-                            >
-                              {req.priority}
-                            </Badge>
-                          </TableCell>
-                          <TableCell>
-                            <Badge
-                              className={`text-xs ${req.status === 'met' ? 'bg-green-100 text-green-800' :
-                                req.status === 'partial' ? 'bg-yellow-100 text-yellow-800' :
-                                  req.status === 'not_met' ? 'bg-red-100 text-red-800' :
-                                    'bg-gray-100 text-gray-800'
-                                }`}
-                            >
-                              {req.status === 'met' && <CheckCircle2 className="h-3 w-3 mr-1" />}
-                              {req.status === 'not_met' && <XCircle className="h-3 w-3 mr-1" />}
-                              {req.status.replace('_', ' ')}
-                            </Badge>
-                          </TableCell>
-                        </TableRow>
-                      ))}
-                    </TableBody>
-                  </Table>
-                </div>
-              ) : (
-                <div className="text-center py-8 text-muted-foreground">
-                  <Shield className="h-12 w-12 mx-auto mb-4 opacity-50" />
-                  <p>No compliance matrix available</p>
-                  <p className="text-sm mt-1">
-                    Generate a proposal to create a compliance matrix
-                  </p>
-                </div>
-              )}
-            </CardContent>
-          </Card>
+          <ComplianceMatrix rfpId={parseInt(rfpId!, 10)} />
         </TabsContent>
 
         {/* Activity Log Tab */}
