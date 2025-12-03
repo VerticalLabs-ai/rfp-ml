@@ -71,12 +71,32 @@ interface SearchSuggestionsResponse {
   popular_categories: string[]
 }
 
+interface ExampleQuery {
+  query: string
+  description: string
+}
+
+interface ExampleQueriesResponse {
+  examples: ExampleQuery[]
+  categories: string[]
+}
+
+// Static example queries for when API is not available
+const FALLBACK_EXAMPLES: ExampleQuery[] = [
+  { query: 'IT contracts for small businesses in Texas', description: 'Location + set-aside + industry' },
+  { query: 'Construction projects over $1M closing this month', description: 'Industry + amount + deadline' },
+  { query: 'Healthcare tenders from VA', description: 'Industry + agency' },
+  { query: 'Woman-owned small business set-asides for software', description: 'Set-aside + industry' },
+]
+
 interface NaturalLanguageSearchProps {
   onResultSelect?: (rfp: SearchResultItem) => void
   onResultsChange?: (results: SearchResultItem[]) => void
   className?: string
   showResults?: boolean
+  showExamples?: boolean
   placeholder?: string
+  compact?: boolean
 }
 
 /**
@@ -93,13 +113,32 @@ export function NaturalLanguageSearch({
   onResultsChange,
   className,
   showResults = true,
-  placeholder = 'Search RFPs... (e.g., "IT services for DOD in California")',
+  showExamples = true,
+  placeholder = 'Try "Construction contracts in California over $1M" or "IT services for DOD"',
+  compact = false,
 }: NaturalLanguageSearchProps) {
   const [query, setQuery] = useState('')
   const [searchType, setSearchType] = useState<'hybrid' | 'semantic' | 'keyword'>('hybrid')
   const [showFilters, setShowFilters] = useState(false)
   const [showSuggestions, setShowSuggestions] = useState(false)
+  const [hasSearched, setHasSearched] = useState(false)
   const suggestionsRef = useRef<HTMLDivElement>(null)
+
+  // Fetch example queries
+  const { data: exampleData } = useQuery<ExampleQueriesResponse>({
+    queryKey: ['search-examples'],
+    queryFn: async () => {
+      try {
+        const response = await apiClient.get<ExampleQueriesResponse>('/discovery/search/examples')
+        return response.data
+      } catch {
+        return { examples: FALLBACK_EXAMPLES, categories: [] }
+      }
+    },
+    staleTime: 1000 * 60 * 30, // 30 minutes
+  })
+
+  const examples = exampleData?.examples || FALLBACK_EXAMPLES
 
   // Click-outside handler for suggestions dropdown
   useEffect(() => {
@@ -131,6 +170,7 @@ export function NaturalLanguageSearch({
       return response.data
     },
     onSuccess: (data) => {
+      setHasSearched(true)
       onResultsChange?.(data.results)
     },
   })
@@ -174,8 +214,18 @@ export function NaturalLanguageSearch({
 
   const handleClear = useCallback(() => {
     setQuery('')
+    setHasSearched(false)
     onResultsChange?.([])
   }, [onResultsChange])
+
+  const handleExampleClick = useCallback(
+    (exampleQuery: string) => {
+      setQuery(exampleQuery)
+      setShowSuggestions(false)
+      searchMutate(exampleQuery)
+    },
+    [searchMutate]
+  )
 
   const parsedFilters = searchMutation.data?.query_info?.extracted_filters || {}
   const hasExtractedFilters = Object.keys(parsedFilters).length > 0
@@ -186,7 +236,7 @@ export function NaturalLanguageSearch({
       <form onSubmit={handleSearch} className="relative">
         <div className="relative flex items-center gap-2">
           <div className="relative flex-1">
-            <Sparkles className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+            <Sparkles className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-primary" />
             <Input
               value={query}
               onChange={(e) => {
@@ -195,7 +245,7 @@ export function NaturalLanguageSearch({
               }}
               onFocus={() => setShowSuggestions(true)}
               placeholder={placeholder}
-              className="pl-10 pr-10"
+              className="pl-10 pr-10 h-12 text-base"
             />
             {query && (
               <button
@@ -209,21 +259,23 @@ export function NaturalLanguageSearch({
           </div>
 
           {/* Search Type Selector */}
-          <Select
-            value={searchType}
-            onValueChange={(v) => setSearchType(v as typeof searchType)}
-          >
-            <SelectTrigger className="w-32">
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="hybrid">Hybrid</SelectItem>
-              <SelectItem value="semantic">Semantic</SelectItem>
-              <SelectItem value="keyword">Keyword</SelectItem>
-            </SelectContent>
-          </Select>
+          {!compact && (
+            <Select
+              value={searchType}
+              onValueChange={(v) => setSearchType(v as typeof searchType)}
+            >
+              <SelectTrigger className="w-32">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="hybrid">Hybrid</SelectItem>
+                <SelectItem value="semantic">Semantic</SelectItem>
+                <SelectItem value="keyword">Keyword</SelectItem>
+              </SelectContent>
+            </Select>
+          )}
 
-          <Button type="submit" disabled={!query.trim() || searchMutation.isPending}>
+          <Button type="submit" disabled={!query.trim() || searchMutation.isPending} size={compact ? 'default' : 'lg'}>
             {searchMutation.isPending ? (
               <Loader2 className="h-4 w-4 animate-spin" />
             ) : (
@@ -278,6 +330,40 @@ export function NaturalLanguageSearch({
           </Card>
         )}
       </form>
+
+      {/* AI Understanding Loading State */}
+      {searchMutation.isPending && (
+        <div className="flex items-center gap-2 text-sm text-muted-foreground animate-pulse">
+          <Sparkles className="h-4 w-4 text-primary" />
+          <span>AI is understanding your query...</span>
+        </div>
+      )}
+
+      {/* Example Queries Section - shown when no search has been performed */}
+      {showExamples && !hasSearched && !searchMutation.isPending && !query && (
+        <div className="space-y-3">
+          <div className="flex items-center gap-2 text-sm text-muted-foreground">
+            <Sparkles className="h-4 w-4" />
+            <span>Try these example searches:</span>
+          </div>
+          <div className="flex flex-wrap gap-2">
+            {examples.slice(0, compact ? 2 : 4).map((example) => (
+              <button
+                key={example.query}
+                type="button"
+                onClick={() => handleExampleClick(example.query)}
+                className="group flex items-center gap-2 rounded-lg border border-dashed px-3 py-2 text-sm transition-colors hover:border-primary hover:bg-muted"
+              >
+                <Search className="h-3 w-3 text-muted-foreground group-hover:text-primary" />
+                <span className="text-left">
+                  <span className="block font-medium">{example.query}</span>
+                  <span className="block text-xs text-muted-foreground">{example.description}</span>
+                </span>
+              </button>
+            ))}
+          </div>
+        </div>
+      )}
 
       {/* Extracted Filters Display */}
       {hasExtractedFilters && (

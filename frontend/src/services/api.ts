@@ -318,6 +318,12 @@ export const api = {
   getSearchSuggestions: (q: string) =>
     apiClient.get('/discovery/search/suggestions', { params: { q } }).then(res => res.data),
 
+  getSearchExamples: () =>
+    apiClient.get('/discovery/search/examples').then(res => res.data),
+
+  parseSearchQuery: (q: string) =>
+    apiClient.get('/discovery/search/parse', { params: { q } }).then(res => res.data),
+
   // Compliance Matrix endpoints
   getComplianceMatrix: (rfpId: string) =>
     apiClient.get(`/rfps/${rfpId}/compliance-matrix`).then(res => res.data),
@@ -339,6 +345,29 @@ export const api = {
 
   getChatHistory: (rfpId: string, conversationId?: string) =>
     apiClient.get(`/rfps/${rfpId}/chat`, { params: { conversation_id: conversationId } }).then(res => res.data),
+
+  // Chat session management endpoints
+  createChatSession: (rfpId: string, title?: string) =>
+    apiClient.post(`/rfps/${rfpId}/sessions`, null, { params: { title } }).then(res => res.data),
+
+  listChatSessions: (rfpId: string) =>
+    apiClient.get(`/rfps/${rfpId}/sessions`).then(res => res.data),
+
+  getChatSession: (rfpId: string, sessionId: string) =>
+    apiClient.get(`/rfps/${rfpId}/sessions/${sessionId}`).then(res => res.data),
+
+  deleteChatSession: (rfpId: string, sessionId: string) =>
+    apiClient.delete(`/rfps/${rfpId}/sessions/${sessionId}`).then(res => res.data),
+
+  getChatSuggestions: (rfpId: string) =>
+    apiClient.get(`/rfps/${rfpId}/chat/suggestions`).then(res => res.data),
+
+  getChatStatus: (rfpId: string) =>
+    apiClient.get(`/rfps/${rfpId}/chat/status`).then(res => res.data),
+
+  // Streaming chat - returns EventSource URL
+  getStreamingChatUrl: (rfpId: string) =>
+    `${apiClient.defaults.baseURL}/rfps/${rfpId}/chat/stream`,
 }
 
 

@@ -302,6 +302,50 @@ async def search_rfps(
     )
 
 
+class ExampleQueriesResponse(BaseModel):
+    """Response for example queries endpoint."""
+
+    examples: list[dict[str, str]]
+    categories: list[str]
+
+
+# Example queries demonstrating NL search capabilities
+EXAMPLE_QUERIES = [
+    {
+        "query": "IT contracts for small businesses in Texas",
+        "description": "Location + set-aside + industry filter",
+    },
+    {
+        "query": "Construction projects over $1M closing this month",
+        "description": "Industry + amount + deadline filter",
+    },
+    {
+        "query": "Healthcare tenders from VA",
+        "description": "Industry + agency filter",
+    },
+    {
+        "query": "Woman-owned small business set-asides for software development",
+        "description": "Set-aside + industry filter",
+    },
+    {
+        "query": "Cybersecurity services for DOD under $500k",
+        "description": "Industry + agency + amount filter",
+    },
+    {
+        "query": "Professional services in California for 8(a) firms",
+        "description": "Industry + location + set-aside filter",
+    },
+    {
+        "query": "Engineering contracts from Army in Virginia",
+        "description": "Industry + agency + location filter",
+    },
+    {
+        "query": "Logistics support for GSA over $2M",
+        "description": "Industry + agency + amount filter",
+    },
+]
+
+
 @router.get("/search/suggestions")
 async def get_search_suggestions(
     q: Annotated[str, Query(min_length=1, max_length=100)] = "",
@@ -317,15 +361,44 @@ async def get_search_suggestions(
     suggestions: list[str] = []
 
     if q and len(q) >= 2:
-        # Generate suggestions based on query prefix
-        base_suggestions = [
-            f"{q} contracts",
-            f"{q} services",
-            f"{q} in California",
-            f"{q} for DOD",
-            f"{q} small business",
-        ]
-        suggestions = base_suggestions[:5]
+        q_lower = q.lower()
+
+        # Smart suggestions based on query content
+        suggestions_list = []
+
+        # Check for industry keywords and suggest completions
+        if any(kw in q_lower for kw in ["it", "tech", "software", "cyber"]):
+            suggestions_list.extend([
+                f"{q} for DOD",
+                f"{q} in California",
+                f"{q} small business set-aside",
+                f"{q} over $500k",
+            ])
+        elif any(kw in q_lower for kw in ["construct", "build", "engineer"]):
+            suggestions_list.extend([
+                f"{q} over $1M",
+                f"{q} in Texas",
+                f"{q} for Army",
+                f"{q} closing this month",
+            ])
+        elif any(kw in q_lower for kw in ["health", "medical", "clinical"]):
+            suggestions_list.extend([
+                f"{q} from VA",
+                f"{q} from HHS",
+                f"{q} small business",
+                f"{q} in Maryland",
+            ])
+        else:
+            # Generic suggestions
+            suggestions_list.extend([
+                f"{q} contracts",
+                f"{q} services",
+                f"{q} in California",
+                f"{q} for DOD",
+                f"{q} small business",
+            ])
+
+        suggestions = suggestions_list[:5]
 
     # Popular categories (static for now)
     popular_categories = [
@@ -343,6 +416,34 @@ async def get_search_suggestions(
         suggestions=suggestions,
         recent_searches=[],  # Would require user session tracking
         popular_categories=popular_categories,
+    )
+
+
+@router.get("/search/examples", response_model=ExampleQueriesResponse)
+async def get_example_queries() -> ExampleQueriesResponse:
+    """
+    Get example natural language queries to help users understand capabilities.
+
+    Returns curated examples demonstrating:
+    - Location filtering (state names, abbreviations)
+    - Agency filtering (DOD, VA, GSA, etc.)
+    - Amount filtering (over $X, under $X)
+    - Set-aside filtering (small business, 8(a), WOSB, etc.)
+    - Industry/category filtering
+    - Combined filters
+    """
+    return ExampleQueriesResponse(
+        examples=EXAMPLE_QUERIES,
+        categories=[
+            "IT Services",
+            "Construction",
+            "Healthcare",
+            "Professional Services",
+            "Cybersecurity",
+            "Logistics",
+            "Engineering",
+            "R&D",
+        ],
     )
 
 
