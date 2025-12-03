@@ -16,6 +16,7 @@ from sqlalchemy import (
     Integer,
     String,
     Text,
+    func,
 )
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import relationship
@@ -52,6 +53,25 @@ class SubmissionStatus(str, PyEnum):
     CONFIRMED = "confirmed"
     FAILED = "failed"
     REJECTED = "rejected"
+
+
+class RequirementType(str, PyEnum):
+    """Type of compliance requirement."""
+
+    MANDATORY = "mandatory"
+    EVALUATION = "evaluation"
+    PERFORMANCE = "performance"
+    TECHNICAL = "technical"
+    ADMINISTRATIVE = "administrative"
+
+
+class RequirementStatus(str, PyEnum):
+    """Status of requirement compliance."""
+
+    NOT_STARTED = "not_started"
+    IN_PROGRESS = "in_progress"
+    COMPLETE = "complete"
+    NOT_APPLICABLE = "not_applicable"
 
 
 class RFPOpportunity(Base):
@@ -123,6 +143,12 @@ class RFPOpportunity(Base):
     documents = relationship("RFPDocument", back_populates="rfp")
     qa_items = relationship("RFPQandA", back_populates="rfp")
     company_profile = relationship("CompanyProfile", back_populates="rfps")
+    compliance_requirements = relationship(
+        "ComplianceRequirement",
+        back_populates="rfp",
+        cascade="all, delete-orphan",
+        order_by="ComplianceRequirement.order_index",
+    )
 
     def to_dict(self):
         return {
@@ -184,6 +210,61 @@ class ComplianceMatrix(Base):
     updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
 
     rfp = relationship("RFPOpportunity", back_populates="compliance_matrix")
+
+
+class ComplianceRequirement(Base):
+    """Individual compliance requirement extracted from RFP documents."""
+
+    __tablename__ = "compliance_requirements"
+
+    id = Column(Integer, primary_key=True, index=True)
+    rfp_id = Column(
+        Integer,
+        ForeignKey("rfp_opportunities.id", ondelete="CASCADE"),
+        nullable=False,
+        index=True,
+    )
+
+    # Requirement identification
+    requirement_id = Column(String(50), nullable=False)  # e.g., "L.1.2", "M.3.1"
+    requirement_text = Column(Text, nullable=False)
+
+    # Source tracking
+    source_document = Column(String(255), nullable=True)  # e.g., "SOW.pdf"
+    source_section = Column(String(100), nullable=True)  # e.g., "Section 4.2"
+    source_page = Column(Integer, nullable=True)
+
+    # Classification
+    requirement_type = Column(
+        Enum(RequirementType), nullable=False, default=RequirementType.MANDATORY
+    )
+    is_mandatory = Column(Boolean, default=True)
+
+    # Status tracking
+    status = Column(
+        Enum(RequirementStatus), nullable=False, default=RequirementStatus.NOT_STARTED
+    )
+    response_text = Column(Text, nullable=True)
+    compliance_indicator = Column(
+        String(20), nullable=True
+    )  # "compliant", "partial", "non_compliant"
+    confidence_score = Column(Float, nullable=True)
+
+    # Organization
+    order_index = Column(Integer, default=0)  # For drag-and-drop ordering
+    assigned_to = Column(String(100), nullable=True)  # Future: team member assignment
+
+    # Timestamps
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
+    updated_at = Column(
+        DateTime(timezone=True), server_default=func.now(), onupdate=func.now()
+    )
+
+    # Relationships
+    rfp = relationship("RFPOpportunity", back_populates="compliance_requirements")
+
+    def __repr__(self):
+        return f"<ComplianceRequirement {self.requirement_id}: {self.requirement_text[:50]}...>"
 
 
 class PricingResult(Base):
