@@ -2,6 +2,8 @@
 
 This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
 
+**Note**: This project uses [bd (beads)](https://github.com/steveyegge/beads) for issue tracking. Use `bd` commands instead of markdown TODOs. See AGENTS.md for workflow details.
+
 ## Project Overview
 
 This is an AI-powered government RFP (Request for Proposal) bid generation system. It uses machine learning, RAG (Retrieval-Augmented Generation), and LLMs to automate the process of analyzing RFPs, generating compliance matrices, pricing bids, making go/no-go decisions, and producing complete bid documents.
