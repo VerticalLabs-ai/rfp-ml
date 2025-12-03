@@ -3,7 +3,7 @@ RFP business logic service.
 """
 
 import logging
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import Any
 
 from app.models.database import (
@@ -113,7 +113,7 @@ class RFPService:
         for key, value in update_data.items():
             setattr(rfp, key, value)
 
-        rfp.updated_at = datetime.utcnow()
+        rfp.updated_at = datetime.now(timezone.utc)
         self.db.commit()
         self.db.refresh(rfp)
 
@@ -136,7 +136,7 @@ class RFPService:
         elif decision == "flag":
             rfp.current_stage = PipelineStage.REVIEW
 
-        rfp.updated_at = datetime.utcnow()
+        rfp.updated_at = datetime.now(timezone.utc)
         self.db.commit()
 
         # Create pipeline event
@@ -176,7 +176,7 @@ class RFPService:
             return rfp  # Already at final stage or no clear next step
 
         rfp.current_stage = next_stage
-        rfp.updated_at = datetime.utcnow()
+        rfp.updated_at = datetime.now(timezone.utc)
         self.db.commit()
 
         # If RFP is awarded, generate post-award compliance checklist

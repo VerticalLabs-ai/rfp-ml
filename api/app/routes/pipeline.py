@@ -8,7 +8,7 @@ Provides:
 - Pagination for large datasets
 """
 import logging
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import Any, List
 
 from app.dependencies import DBDep
@@ -129,7 +129,7 @@ async def get_pipeline_status(
             "stages": stages,
             "rfps": rfps,
             "total_count": sum(stages.values()),
-            "timestamp": datetime.utcnow().isoformat(),
+            "timestamp": datetime.now(timezone.utc).isoformat(),
             "cached": False,
         }
 
@@ -187,7 +187,7 @@ async def get_pipeline_metrics(db: DBDep):
         "avg_stage_duration": {
             stage.value: duration for stage, duration in avg_times
         },
-        "calculated_at": datetime.utcnow()
+        "calculated_at": datetime.now(timezone.utc)
     }
 
     return metrics

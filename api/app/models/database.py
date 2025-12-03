@@ -96,7 +96,7 @@ class RFPOpportunity(Base):
     priority = Column(Integer, default=0)
 
     # Metadata (using rfp_metadata to avoid SQLAlchemy reserved name)
-    rfp_metadata = Column(JSON, default=lambda: {})
+    rfp_metadata = Column(JSON, default=dict)
 
     # Source tracking (for scraped RFPs)
     source_url = Column(String, nullable=True)  # BeaconBid URL, etc.
@@ -335,7 +335,7 @@ class PipelineEvent(Base):
     automated = Column(Boolean, default=True)
 
     notes = Column(Text, nullable=True)
-    event_metadata = Column(JSON, default=lambda: {})
+    event_metadata = Column(JSON, default=dict)
 
     rfp = relationship("RFPOpportunity", back_populates="pipeline_events")
 
@@ -355,8 +355,8 @@ class PostAwardChecklist(Base):
 
     generated_at = Column(DateTime, default=datetime.utcnow)
     status = Column(String, default="draft")  # draft, active, completed
-    items = Column(JSON, default=lambda: [])  # List of checklist items
-    summary = Column(JSON, default=lambda: {})  # Summary statistics about the checklist
+    items = Column(JSON, default=list)  # List of checklist items
+    summary = Column(JSON, default=dict)  # Summary statistics about the checklist
 
     created_at = Column(DateTime, default=datetime.utcnow)
     updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
@@ -404,10 +404,10 @@ class CompanyProfile(Base):
     # Business Information
     established_year = Column(Integer, nullable=True)
     employee_count = Column(String, nullable=True)  # "50-100", "150+"
-    certifications = Column(JSON, default=lambda: [])  # ["8(a)", "HUBZone", "ISO 9001"]
-    naics_codes = Column(JSON, default=lambda: [])  # ["541512", "541519"]
-    core_competencies = Column(JSON, default=lambda: [])  # List of capabilities
-    past_performance = Column(JSON, default=lambda: [])  # List of past contracts
+    certifications = Column(JSON, default=list)  # ["8(a)", "HUBZone", "ISO 9001"]
+    naics_codes = Column(JSON, default=list)  # ["541512", "541519"]
+    core_competencies = Column(JSON, default=list)  # List of capabilities
+    past_performance = Column(JSON, default=list)  # List of past contracts
 
     # Timestamps
     created_at = Column(DateTime, default=datetime.utcnow)
@@ -506,8 +506,8 @@ class RFPQandA(Base):
     category = Column(
         String, nullable=True
     )  # "technical", "pricing", "scope", "timeline", "compliance"
-    key_insights = Column(JSON, default=lambda: [])  # AI-extracted insights
-    related_sections = Column(JSON, default=lambda: [])  # Proposal sections affected
+    key_insights = Column(JSON, default=list)  # AI-extracted insights
+    related_sections = Column(JSON, default=list)  # Proposal sections affected
 
     # Tracking
     is_new = Column(Boolean, default=True)  # Flag for newly detected Q&A
@@ -585,7 +585,7 @@ class AlertRule(Base):
     priority = Column(Enum(AlertPriority), default=AlertPriority.MEDIUM)
 
     # Matching criteria (JSON for flexibility)
-    criteria = Column(JSON, default=lambda: {})
+    criteria = Column(JSON, default=dict)
     # Examples:
     # For KEYWORD_MATCH: {"keywords": ["cybersecurity", "cloud"], "match_title": true, "match_description": true}
     # For AGENCY_MATCH: {"agencies": ["Department of Defense", "NASA"]}
@@ -595,7 +595,7 @@ class AlertRule(Base):
 
     # Notification settings
     notification_channels = Column(JSON, default=lambda: ["in_app"])
-    email_recipients = Column(JSON, default=lambda: [])
+    email_recipients = Column(JSON, default=list)
     webhook_url = Column(String, nullable=True)
     slack_channel = Column(String, nullable=True)
 
@@ -668,11 +668,11 @@ class AlertNotification(Base):
     action_taken = Column(String, nullable=True)
 
     # Delivery status per channel
-    delivery_status = Column(JSON, default=lambda: {})
+    delivery_status = Column(JSON, default=dict)
     # Example: {"in_app": "delivered", "email": "sent", "webhook": "failed"}
 
     # Context data
-    context_data = Column(JSON, default=lambda: {})
+    context_data = Column(JSON, default=dict)
     # Example: {"matched_keywords": ["cloud"], "score_value": 0.87}
 
     # Timestamps
@@ -725,10 +725,10 @@ class DashboardMetrics(Base):
     pending_reviews = Column(Integer, default=0)
 
     # Category breakdown
-    category_stats = Column(JSON, default=lambda: {})
+    category_stats = Column(JSON, default=dict)
 
     # Performance metrics
-    performance_stats = Column(JSON, default=lambda: {})
+    performance_stats = Column(JSON, default=dict)
 
     created_at = Column(DateTime, default=datetime.utcnow)
 
@@ -763,12 +763,12 @@ class SamEntity(Base):
     organization_structure = Column(String, nullable=True)
 
     # Codes and Classifications
-    naics_codes = Column(JSON, default=lambda: [])  # List of NAICS codes
-    psc_codes = Column(JSON, default=lambda: [])  # List of Product Service Codes
+    naics_codes = Column(JSON, default=list)  # List of NAICS codes
+    psc_codes = Column(JSON, default=list)  # List of Product Service Codes
 
     # Certifications and Business Types (Socioeconomic)
     business_types = Column(
-        JSON, default=lambda: []
+        JSON, default=list
     )  # List of certifications (e.g., SDB, WOSB, SDVOSB, HUBZone)
 
     # Capabilities and Keywords
@@ -885,7 +885,7 @@ class ChatMessage(Base):
     content = Column(Text, nullable=False)
 
     # RAG context (for assistant messages)
-    citations = Column(JSON, default=lambda: [])
+    citations = Column(JSON, default=list)
     confidence = Column(Float, nullable=True)
     rag_context = Column(JSON, nullable=True)  # Store retrieved context for debugging
 

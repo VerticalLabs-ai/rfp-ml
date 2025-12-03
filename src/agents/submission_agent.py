@@ -6,7 +6,7 @@ import logging
 import os
 import uuid
 from dataclasses import asdict, dataclass
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from enum import Enum
 
 from src.config.paths import PathConfig
@@ -47,7 +47,7 @@ class SubmissionJob:
 
     def __post_init__(self):
         if self.created_at is None:
-            self.created_at = datetime.utcnow()
+            self.created_at = datetime.now(timezone.utc)
         if self.metadata is None:
             self.metadata = {}
 
@@ -148,7 +148,7 @@ class SubmissionAgent:
             rfp_id=rfp_data.get("rfp_id", str(uuid.uuid4())),
             bid_document_id=bid_document.get("document_id", str(uuid.uuid4())),
             portal=portal,
-            deadline=rfp_data.get("response_deadline", datetime.utcnow() + timedelta(days=7)),
+            deadline=rfp_data.get("response_deadline", datetime.now(timezone.utc) + timedelta(days=7)),
             priority=priority,
             status=SubmissionStatus.QUEUED
         )
@@ -227,7 +227,7 @@ class SubmissionAgent:
             job = self.queue.pop(0)
 
             # Check if deadline passed
-            if job.deadline and job.deadline < datetime.utcnow():
+            if job.deadline and job.deadline < datetime.now(timezone.utc):
                 logger.error(f"Job {job.job_id} deadline passed, marking as failed")
                 job.status = SubmissionStatus.FAILED
                 job.error_message = "Deadline passed"
@@ -283,13 +283,13 @@ class SubmissionAgent:
 
         # Submit
         job.status = SubmissionStatus.SUBMITTING
-        job.submitted_at = datetime.utcnow()
+        job.submitted_at = datetime.now(timezone.utc)
 
         try:
             result = adapter.submit(formatted_data)
             job.confirmation_number = result.get("confirmation_number")
             job.status = SubmissionStatus.SUBMITTED
-            job.confirmed_at = datetime.utcnow()
+            job.confirmed_at = datetime.now(timezone.utc)
 
             logger.info(f"Submission {job.job_id} successful. Confirmation: {job.confirmation_number}")
 
@@ -388,7 +388,7 @@ class SubmissionAgent:
         """Log audit event."""
         audit_log = {
             "job_id": job_id,
-            "timestamp": datetime.utcnow().isoformat(),
+            "timestamp": datetime.now(timezone.utc).isoformat(),
             "event_type": event_type,
             "success": success,
             "details": details or {}

@@ -13,15 +13,12 @@ import smtplib
 import sys
 from email.mime.multipart import MIMEMultipart
 from email.mime.text import MIMEText
+from pathlib import Path
 
 from celery import shared_task
 
 # Add project paths
-project_root = os.path.dirname(
-    os.path.dirname(
-        os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(__file__))))
-    )
-)
+project_root = str(Path(__file__).parents[5])
 if project_root not in sys.path:
     sys.path.insert(0, project_root)
 
@@ -55,7 +52,7 @@ def evaluate_alert_rules(self, rfp_id: str | None = None) -> dict:
     logger.info(f"Evaluating alert rules - RFP: {rfp_id or 'all'}")
 
     try:
-        from datetime import datetime, timedelta
+        from datetime import datetime, timedelta, timezone
 
         from api.app.core.database import SessionLocal
         from api.app.models.database import AlertNotification, AlertRule, RFPOpportunity
@@ -80,7 +77,7 @@ def evaluate_alert_rules(self, rfp_id: str | None = None) -> dict:
                 )
             else:
                 # Get RFPs from last 24 hours (for periodic evaluation)
-                cutoff = datetime.utcnow() - timedelta(hours=24)
+                cutoff = datetime.now(timezone.utc) - timedelta(hours=24)
                 rfps = (
                     db.query(RFPOpportunity)
                     .filter(RFPOpportunity.created_at >= cutoff)
@@ -94,12 +91,15 @@ def evaluate_alert_rules(self, rfp_id: str | None = None) -> dict:
                     # Check cooldown
                     if rule.last_triggered_at:
                         cooldown = timedelta(minutes=rule.cooldown_minutes or 60)
-                        if datetime.utcnow() - rule.last_triggered_at < cooldown:
+                        if (
+                            datetime.now(timezone.utc) - rule.last_triggered_at
+                            < cooldown
+                        ):
                             continue
 
                     # Check daily limit
                     if rule.max_alerts_per_day:
-                        today_start = datetime.utcnow().replace(
+                        today_start = datetime.now(timezone.utc).replace(
                             hour=0, minute=0, second=0, microsecond=0
                         )
                         today_count = (
@@ -143,7 +143,7 @@ def evaluate_alert_rules(self, rfp_id: str | None = None) -> dict:
 
                             # Update rule
                             rule.triggered_count = (rule.triggered_count or 0) + 1
-                            rule.last_triggered_at = datetime.utcnow()
+                            rule.last_triggered_at = datetime.now(timezone.utc)
 
                             notifications_created += 1
 
@@ -186,7 +186,7 @@ def evaluate_alert_rules(self, rfp_id: str | None = None) -> dict:
             }
 
     except Exception as e:
-        logger.error(f"Alert evaluation failed: {e}")
+        logger.exception("Alert evaluation failed")
         return {"status": "error", "error": str(e)}
 
 
@@ -225,14 +225,14 @@ def _matches_rule(rule, rfp) -> bool:
             return False
 
     elif alert_type == AlertType.DEADLINE_APPROACHING:
-        from datetime import datetime, timedelta
+        from datetime import datetime, timedelta, timezone
 
         days = criteria.get("days_before", 7)
         if rfp.response_deadline:
             deadline = rfp.response_deadline
             if isinstance(deadline, str):
                 deadline = datetime.fromisoformat(deadline)
-            if deadline - datetime.utcnow() > timedelta(days=days):
+            if deadline - datetime.now(timezone.utc) > timedelta(days=days):
                 return False
         else:
             return False
@@ -271,7 +271,9 @@ def send_alert_email(self, notification_id: int, recipients: list[str]) -> dict:
         Dict with send status
     """
     logger.info(
-        f"Sending alert email - Notification: {notification_id}, Recipients: {recipients}"
+        "Sending alert email - Notification: %s, Recipients: %s",
+        notification_id,
+        recipients,
     )
 
     try:

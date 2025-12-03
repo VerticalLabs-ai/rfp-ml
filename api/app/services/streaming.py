@@ -70,9 +70,9 @@ class StreamingService:
 
                 self._rag_engine = get_rag_engine()
                 stats = self._rag_engine.get_statistics()
-                logger.info(f"RAG engine ready: {stats['total_documents']} documents")
+                logger.info("RAG engine ready: %s documents", stats["total_documents"])
             except Exception as e:
-                logger.error(f"Failed to initialize RAG engine: {e}")
+                logger.error("Failed to initialize RAG engine: %s", e)
         return self._rag_engine
 
     async def stream_llm_response(
@@ -189,7 +189,7 @@ class StreamingService:
             yield self._format_sse_event("complete", {"status": "success"})
 
         except Exception as e:
-            logger.error(f"Streaming error: {e}")
+            logger.error("Streaming error: %s", e)
             yield self._format_sse_event("error", {"error": str(e)})
 
     async def stream_chat_response(
@@ -246,7 +246,7 @@ class StreamingService:
                         }
                     )
             except Exception as e:
-                logger.warning(f"RAG retrieval failed: {e}")
+                logger.warning("RAG retrieval failed: %s", e)
 
         # Build conversation
         history_text = ""
@@ -328,7 +328,7 @@ Please provide a helpful response:"""
         rfp_db_id = None
 
         logger.info(
-            f"stream_section_generation: rfp_id={rfp_id}, section={section_type}"
+            "stream_section_generation: rfp_id=%s, section=%s", rfp_id, section_type
         )
 
         if db_session:
@@ -388,7 +388,9 @@ Please provide a helpful response:"""
                     .filter(RFPQandA.rfp_id == rfp_db_id)
                     .all()
                 )
-                logger.info(f"Q&A loaded: {len(qa_items)} items for rfp_id={rfp_db_id}")
+                logger.info(
+                    "Q&A loaded: %s items for rfp_id=%s", len(qa_items), rfp_db_id
+                )
                 if qa_items:
                     # Build Q&A context, prioritizing section-relevant items
                     relevant_qa = []
@@ -423,7 +425,9 @@ Please provide a helpful response:"""
                             )
                         qa_context = "\n\n".join(qa_lines)
                         logger.info(
-                            f"Q&A context: {len(prioritized_qa)} items, {len(qa_context)} chars"
+                            "Q&A context: %s items, %s chars",
+                            len(prioritized_qa),
+                            len(qa_context),
                         )
 
             # Get document content
@@ -451,14 +455,16 @@ Please provide a helpful response:"""
                         # Log document status
                         docs_without_path = [d for d in docs if not d.file_path]
                         if docs_without_path:
+                            missing_filenames = [d.filename for d in docs_without_path]
                             logger.warning(
-                                f"Documents not downloaded: {[d.filename for d in docs_without_path]}. "
-                                "Use 'Refresh' to download."
+                                "Documents not downloaded: %s. Use 'Refresh' to download.",
+                                missing_filenames,
                             )
 
                         if docs_for_extraction:
                             logger.info(
-                                f"Extracting content from {len(docs_for_extraction)} documents"
+                                "Extracting content from %s documents",
+                                len(docs_for_extraction),
                             )
                             extracted = extract_all_document_content(
                                 docs_for_extraction
@@ -476,10 +482,12 @@ Please provide a helpful response:"""
                                         doc_parts.append(f"### {doc_name}\n{doc_text}")
                                 document_context = "\n\n".join(doc_parts)
                                 logger.info(
-                                    f"Document context: {len(doc_parts)} docs, {len(document_context)} chars"
+                                    "Document context: %s docs, %s chars",
+                                    len(doc_parts),
+                                    len(document_context),
                                 )
                 except Exception as e:
-                    logger.warning(f"Document extraction failed: {e}")
+                    logger.warning("Document extraction failed: %s", e)
 
         # Get RAG context
         rag_context = ""
@@ -494,7 +502,7 @@ Please provide a helpful response:"""
                         f"\n{result.get('content', result.get('text', ''))[:500]}"
                     )
             except Exception as e:
-                logger.warning(f"RAG retrieval failed: {e}")
+                logger.warning("RAG retrieval failed: %s", e)
 
         # Build section generation prompt using Claude LLM config patterns for instructions
         section_instructions = self._get_section_instructions(section_type)

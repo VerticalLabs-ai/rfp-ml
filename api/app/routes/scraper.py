@@ -157,7 +157,7 @@ async def scrape_rfp(
             current_stage=PipelineStage.DISCOVERED,
             source_url=url,
             source_platform=scraped_rfp.source_platform,
-            last_scraped_at=datetime.utcnow(),
+            last_scraped_at=datetime.now(timezone.utc),
             scrape_checksum=scraped_rfp.scrape_checksum,
             company_profile_id=request.company_profile_id,
             rfp_metadata=scraped_rfp.raw_data,
@@ -188,11 +188,16 @@ async def scrape_rfp(
 
         # Broadcast RFP created to connected clients
         from app.websockets.websocket_router import broadcast_rfp_update
-        await broadcast_rfp_update(rfp_id, "rfp_scraped", {
-            "title": scraped_rfp.title,
-            "documents_count": len(scraped_rfp.documents),
-            "qa_count": len(scraped_rfp.qa_items)
-        })
+
+        await broadcast_rfp_update(
+            rfp_id,
+            "rfp_scraped",
+            {
+                "title": scraped_rfp.title,
+                "documents_count": len(scraped_rfp.documents),
+                "qa_count": len(scraped_rfp.qa_items),
+            },
+        )
 
         return ScrapeResponse(
             rfp_id=rfp_id,
@@ -207,7 +212,7 @@ async def scrape_rfp(
         raise
     except Exception as e:
         logger.error(f"Error scraping RFP: {e}")
-        raise HTTPException(status_code=500, detail=f"Scraping failed: {str(e)}") from e
+        raise HTTPException(status_code=500, detail=f"Scraping failed: {e!s}") from e
 
 
 async def _download_and_save_documents(
@@ -221,10 +226,14 @@ async def _download_and_save_documents(
         with SessionLocal() as session:
             for doc in scraped_rfp.documents:
                 # Check if document already exists
-                existing = session.query(RFPDocument).filter(
-                    RFPDocument.rfp_id == rfp_db_id,
-                    RFPDocument.filename == doc.filename
-                ).first()
+                existing = (
+                    session.query(RFPDocument)
+                    .filter(
+                        RFPDocument.rfp_id == rfp_db_id,
+                        RFPDocument.filename == doc.filename,
+                    )
+                    .first()
+                )
 
                 if not existing:
                     doc_record = RFPDocument(
@@ -238,7 +247,9 @@ async def _download_and_save_documents(
                     session.add(doc_record)
 
             session.commit()
-            logger.info(f"Saved {len(scraped_rfp.documents)} document records for RFP {rfp_id}")
+            logger.info(
+                f"Saved {len(scraped_rfp.documents)} document records for RFP {rfp_id}"
+            )
 
         # Then attempt to download the files
         downloaded_docs = await scraper.download_documents(scraped_rfp, rfp_id)
@@ -246,10 +257,14 @@ async def _download_and_save_documents(
         # Update records with download info
         with SessionLocal() as session:
             for doc in downloaded_docs:
-                existing = session.query(RFPDocument).filter(
-                    RFPDocument.rfp_id == rfp_db_id,
-                    RFPDocument.filename == doc.filename
-                ).first()
+                existing = (
+                    session.query(RFPDocument)
+                    .filter(
+                        RFPDocument.rfp_id == rfp_db_id,
+                        RFPDocument.filename == doc.filename,
+                    )
+                    .first()
+                )
 
                 if existing:
                     existing.file_path = doc.file_path
@@ -258,7 +273,9 @@ async def _download_and_save_documents(
                     existing.downloaded_at = doc.downloaded_at
 
             session.commit()
-            logger.info(f"Updated {len(downloaded_docs)} documents with download info for RFP {rfp_id}")
+            logger.info(
+                f"Updated {len(downloaded_docs)} documents with download info for RFP {rfp_id}"
+            )
 
     except Exception as e:
         logger.error(f"Error processing documents for RFP {rfp_id}: {e}")
@@ -266,7 +283,9 @@ async def _download_and_save_documents(
 
 @router.post("/{rfp_id}/refresh", response_model=RefreshResponse)
 async def refresh_rfp(
-    rfp_id: str, background_tasks: BackgroundTasks, db: DBDep = ...,
+    rfp_id: str,
+    background_tasks: BackgroundTasks,
+    db: DBDep = ...,
 ):
     """
     Refresh/re-scrape an existing RFP to check for updates.
@@ -362,7 +381,9 @@ async def refresh_rfp(
             background_tasks.add_task(
                 _download_and_save_documents, scraper, updated_rfp, rfp.id, rfp_id
             )
-            logger.info(f"Triggering download: {new_doc_count} new, {docs_needing_download} pending")
+            logger.info(
+                f"Triggering download: {new_doc_count} new, {docs_needing_download} pending"
+            )
 
         # Check for metadata changes
         metadata_changed = (
@@ -378,7 +399,7 @@ async def refresh_rfp(
             rfp.description = updated_rfp.description
         if updated_rfp.response_deadline:
             rfp.response_deadline = updated_rfp.response_deadline
-        rfp.last_scraped_at = datetime.utcnow()
+        rfp.last_scraped_at = datetime.now(timezone.utc)
         rfp.scrape_checksum = updated_rfp.scrape_checksum
 
         db.commit()
@@ -394,7 +415,7 @@ async def refresh_rfp(
 
     except Exception as e:
         logger.error(f"Error refreshing RFP {rfp_id}: {e}")
-        raise HTTPException(status_code=500, detail=f"Refresh failed: {str(e)}") from e
+        raise HTTPException(status_code=500, detail=f"Refresh failed: {e!s}") from e
 
 
 @router.get("/{rfp_id}/documents", response_model=list[RFPDocumentResponse])
@@ -419,16 +440,18 @@ async def get_rfp_documents(rfp_id: str, db: DBDep):
             # file_path not set - still pending
             download_status = "pending"
 
-        response.append(RFPDocumentResponse(
-            id=doc.id,
-            filename=doc.filename,
-            file_type=doc.file_type,
-            file_size=doc.file_size,
-            document_type=doc.document_type,
-            source_url=doc.source_url,
-            downloaded_at=doc.downloaded_at,
-            download_status=download_status,
-        ))
+        response.append(
+            RFPDocumentResponse(
+                id=doc.id,
+                filename=doc.filename,
+                file_type=doc.file_type,
+                file_size=doc.file_size,
+                document_type=doc.document_type,
+                source_url=doc.source_url,
+                downloaded_at=doc.downloaded_at,
+                download_status=download_status,
+            )
+        )
 
     return response
 
@@ -461,7 +484,10 @@ async def download_document(rfp_id: str, doc_id: int, db: DBDep):
 
 @router.get("/{rfp_id}/qa", response_model=list[RFPQandAResponse])
 async def get_rfp_qa(
-    rfp_id: str, new_only: bool = False, db: DBDep = ...,
+    rfp_id: str,
+    *,
+    new_only: bool = False,
+    db: DBDep = ...,
 ):
     """Get Q&A items for an RFP."""
     rfp = db.query(RFPOpportunity).filter(RFPOpportunity.rfp_id == rfp_id).first()

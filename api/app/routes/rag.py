@@ -10,7 +10,7 @@ Provides endpoints for:
 import logging
 import os
 import sys
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import Any
 
 from fastapi import APIRouter, BackgroundTasks, HTTPException
@@ -96,7 +96,7 @@ def _run_rebuild_in_background(force: bool = True):
     global _build_state
     _build_state["is_building"] = True
     _build_state["progress"] = 0
-    _build_state["started_at"] = datetime.utcnow().isoformat()
+    _build_state["started_at"] = datetime.now(timezone.utc).isoformat()
     _build_state["error"] = None
 
     try:
@@ -105,7 +105,7 @@ def _run_rebuild_in_background(force: bool = True):
         engine = get_rag_engine()
         engine.build_index(force_rebuild=force)
         _build_state["progress"] = 100
-        _build_state["completed_at"] = datetime.utcnow().isoformat()
+        _build_state["completed_at"] = datetime.now(timezone.utc).isoformat()
 
         # Calculate duration
         if _build_state["started_at"]:

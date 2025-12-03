@@ -7,7 +7,7 @@ Provides endpoints for:
 - Cancelling jobs
 """
 import logging
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import Annotated, Optional
 
 from fastapi import APIRouter, Depends, HTTPException
@@ -95,7 +95,7 @@ async def start_generation_job(
         return JobResponse(
             job_id=task.id,
             status="pending",
-            created_at=datetime.utcnow()
+            created_at=datetime.now(timezone.utc)
         )
 
     except ImportError:
@@ -219,7 +219,7 @@ async def trigger_alert_evaluation(
         return JobResponse(
             job_id=task.id,
             status="pending",
-            created_at=datetime.utcnow()
+            created_at=datetime.now(timezone.utc)
         )
 
     except ImportError:

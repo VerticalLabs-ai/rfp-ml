@@ -3,7 +3,7 @@ import logging
 import os
 import re
 from dataclasses import asdict, dataclass, field
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from typing import Any
 
 import pandas as pd
@@ -48,7 +48,7 @@ class ComplianceChecklist:
 
     rfp_id: str
     bid_document_id: str | None = None
-    generated_at: datetime = field(default_factory=datetime.utcnow)
+    generated_at: datetime = field(default_factory=lambda: datetime.now(timezone.utc))
     status: str = "draft"  # draft, active, complete
     items: list[ChecklistItem] = field(default_factory=list)
     summary: dict[str, Any] = field(default_factory=dict)
@@ -59,7 +59,7 @@ class ComplianceChecklistGenerator:
     Generates a post-award compliance checklist based on the final bid document.
     """
 
-    def __init__(self, output_dir: str = None):
+    def __init__(self, output_dir: str | None = None) -> None:
         self.output_dir = output_dir or str(
             PathConfig.DATA_DIR / "post_award_checklists"
         )
@@ -112,7 +112,7 @@ class ComplianceChecklistGenerator:
         )
 
         extracted_tasks = self._extract_tasks_from_technical_approach(
-            technical_approach, rfp_id
+            technical_approach
         )
 
         # Fallback to common post-award tasks if nothing extracted
@@ -143,7 +143,7 @@ class ComplianceChecklistGenerator:
                     description=task_data.get("description", "Task"),
                     status="pending",
                     assigned_to=task_data.get("assigned_to", "Project Manager"),
-                    due_date=datetime.utcnow()
+                    due_date=datetime.now(timezone.utc)
                     + timedelta(days=task_data.get("due_date_offset", (i + 1) * 7)),
                     meta={
                         "source": task_data.get("source", "technical_approach"),
@@ -163,7 +163,7 @@ class ComplianceChecklistGenerator:
             "total_items": total_items,
             "pending_items": pending_items,
             "completed_items": total_items - pending_items,  # Simplistic for now
-            "last_updated": datetime.utcnow().isoformat(),
+            "last_updated": datetime.now(timezone.utc).isoformat(),
         }
 
         return ComplianceChecklist(
@@ -176,7 +176,7 @@ class ComplianceChecklistGenerator:
         )
 
     def _extract_tasks_from_technical_approach(
-        self, technical_approach: dict[str, Any] | str, rfp_id: str
+        self, technical_approach: dict[str, Any] | str
     ) -> list[dict[str, Any]]:
         """
         Extract tasks, deliverables, and milestones from technical approach section.
@@ -277,11 +277,12 @@ class ComplianceChecklistGenerator:
             return tasks
 
         # Pattern 1: Bullet points (-, *, •)
-        bullet_pattern = r"[-*•]\s+([A-Z][^•\n]{10,200})"
+        # More flexible: allows lowercase start, increased length limit, handles multi-line
+        bullet_pattern = r"[-*•]\s+([^\n]{15,300})"
         bullet_matches = re.findall(bullet_pattern, text, re.MULTILINE)
 
         for i, match in enumerate(bullet_matches[:10]):  # Limit to 10 tasks
-            task_text = match.strip()
+            task_text = self._clean_task_text(match)
             # Skip if it's too short or looks like a header
             if len(task_text) < 15 or task_text.endswith(":"):
                 continue
@@ -299,11 +300,12 @@ class ComplianceChecklistGenerator:
             )
 
         # Pattern 2: Numbered lists
-        numbered_pattern = r"\d+[.)]\s+([A-Z][^0-9\n]{10,200})"
+        # More flexible: allows lowercase start, increased length limit
+        numbered_pattern = r"\d+[.)]\s+([^\n]{15,300})"
         numbered_matches = re.findall(numbered_pattern, text, re.MULTILINE)
 
         for i, match in enumerate(numbered_matches[:10]):
-            task_text = match.strip()
+            task_text = self._clean_task_text(match)
             if len(task_text) < 15 or task_text.endswith(":"):
                 continue
 
@@ -319,6 +321,35 @@ class ComplianceChecklistGenerator:
             )
 
         return tasks
+
+    def _clean_task_text(self, text: str) -> str:
+        """
+        Clean and normalize task text extracted from patterns.
+
+        Handles:
+        - Trimming whitespace
+        - Collapsing multiple spaces/newlines into single spaces
+        - Removing leading/trailing punctuation artifacts
+
+        Args:
+            text: Raw extracted text
+
+        Returns:
+            Cleaned task description
+        """
+        if not text:
+            return ""
+
+        # Strip leading/trailing whitespace
+        cleaned = text.strip()
+
+        # Collapse multiple whitespace characters (spaces, tabs, newlines) into single spaces
+        cleaned = re.sub(r"\s+", " ", cleaned)
+
+        # Remove trailing punctuation that might be artifacts (but keep sentence-ending punctuation)
+        cleaned = re.sub(r"[.,;:]+$", "", cleaned).strip()
+
+        return cleaned
 
     def _extract_time_reference(self, text: str) -> int | None:
         """

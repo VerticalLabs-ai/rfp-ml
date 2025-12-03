@@ -8,7 +8,7 @@ web scraping, even when page layouts change.
 import asyncio
 import logging
 import os
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from typing import Any
 from urllib.parse import urljoin, urlparse
@@ -672,7 +672,7 @@ Look for download links in tables, lists, or attachment sections on the page.
                 )
             except Exception as e:
                 print(f"[DOWNLOAD] Failed to retrieve package: {e}")
-                logger.error(f"Failed to retrieve from Browserbase: {e}")
+                logger.exception(f"Failed to retrieve from Browserbase: {e}")
         else:
             print("[DOWNLOAD] No session ID - cannot retrieve downloads")
 
@@ -945,26 +945,67 @@ Look for download links in tables, lists, or attachment sections on the page.
         return result
 
     def _parse_date(self, date_str: str | None) -> datetime | None:
-        """Parse various date formats to datetime."""
+        """
+        Parse various date formats to timezone-aware datetime.
+
+        Attempts to preserve timezone information when present. If timezone info is found,
+        the datetime will use that timezone. Otherwise, defaults to UTC for consistency.
+
+        For RFP dates (especially response_deadline), all dates are stored as timezone-aware
+        (defaulting to UTC if no timezone is specified). This ensures consistent handling
+        and prevents ambiguity when comparing dates across different agencies/timezones.
+
+        Args:
+            date_str: Date string in various formats, optionally with timezone info
+
+        Returns:
+            timezone-aware datetime object (UTC if no timezone specified)
+        """
         if not date_str:
             return None
 
-        # Clean up the date string - remove timezone abbreviations and extra parts
+        # First, try dateutil.parser which handles timezones well
+        try:
+            from dateutil import parser as date_parser
+
+            parsed = date_parser.parse(date_str, fuzzy=True, default=None)
+            if parsed:
+                # If parsed date is timezone-naive, assume UTC for consistency
+                # (Most government RFPs use Eastern Time, but UTC is safer for storage)
+                if parsed.tzinfo is None:
+                    parsed = parsed.replace(tzinfo=timezone.utc)
+                return parsed
+        except ImportError:
+            # dateutil not available, fall back to manual parsing
+            logger.debug("dateutil not available, using manual date parsing")
+        except (ValueError, TypeError) as e:
+            logger.debug("dateutil parsing failed: %s, trying manual parsing", e)
+
+        # Fallback: Manual parsing with timezone handling
         cleaned = date_str.strip()
-        # Remove common timezone abbreviations
-        for tz in [
-            " CST",
-            " EST",
-            " PST",
-            " MST",
-            " CDT",
-            " EDT",
-            " PDT",
-            " MDT",
-            " UTC",
-            " GMT",
-        ]:
-            cleaned = cleaned.replace(tz, "")
+        detected_tz = None
+
+        # Map timezone abbreviations to timezone objects
+        tz_map = {
+            "CST": timezone(timedelta(hours=-6)),  # Central Standard Time
+            "CDT": timezone(timedelta(hours=-5)),  # Central Daylight Time
+            "EST": timezone(timedelta(hours=-5)),  # Eastern Standard Time
+            "EDT": timezone(timedelta(hours=-4)),  # Eastern Daylight Time
+            "PST": timezone(timedelta(hours=-8)),  # Pacific Standard Time
+            "PDT": timezone(timedelta(hours=-7)),  # Pacific Daylight Time
+            "MST": timezone(timedelta(hours=-7)),  # Mountain Standard Time
+            "MDT": timezone(timedelta(hours=-6)),  # Mountain Daylight Time
+            "UTC": timezone.utc,
+            "GMT": timezone.utc,
+        }
+
+        # Detect and extract timezone abbreviation
+        for tz_abbr, tz_obj in tz_map.items():
+            if f" {tz_abbr}" in cleaned or cleaned.endswith(tz_abbr):
+                detected_tz = tz_obj
+                cleaned = cleaned.replace(f" {tz_abbr}", "").replace(tz_abbr, "")
+                break
+
         # Remove "at" between date and time
         cleaned = cleaned.replace(" at ", " ")
 
@@ -985,11 +1026,20 @@ Look for download links in tables, lists, or attachment sections on the page.
 
         for fmt in formats:
             try:
-                return datetime.strptime(cleaned.strip(), fmt)
+                parsed = datetime.strptime(cleaned.strip(), fmt)
+                # Attach detected timezone if found, otherwise assume UTC for consistency
+                if detected_tz:
+                    parsed = parsed.replace(tzinfo=detected_tz)
+                else:
+                    # Default to UTC for timezone-naive dates to ensure consistency
+                    # This assumes government RFPs are typically in US timezones but
+                    # storing in UTC prevents ambiguity
+                    parsed = parsed.replace(tzinfo=timezone.utc)
+                return parsed
             except ValueError:
                 continue
 
-        logger.warning(f"Could not parse date: {date_str}")
+        logger.warning("Could not parse date: %s", date_str)
         return None
 
     def _parse_amount(self, amount_str: str | None) -> float | None:

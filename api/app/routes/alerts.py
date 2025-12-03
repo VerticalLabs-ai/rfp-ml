@@ -5,7 +5,7 @@ Provides GovGPT-style alert management for RFP monitoring with customizable
 rules, multi-channel notifications, and intelligent matching.
 """
 import logging
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from typing import Any
 
 from fastapi import APIRouter, HTTPException, Query
@@ -161,7 +161,7 @@ async def update_alert_rule(db: DBDep, rule_id: int, data: AlertRuleUpdate):
     for field, value in update_data.items():
         setattr(rule, field, value)
 
-    rule.updated_at = datetime.utcnow()
+    rule.updated_at = datetime.now(timezone.utc)
     db.commit()
     db.refresh(rule)
 
@@ -196,7 +196,7 @@ async def toggle_alert_rule(db: DBDep, rule_id: int):
         raise HTTPException(status_code=404, detail="Alert rule not found")
 
     rule.is_active = not rule.is_active
-    rule.updated_at = datetime.utcnow()
+    rule.updated_at = datetime.now(timezone.utc)
     db.commit()
 
     status = "activated" if rule.is_active else "deactivated"
@@ -359,15 +359,15 @@ async def action_notification(
 
     if data.action == "mark_read":
         notification.is_read = True
-        notification.read_at = datetime.utcnow()
+        notification.read_at = datetime.now(timezone.utc)
     elif data.action == "dismiss":
         notification.is_dismissed = True
-        notification.dismissed_at = datetime.utcnow()
+        notification.dismissed_at = datetime.now(timezone.utc)
     elif data.action == "action_taken":
         notification.is_actioned = True
         notification.action_taken = data.action_details
         notification.is_read = True
-        notification.read_at = datetime.utcnow()
+        notification.read_at = datetime.now(timezone.utc)
     else:
         raise HTTPException(status_code=400, detail=f"Unknown action: {data.action}")
 
@@ -383,7 +383,7 @@ async def mark_all_notifications_read(db: DBDep):
     count = (
         db.query(AlertNotification)
         .filter(AlertNotification.is_read == False)
-        .update({"is_read": True, "read_at": datetime.utcnow()})
+        .update({"is_read": True, "read_at": datetime.now(timezone.utc)})
     )
     db.commit()
 
@@ -393,14 +393,14 @@ async def mark_all_notifications_read(db: DBDep):
 @router.post("/notifications/dismiss-all")
 async def dismiss_all_notifications(db: DBDep, older_than_days: int = Query(7, ge=1)):
     """Dismiss all read notifications older than specified days."""
-    cutoff = datetime.utcnow() - timedelta(days=older_than_days)
+    cutoff = datetime.now(timezone.utc) - timedelta(days=older_than_days)
 
     count = (
         db.query(AlertNotification)
         .filter(AlertNotification.is_read == True)
         .filter(AlertNotification.created_at < cutoff)
         .filter(AlertNotification.is_dismissed == False)
-        .update({"is_dismissed": True, "dismissed_at": datetime.utcnow()})
+        .update({"is_dismissed": True, "dismissed_at": datetime.now(timezone.utc)})
     )
     db.commit()
 
@@ -453,7 +453,7 @@ async def evaluate_alerts(db: DBDep, rfp_id: str | None = None):
                 db.query(AlertNotification)
                 .filter(AlertNotification.rule_id == rule.id)
                 .filter(AlertNotification.rfp_id == rfp.id)
-                .filter(AlertNotification.created_at >= datetime.utcnow() - timedelta(days=1))
+                .filter(AlertNotification.created_at >= datetime.now(timezone.utc) - timedelta(days=1))
                 .first()
             )
 
@@ -465,7 +465,7 @@ async def evaluate_alerts(db: DBDep, rfp_id: str | None = None):
 
             # Update rule stats
             rule.triggered_count += 1
-            rule.last_triggered_at = datetime.utcnow()
+            rule.last_triggered_at = datetime.now(timezone.utc)
 
     db.commit()
 
@@ -596,12 +596,12 @@ def _check_cooldown(rule: AlertRule) -> bool:
         return True
 
     cooldown_delta = timedelta(minutes=rule.cooldown_minutes)
-    return datetime.utcnow() >= rule.last_triggered_at + cooldown_delta
+    return datetime.now(timezone.utc) >= rule.last_triggered_at + cooldown_delta
 
 
 def _check_daily_limit(db, rule: AlertRule) -> bool:
     """Check if rule has exceeded daily limit."""
-    today_start = datetime.utcnow().replace(hour=0, minute=0, second=0, microsecond=0)
+    today_start = datetime.now(timezone.utc).replace(hour=0, minute=0, second=0, microsecond=0)
 
     today_count = (
         db.query(AlertNotification)
@@ -642,12 +642,12 @@ def _find_matching_rfps(db, rule: AlertRule) -> list[RFPOpportunity]:
 
     elif rule.alert_type == AlertType.DEADLINE_APPROACHING:
         days_before = criteria.get("days_before", 7)
-        deadline = datetime.utcnow() + timedelta(days=days_before)
+        deadline = datetime.now(timezone.utc) + timedelta(days=days_before)
         query = query.filter(
             and_(
                 RFPOpportunity.response_deadline != None,
                 RFPOpportunity.response_deadline <= deadline,
-                RFPOpportunity.response_deadline >= datetime.utcnow()
+                RFPOpportunity.response_deadline >= datetime.now(timezone.utc)
             )
         )
 
@@ -745,7 +745,7 @@ def _build_notification_title(rule: AlertRule, rfp: RFPOpportunity) -> str:
 def _build_notification_message(rule: AlertRule, rfp: RFPOpportunity) -> str:
     """Build notification message based on alert type."""
     if rule.alert_type == AlertType.DEADLINE_APPROACHING:
-        days = (rfp.response_deadline - datetime.utcnow()).days if rfp.response_deadline else 0
+        days = (rfp.response_deadline - datetime.now(timezone.utc)).days if rfp.response_deadline else 0
         return f"RFP deadline is in {days} days. Agency: {rfp.agency}. Review and take action."
 
     if rule.alert_type == AlertType.SCORE_THRESHOLD:

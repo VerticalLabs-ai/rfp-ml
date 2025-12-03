@@ -10,8 +10,9 @@ Provides channel-based subscriptions for:
 
 import json
 import logging
-from datetime import datetime
+from datetime import datetime, timezone
 from enum import Enum
+from typing import Any
 
 from fastapi import APIRouter, WebSocket, WebSocketDisconnect
 
@@ -75,7 +76,7 @@ class ChannelManager:
         await websocket.accept()
         self.connections.add(websocket)
         self.websocket_channels[websocket] = set()
-        logger.info(f"WebSocket connected. Total connections: {len(self.connections)}")
+        logger.info("WebSocket connected. Total connections: %d", len(self.connections))
 
     def disconnect(self, websocket: WebSocket) -> None:
         """Handle WebSocket disconnection and cleanup subscriptions."""
@@ -91,7 +92,7 @@ class ChannelManager:
 
         self.connections.discard(websocket)
         logger.info(
-            f"WebSocket disconnected. Total connections: {len(self.connections)}"
+            "WebSocket disconnected. Total connections: %d", len(self.connections)
         )
 
     async def subscribe(self, websocket: WebSocket, channel: str) -> bool:
@@ -106,7 +107,9 @@ class ChannelManager:
         self.websocket_channels[websocket].add(channel)
 
         logger.debug(
-            f"Subscribed to channel: {channel}. Subscribers: {len(self.channels[channel])}"
+            "Subscribed to channel: %s. Subscribers: %d",
+            channel,
+            len(self.channels[channel]),
         )
         return True
 
@@ -120,7 +123,7 @@ class ChannelManager:
         if websocket in self.websocket_channels:
             self.websocket_channels[websocket].discard(channel)
 
-        logger.debug(f"Unsubscribed from channel: {channel}")
+        logger.debug("Unsubscribed from channel: %s", channel)
         return True
 
     async def broadcast_to_channel(
@@ -142,7 +145,7 @@ class ChannelManager:
 
         # Add timestamp if not present
         if "timestamp" not in message:
-            message["timestamp"] = datetime.utcnow().isoformat()
+            message["timestamp"] = datetime.now(timezone.utc).isoformat()
 
         message_str = json.dumps(message)
         sent_count = 0
@@ -155,7 +158,7 @@ class ChannelManager:
                 await ws.send_text(message_str)
                 sent_count += 1
             except Exception as e:
-                logger.warning(f"Failed to send to channel {channel}: {e}")
+                logger.warning("Failed to send to channel %s: %s", channel, e)
                 dead_connections.append(ws)
 
         # Clean up dead connections
@@ -167,7 +170,7 @@ class ChannelManager:
     async def broadcast_all(self, message: dict) -> int:
         """Broadcast a message to all connected websockets."""
         if "timestamp" not in message:
-            message["timestamp"] = datetime.utcnow().isoformat()
+            message["timestamp"] = datetime.now(timezone.utc).isoformat()
 
         message_str = json.dumps(message)
         sent_count = 0
@@ -178,7 +181,7 @@ class ChannelManager:
                 await ws.send_text(message_str)
                 sent_count += 1
             except Exception as e:
-                logger.warning(f"Failed to broadcast: {e}")
+                logger.warning("Failed to broadcast: %s", e)
                 dead_connections.append(ws)
 
         for ws in dead_connections:
@@ -189,13 +192,13 @@ class ChannelManager:
     async def send_to_websocket(self, websocket: WebSocket, message: dict) -> bool:
         """Send a message to a specific websocket."""
         if "timestamp" not in message:
-            message["timestamp"] = datetime.utcnow().isoformat()
+            message["timestamp"] = datetime.now(timezone.utc).isoformat()
 
         try:
             await websocket.send_text(json.dumps(message))
             return True
         except Exception as e:
-            logger.warning(f"Failed to send message: {e}")
+            logger.warning("Failed to send message: %s", e)
             self.disconnect(websocket)
             return False
 
@@ -332,7 +335,10 @@ async def alerts_channel(websocket: WebSocket):
                         websocket, {"type": MessageType.ACK.value}
                     )
             except json.JSONDecodeError:
-                pass
+                await channel_manager.send_to_websocket(
+                    websocket,
+                    {"type": MessageType.ERROR.value, "message": "Invalid JSON"},
+                )
 
     except WebSocketDisconnect:
         channel_manager.disconnect(websocket)
@@ -370,7 +376,10 @@ async def job_channel(websocket: WebSocket, job_id: str):
                         websocket, {"type": MessageType.PONG.value}
                     )
             except json.JSONDecodeError:
-                pass
+                await channel_manager.send_to_websocket(
+                    websocket,
+                    {"type": MessageType.ERROR.value, "message": "Invalid JSON"},
+                )
 
     except WebSocketDisconnect:
         channel_manager.disconnect(websocket)
@@ -413,7 +422,9 @@ async def broadcast_compliance_update(rfp_id: str, compliance: dict):
     )
 
 
-async def broadcast_job_progress(job_id: str, progress: int, status: str, **kwargs):
+async def broadcast_job_progress(
+    job_id: str, progress: int, status: str, **kwargs: Any
+):
     """Broadcast job progress update."""
     await channel_manager.broadcast_to_channel(
         f"jobs:{job_id}",

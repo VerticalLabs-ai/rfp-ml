@@ -4,7 +4,7 @@ Test the Submission Agent with mock data.
 """
 import os
 import sys
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 
 # Add src to path
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..', 'src'))
@@ -35,7 +35,7 @@ def main():
         "rfp_id": "TEST-RFP-001",
         "title": "Test Water Delivery Services",
         "agency": "Test Agency",
-        "response_deadline": datetime.utcnow() + timedelta(days=7),
+        "response_deadline": datetime.now(timezone.utc) + timedelta(days=7),
         "cage_code": "12345",
         "duns_number": "987654321",
         "solicitation_number": "TEST-SOL-2025-001"

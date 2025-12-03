@@ -4,8 +4,7 @@ RFP management API endpoints.
 
 import logging
 import os
-from datetime import datetime
-from time import timezone
+from datetime import datetime, timezone
 from typing import Any
 from uuid import uuid4
 
@@ -389,7 +388,7 @@ async def get_competitors(rfp: RFPDep):
 
 @router.get("/{rfp_id}/partners")
 async def get_teaming_partners(
-    rfp: RFPDep, limit: int = Query(default=10, ge=1, le=50), db: DBDep = None
+    rfp: RFPDep, limit: int = Query(default=10, ge=1, le=50), db: DBDep = ...
 ):
     """Get teaming partner recommendations for an RFP."""
     from src.agents.teaming_service import TeamingPartnerService
@@ -456,7 +455,7 @@ async def get_price_to_win(
 async def create_rfp(rfp_data: RFPCreate, db: DBDep):
     """Create a new RFP entry."""
     service = RFPService(db)
-    rfp = service.create_rfp(rfp_data.dict())
+    rfp = service.create_rfp(rfp_data.model_dump())
     return rfp
 
 
@@ -464,7 +463,7 @@ async def create_rfp(rfp_data: RFPCreate, db: DBDep):
 async def update_rfp(rfp_id: str, update_data: RFPUpdate, db: DBDep):
     """Update RFP details."""
     service = RFPService(db)
-    rfp = service.update_rfp(rfp_id, update_data.dict(exclude_unset=True))
+    rfp = service.update_rfp(rfp_id, update_data.model_dump(exclude_unset=True))
     if not rfp:
         raise HTTPException(status_code=404, detail="RFP not found")
     return rfp
@@ -560,7 +559,7 @@ async def advance_pipeline_stage(
 @router.post("/discover")
 async def discover_rfps(
     params: DiscoveryParams = _DEFAULT_DISCOVERY_PARAMS,
-    background_tasks: BackgroundTasks = None,
+    background_tasks: BackgroundTasks = ...,
 ):
     """
     Trigger automated RFP discovery.
@@ -573,7 +572,7 @@ async def discover_rfps(
         "discovered_count": 0,
         "processed_count": 0,
         "rfps": [],
-        "started_at": datetime.now().isoformat(),
+        "started_at": datetime.now(timezone.utc).isoformat(),
     }
 
     # Start background task
@@ -857,11 +856,7 @@ async def generate_pricing_table(
     # Get company profile (use default if none)
     from app.models.database import CompanyProfile
 
-    profile = (
-        db.query(CompanyProfile).filter(CompanyProfile.is_default).first()
-        if CompanyProfile.is_default
-        else None
-    )
+    profile = db.query(CompanyProfile).filter(CompanyProfile.is_default).first()
 
     company_profile = {
         "company_name": profile.name if profile else "Your Company",
@@ -916,11 +911,7 @@ async def download_pricing_table_csv(
     # Get company profile
     from app.models.database import CompanyProfile
 
-    profile = (
-        db.query(CompanyProfile).filter(CompanyProfile.is_default).first()
-        if CompanyProfile.is_default
-        else None
-    )
+    profile = db.query(CompanyProfile).filter(CompanyProfile.is_default).first()
 
     company_profile = {
         "company_name": profile.name if profile else "Your Company",
@@ -1001,7 +992,7 @@ async def submit_decision_feedback(rfp_id: str, feedback: FeedbackInput, db: DBD
 
 @router.post("/{rfp_id}/async/ingest")
 async def trigger_async_ingestion(
-    rfp_id: str, file_paths: list[str], background_tasks: BackgroundTasks = None
+    rfp_id: str, file_paths: list[str], background_tasks: BackgroundTasks = ...
 ):
     """Trigger background RAG ingestion."""
     from app.services.background_tasks import ingest_documents_task

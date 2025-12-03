@@ -11,7 +11,7 @@ import logging
 import os
 import sys
 import time
-from datetime import datetime
+from datetime import datetime, timezone
 
 from celery import shared_task
 
@@ -147,7 +147,7 @@ def generate_predictions(
             "count": len(predictions),
             "ai_enhanced_count": ai_enhanced,
             "elapsed_seconds": round(elapsed, 2),
-            "generated_at": datetime.utcnow().isoformat(),
+            "generated_at": datetime.now(timezone.utc).isoformat(),
         }
 
     except Exception as e:
@@ -226,7 +226,7 @@ def generate_predictions_fast(
             "count": len(predictions),
             "ai_enhanced_count": 0,
             "elapsed_seconds": round(elapsed, 2),
-            "generated_at": datetime.utcnow().isoformat(),
+            "generated_at": datetime.now(timezone.utc).isoformat(),
             "is_partial": True,  # Indicates AI insights not included
         }
 

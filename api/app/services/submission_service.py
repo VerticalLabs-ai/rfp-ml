@@ -2,7 +2,7 @@
 Submission management service.
 """
 import uuid
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import Any, Dict, List
 
 from app.models.database import RFPOpportunity, Submission, SubmissionAuditLog, SubmissionStatus
@@ -80,7 +80,7 @@ class SubmissionService:
 
         submission.status = SubmissionStatus.QUEUED
         submission.attempts += 1
-        submission.updated_at = datetime.utcnow()
+        submission.updated_at = datetime.now(timezone.utc)
 
         self.db.commit()
 

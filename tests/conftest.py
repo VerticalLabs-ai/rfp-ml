@@ -9,7 +9,7 @@ Provides:
 """
 import os
 import sys
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from typing import Any, Generator
 from unittest.mock import MagicMock, patch
 
@@ -91,8 +91,8 @@ def sample_rfp_data() -> dict[str, Any]:
         "office": "Defense Information Systems Agency",
         "naics_code": "541512",
         "category": "IT Services",
-        "posted_date": datetime.utcnow() - timedelta(days=30),
-        "response_deadline": datetime.utcnow() + timedelta(days=14),
+        "posted_date": datetime.now(timezone.utc) - timedelta(days=30),
+        "response_deadline": datetime.now(timezone.utc) + timedelta(days=14),
         "estimated_value": 5000000.0,
         "current_stage": PipelineStage.DISCOVERED,
         "triage_score": 0.85,
@@ -124,7 +124,7 @@ def sample_rfp_list(db_session) -> list[RFPOpportunity]:
             naics_code=["541512", "541519", "518210"][i % 3],
             current_stage=[PipelineStage.DISCOVERED, PipelineStage.TRIAGED, PipelineStage.ANALYZING][i % 3],
             triage_score=0.5 + (i * 0.05),
-            response_deadline=datetime.utcnow() + timedelta(days=i + 1),
+            response_deadline=datetime.now(timezone.utc) + timedelta(days=i + 1),
         )
         for i in range(10)
     ]
@@ -322,7 +322,7 @@ class ChatMessageFactory:
         return {
             "role": "user",
             "content": content,
-            "timestamp": datetime.utcnow().isoformat()
+            "timestamp": datetime.now(timezone.utc).isoformat()
         }
 
     @staticmethod
@@ -330,7 +330,7 @@ class ChatMessageFactory:
         return {
             "role": "assistant",
             "content": content,
-            "timestamp": datetime.utcnow().isoformat()
+            "timestamp": datetime.now(timezone.utc).isoformat()
         }
 
     @staticmethod

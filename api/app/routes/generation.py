@@ -419,9 +419,7 @@ async def upload_style_reference(file: UploadFile = _REQUIRED_FILE):
         }
 
     except Exception as e:
-        raise HTTPException(
-            status_code=500, detail=f"Processing failed: {str(e)}"
-        ) from e
+        raise HTTPException(status_code=500, detail=f"Processing failed: {e!s}") from e
 
 
 @router.post("/refine")
@@ -650,9 +648,7 @@ With examples:""",
 
     except Exception as e:
         logger.error(f"Content expansion failed: {e}")
-        raise HTTPException(
-            status_code=500, detail=f"Expansion failed: {str(e)}"
-        ) from e
+        raise HTTPException(status_code=500, detail=f"Expansion failed: {e!s}") from e
 
 
 @router.post("/{rfp_id}/writer/summarize")
@@ -722,7 +718,7 @@ Technical Summary:""",
     except Exception as e:
         logger.error(f"Content summarization failed: {e}")
         raise HTTPException(
-            status_code=500, detail=f"Summarization failed: {str(e)}"
+            status_code=500, detail=f"Summarization failed: {e!s}"
         ) from e
 
 

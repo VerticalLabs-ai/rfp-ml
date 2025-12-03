@@ -105,8 +105,8 @@ export default function ProjectKickoffPage() {
 
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
         <InfoCard title="Checklist Status" value={checklist.status?.toUpperCase() || 'N/A'} colorClass="text-green-600" />
-        <InfoCard title="Total Items" value={(checklist.summary?.total_items as number) || 0} />
-        <InfoCard title="Pending Items" value={(checklist.summary?.pending_items as number) || 0} colorClass="text-yellow-600" />
+        <InfoCard title="Total Items" value={typeof checklist.summary?.total_items === 'number' ? checklist.summary.total_items : 0} />
+        <InfoCard title="Pending Items" value={typeof checklist.summary?.pending_items === 'number' ? checklist.summary.pending_items : 0} colorClass="text-yellow-600" />
       </div>
 
       <div className="bg-white dark:bg-slate-800 shadow rounded-lg overflow-hidden">

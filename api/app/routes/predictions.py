@@ -13,7 +13,7 @@ import json
 import logging
 import sys
 import time
-from datetime import datetime
+from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 
@@ -192,7 +192,7 @@ async def generate_predictions_with_timeout(
         meta = {
             "count": len(predictions),
             "ai_enhanced_count": ai_enhanced_count,
-            "generated_at": datetime.utcnow().isoformat(),
+            "generated_at": datetime.now(timezone.utc).isoformat(),
             "elapsed_seconds": round(time.time() - start_time, 2),
         }
 

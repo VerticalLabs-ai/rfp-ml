@@ -7,7 +7,7 @@ Tests the alert management functionality including:
 - Alert evaluation and matching
 """
 import pytest
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from unittest.mock import MagicMock, patch
 
 from app.models.database import (
@@ -132,7 +132,7 @@ class TestCheckCooldown:
     def test_cooldown_passed(self):
         """Test cooldown passes after enough time."""
         rule = MagicMock()
-        rule.last_triggered_at = datetime.utcnow() - timedelta(hours=2)
+        rule.last_triggered_at = datetime.now(timezone.utc) - timedelta(hours=2)
         rule.cooldown_minutes = 60
 
         assert _check_cooldown(rule) is True
@@ -140,7 +140,7 @@ class TestCheckCooldown:
     def test_cooldown_not_passed(self):
         """Test cooldown fails when triggered recently."""
         rule = MagicMock()
-        rule.last_triggered_at = datetime.utcnow() - timedelta(minutes=30)
+        rule.last_triggered_at = datetime.now(timezone.utc) - timedelta(minutes=30)
         rule.cooldown_minutes = 60
 
         assert _check_cooldown(rule) is False
@@ -323,7 +323,7 @@ class TestBuildNotificationContent:
         rfp.triage_score = 0.85
         rfp.current_stage = MagicMock()
         rfp.current_stage.value = "discovered"
-        rfp.response_deadline = datetime.utcnow() + timedelta(days=7)
+        rfp.response_deadline = datetime.now(timezone.utc) + timedelta(days=7)
         rfp.naics_code = "541512"
         return rfp
 
