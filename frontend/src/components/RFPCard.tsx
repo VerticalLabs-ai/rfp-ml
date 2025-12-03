@@ -5,6 +5,7 @@ import { formatDistance } from 'date-fns'
 import { AlertTriangle, Check, ChevronRight, MessageSquare, Trash2, X } from 'lucide-react'
 import { useNavigate } from 'react-router-dom'
 import GenerateBidButton from './GenerateBidButton'
+import { SaveBookmarkButton } from './SaveBookmarkButton'
 import { HighlightedText } from '../hooks/useRfpSearch'
 
 interface RFPCardProps {
@@ -128,6 +129,7 @@ export default function RFPCard({ rfp, onTriageDecision, onDelete, searchTerm = 
 
           <div className="flex items-center space-x-2">
             <GenerateBidButton rfpId={rfp.rfp_id} rfpTitle={rfp.title} />
+            <SaveBookmarkButton rfpId={rfp.id} />
             <Button
               variant="ghost"
               size="sm"
