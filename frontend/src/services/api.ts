@@ -77,6 +77,65 @@ export interface DiscoveryParams {
   days_back?: number
 }
 
+// Compliance Requirements Types
+export interface ComplianceRequirement {
+  id: number
+  rfp_id: number
+  requirement_id: string
+  requirement_text: string
+  source_document: string | null
+  source_section: string | null
+  source_page: number | null
+  requirement_type: 'mandatory' | 'evaluation' | 'performance' | 'technical' | 'administrative'
+  is_mandatory: boolean
+  status: 'not_started' | 'in_progress' | 'complete' | 'not_applicable'
+  response_text: string | null
+  compliance_indicator: 'compliant' | 'partial' | 'non_compliant' | null
+  confidence_score: number | null
+  order_index: number
+  assigned_to: string | null
+  created_at: string
+  updated_at: string
+}
+
+export interface ComplianceRequirementList {
+  requirements: ComplianceRequirement[]
+  total: number
+  completed: number
+  in_progress: number
+  not_started: number
+  compliance_rate: number
+}
+
+export interface CreateRequirementPayload {
+  requirement_id: string
+  requirement_text: string
+  requirement_type: ComplianceRequirement['requirement_type']
+  source_document?: string
+  source_section?: string
+  is_mandatory?: boolean
+}
+
+export interface UpdateRequirementPayload {
+  requirement_text?: string
+  status?: ComplianceRequirement['status']
+  response_text?: string
+  compliance_indicator?: ComplianceRequirement['compliance_indicator']
+  order_index?: number
+}
+
+export interface ExtractionResult {
+  extracted_count: number
+  requirements: ComplianceRequirement[]
+  source_documents: string[]
+}
+
+export interface AIResponseResult {
+  response_text: string
+  confidence_score: number
+  supporting_evidence: string[]
+}
+
 export const api = {
   // RFP endpoints
   getDiscoveredRFPs: (filters: any) =>
@@ -368,6 +427,33 @@ export const api = {
   // Streaming chat - returns EventSource URL
   getStreamingChatUrl: (rfpId: string) =>
     `${apiClient.defaults.baseURL}/rfps/${rfpId}/chat/stream`,
+
+  // Compliance Requirements endpoints
+  compliance: {
+    listRequirements: (rfpId: number, params?: { status?: string; type?: string; search?: string }) =>
+      apiClient.get<ComplianceRequirementList>(`/compliance/rfps/${rfpId}/requirements`, { params }).then(res => res.data),
+
+    createRequirement: (rfpId: number, data: CreateRequirementPayload) =>
+      apiClient.post<ComplianceRequirement>(`/compliance/rfps/${rfpId}/requirements`, data).then(res => res.data),
+
+    updateRequirement: (requirementId: number, data: UpdateRequirementPayload) =>
+      apiClient.put<ComplianceRequirement>(`/compliance/requirements/${requirementId}`, data).then(res => res.data),
+
+    deleteRequirement: (requirementId: number) =>
+      apiClient.delete(`/compliance/requirements/${requirementId}`).then(res => res.data),
+
+    bulkUpdateStatus: (rfpId: number, requirementIds: number[], status: string) =>
+      apiClient.put(`/compliance/rfps/${rfpId}/requirements/bulk-status`, { requirement_ids: requirementIds, status }).then(res => res.data),
+
+    reorderRequirements: (rfpId: number, requirementIds: number[]) =>
+      apiClient.put(`/compliance/rfps/${rfpId}/requirements/reorder`, { requirement_ids: requirementIds }).then(res => res.data),
+
+    extractRequirements: (rfpId: number, useLlm: boolean = true) =>
+      apiClient.post<ExtractionResult>(`/compliance/rfps/${rfpId}/extract-requirements`, { use_llm: useLlm }).then(res => res.data),
+
+    generateAIResponse: (requirementId: number) =>
+      apiClient.post<AIResponseResult>(`/compliance/requirements/${requirementId}/ai-response`).then(res => res.data),
+  }
 }
 
 
