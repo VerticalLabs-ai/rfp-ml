@@ -19,6 +19,8 @@ from app.schemas.compliance import (
     ComplianceRequirementList,
     BulkStatusUpdate,
     ReorderRequirements,
+    ExtractionRequest,
+    ExtractionResult,
 )
 
 logger = logging.getLogger(__name__)
@@ -213,3 +215,149 @@ async def reorder_requirements(
         f"Reordered {len(reorder.requirement_ids)} requirements for RFP {rfp_id}"
     )
     return {"reordered_count": len(reorder.requirement_ids)}
+
+
+@router.post("/rfps/{rfp_id}/extract-requirements", response_model=ExtractionResult)
+async def extract_requirements(
+    rfp_id: int,
+    request: Optional[ExtractionRequest] = None,
+    db: Session = Depends(get_db),
+):
+    """Extract requirements from RFP description and Q&A using LLM or rule-based extraction."""
+    rfp = get_rfp_or_404(rfp_id, db)
+
+    # Combine RFP description and Q&A content
+    text_parts = []
+    if rfp.description:
+        text_parts.append(f"[RFP Description]\n{rfp.description}")
+
+    # Include Q&A content if available
+    if rfp.qa_items:
+        qa_text = "\n".join(
+            [
+                f"Q: {qa.question_text}\nA: {qa.answer_text or 'No answer'}"
+                for qa in rfp.qa_items
+            ]
+        )
+        text_parts.append(f"[Q&A]\n{qa_text}")
+
+    combined_text = "\n\n".join(text_parts)
+
+    if not combined_text.strip():
+        raise HTTPException(
+            status_code=400, detail="No text content found in RFP for extraction"
+        )
+
+    # Initialize compliance generator
+    try:
+        from src.compliance.compliance_matrix import ComplianceMatrixGenerator
+        from src.rag.chroma_rag_engine import get_rag_engine
+
+        rag_engine = get_rag_engine()
+    except Exception:
+        rag_engine = None
+
+    try:
+        generator = ComplianceMatrixGenerator(rag_engine=rag_engine)
+    except Exception as e:
+        logger.warning(f"Failed to initialize ComplianceMatrixGenerator: {e}")
+        # Fallback to simple rule-based extraction without RAG
+        generator = None
+
+    # Extract requirements
+    use_llm = request.use_llm if request else True
+    if generator:
+        if use_llm:
+            extracted = generator.extract_requirements_llm(combined_text)
+        else:
+            extracted = generator.extract_requirements_rule_based(combined_text)
+    else:
+        # Simple fallback extraction
+        extracted = _simple_requirement_extraction(combined_text)
+
+    # Get current max order index
+    max_order = (
+        db.query(func.max(ComplianceRequirement.order_index))
+        .filter(ComplianceRequirement.rfp_id == rfp_id)
+        .scalar()
+        or -1
+    )
+
+    # Create requirement records
+    created_requirements = []
+    source_docs = ["RFP Description"]
+    if rfp.qa_items:
+        source_docs.append("Q&A Responses")
+
+    for idx, req_data in enumerate(extracted):
+        # Map category to requirement type
+        type_mapping = {
+            "mandatory": RequirementType.MANDATORY,
+            "technical": RequirementType.TECHNICAL,
+            "financial": RequirementType.ADMINISTRATIVE,
+            "qualification": RequirementType.EVALUATION,
+            "performance": RequirementType.PERFORMANCE,
+            "security": RequirementType.MANDATORY,
+            "legal": RequirementType.MANDATORY,
+            "administrative": RequirementType.ADMINISTRATIVE,
+        }
+        req_type = type_mapping.get(
+            req_data.get("category", "").lower(), RequirementType.MANDATORY
+        )
+
+        db_req = ComplianceRequirement(
+            rfp_id=rfp_id,
+            requirement_id=req_data.get("requirement_id", f"EXT.{idx + 1}"),
+            requirement_text=req_data.get("text", req_data.get("requirement_text", "")),
+            source_document=", ".join(source_docs),
+            requirement_type=req_type,
+            is_mandatory=req_data.get("mandatory", True),
+            status=RequirementStatus.NOT_STARTED,
+            order_index=max_order + idx + 1,
+        )
+        db.add(db_req)
+        created_requirements.append(db_req)
+
+    db.commit()
+
+    # Refresh to get IDs
+    for req in created_requirements:
+        db.refresh(req)
+
+    logger.info(
+        f"Extracted {len(created_requirements)} requirements for RFP {rfp_id}"
+    )
+
+    return ExtractionResult(
+        extracted_count=len(created_requirements),
+        requirements=created_requirements,
+        source_documents=source_docs,
+    )
+
+
+def _simple_requirement_extraction(text: str) -> list[dict]:
+    """Simple fallback extraction using pattern matching."""
+    import re
+
+    requirements = []
+    patterns = [
+        r"(?:shall|must|will|required to)\s+([^.]+\.)",
+        r"(?:the contractor|the vendor|offeror)\s+(?:shall|must|will)\s+([^.]+\.)",
+    ]
+
+    seen = set()
+    for pattern in patterns:
+        matches = re.findall(pattern, text, re.IGNORECASE)
+        for match in matches:
+            text_clean = match.strip()
+            if text_clean and text_clean not in seen and len(text_clean) > 20:
+                seen.add(text_clean)
+                requirements.append(
+                    {
+                        "text": text_clean,
+                        "category": "mandatory",
+                        "mandatory": True,
+                    }
+                )
+
+    return requirements[:50]  # Limit to 50 requirements
