@@ -67,6 +67,7 @@ class StreamingService:
         if self._rag_engine is None:
             try:
                 from src.rag.chroma_rag_engine import get_rag_engine
+
                 self._rag_engine = get_rag_engine()
                 stats = self._rag_engine.get_statistics()
                 logger.info(f"RAG engine ready: {stats['total_documents']} documents")
@@ -232,7 +233,7 @@ class StreamingService:
                 enhanced_query = f"{rfp_context[:500]} {message}"
                 results = rag_engine.retrieve(enhanced_query, k=5)
                 for i, result in enumerate(results):
-                    rag_context += f"\n\nContext {i+1}:\n{result.get('content', result.get('text', ''))}"
+                    rag_context += f"\n\nContext { i + 1 }:\n{result.get('content', result.get('text', ''))}"
                     citations.append(
                         {
                             "index": i,
@@ -326,7 +327,9 @@ Please provide a helpful response:"""
         document_context = ""
         rfp_db_id = None
 
-        logger.info(f"stream_section_generation: rfp_id={rfp_id}, section={section_type}")
+        logger.info(
+            f"stream_section_generation: rfp_id={rfp_id}, section={section_type}"
+        )
 
         if db_session:
             from app.models.database import (
@@ -419,7 +422,9 @@ Please provide a helpful response:"""
                                 f"**Q{qa.question_number or ''}:{category}** {q}\n**A:** {a}"
                             )
                         qa_context = "\n\n".join(qa_lines)
-                        logger.info(f"Q&A context: {len(prioritized_qa)} items, {len(qa_context)} chars")
+                        logger.info(
+                            f"Q&A context: {len(prioritized_qa)} items, {len(qa_context)} chars"
+                        )
 
             # Get document content
             if rfp_db_id:
@@ -452,7 +457,9 @@ Please provide a helpful response:"""
                             )
 
                         if docs_for_extraction:
-                            logger.info(f"Extracting content from {len(docs_for_extraction)} documents")
+                            logger.info(
+                                f"Extracting content from {len(docs_for_extraction)} documents"
+                            )
                             extracted = extract_all_document_content(
                                 docs_for_extraction
                             )
@@ -468,7 +475,9 @@ Please provide a helpful response:"""
                                     if doc_text:
                                         doc_parts.append(f"### {doc_name}\n{doc_text}")
                                 document_context = "\n\n".join(doc_parts)
-                                logger.info(f"Document context: {len(doc_parts)} docs, {len(document_context)} chars")
+                                logger.info(
+                                    f"Document context: {len(doc_parts)} docs, {len(document_context)} chars"
+                                )
                 except Exception as e:
                     logger.warning(f"Document extraction failed: {e}")
 

@@ -16,7 +16,6 @@ from urllib.parse import urljoin, urlparse
 import aiofiles
 import aiohttp
 from aiohttp import ClientTimeout
-
 from pydantic import BaseModel, Field
 
 from .base_scraper import (
@@ -36,6 +35,7 @@ logger = logging.getLogger(__name__)
 # Pydantic schemas for Stagehand extraction validation
 class RFPMetadataSchema(BaseModel):
     """Schema for RFP metadata extraction."""
+
     title: str | None = None
     solicitation_number: str | None = None
     agency: str | None = None
@@ -50,6 +50,7 @@ class RFPMetadataSchema(BaseModel):
 
 class DocumentItemSchema(BaseModel):
     """Schema for individual document item."""
+
     filename: str
     url: str
     type: str | None = None
@@ -57,11 +58,13 @@ class DocumentItemSchema(BaseModel):
 
 class DocumentsListSchema(BaseModel):
     """Schema for documents list extraction."""
+
     documents: list[DocumentItemSchema] = []
 
 
 class QAItemSchema(BaseModel):
     """Schema for individual Q&A item."""
+
     question_number: str | None = Field(default=None, alias="questionNumber")
     question: str
     answer: str | None = None
@@ -73,6 +76,7 @@ class QAItemSchema(BaseModel):
 
 class QAListSchema(BaseModel):
     """Schema for Q&A list extraction."""
+
     qa_items: list[QAItemSchema] = Field(default=[], alias="qaItems")
 
     model_config = {"populate_by_name": True}
@@ -123,7 +127,9 @@ class BeaconBidScraper(BaseScraper):
         if not self.browserbase_api_key:
             logger.warning("Browserbase API key not configured. Scraping will fail.")
         if not self.model_api_key:
-            logger.warning("Model API key not configured. Stagehand AI features may fail.")
+            logger.warning(
+                "Model API key not configured. Stagehand AI features may fail."
+            )
 
     def _to_dict(self, data: Any) -> dict:
         """
@@ -168,7 +174,9 @@ class BeaconBidScraper(BaseScraper):
             raise ScraperError("Stagehand package not installed") from err
         except Exception as e:
             logger.error(f"Failed to create Stagehand session: {e}")
-            raise ScraperConnectionError(f"Failed to connect to Browserbase: {e}") from e
+            raise ScraperConnectionError(
+                f"Failed to connect to Browserbase: {e}"
+            ) from e
 
     async def scrape(self, url: str) -> ScrapedRFP:
         """
@@ -221,9 +229,13 @@ class BeaconBidScraper(BaseScraper):
                 agency=rfp_data.get("agency"),
                 office=rfp_data.get("office"),
                 posted_date=self._parse_date(get_field(rfp_data, "posted_date")),
-                response_deadline=self._parse_date(get_field(rfp_data, "response_deadline")),
+                response_deadline=self._parse_date(
+                    get_field(rfp_data, "response_deadline")
+                ),
                 award_amount=self._parse_amount(get_field(rfp_data, "award_amount")),
-                estimated_value=self._parse_amount(get_field(rfp_data, "estimated_value")),
+                estimated_value=self._parse_amount(
+                    get_field(rfp_data, "estimated_value")
+                ),
                 naics_code=get_field(rfp_data, "naics_code"),
                 category=rfp_data.get("category"),
                 documents=documents,
@@ -289,7 +301,9 @@ class BeaconBidScraper(BaseScraper):
             logger.error(f"Error extracting metadata: {e}")
             return {}
 
-    async def _extract_documents(self, stagehand: Any, base_url: str) -> list[ScrapedDocument]:
+    async def _extract_documents(
+        self, stagehand: Any, base_url: str
+    ) -> list[ScrapedDocument]:
         """
         Extract document links from the RFP page.
 
@@ -340,14 +354,18 @@ Look for download links in tables, lists, or attachment sections on the page.
             logger.info(f"Stagehand extracted {len(doc_list)} document entries")
             print(f"[EXTRACT] Stagehand returned {len(doc_list)} documents:")
             for i, d in enumerate(doc_list):
-                print(f"[EXTRACT]   {i+1}. {d.get('filename', 'unknown')} -> {d.get('url', 'NO URL')[:80]}")
+                print(
+                    f"[EXTRACT]   { i + 1 }. {d.get('filename', 'unknown')} -> {d.get('url', 'NO URL')[:80]}"
+                )
 
             for doc in doc_list:
                 filename = doc.get("filename", "unknown")
                 file_ext = Path(filename).suffix.lower().lstrip(".")
                 raw_url = doc.get("url", "")
 
-                logger.info(f"Processing document: {filename}, raw URL: {raw_url[:100] if raw_url else 'None'}")
+                logger.info(
+                    f"Processing document: {filename}, raw URL: {raw_url[:100] if raw_url else 'None'}"
+                )
 
                 # Resolve and validate the URL
                 resolved_url = self._resolve_document_url(raw_url, base_url)
@@ -366,9 +384,13 @@ Look for download links in tables, lists, or attachment sections on the page.
                 )
 
                 if resolved_url:
-                    logger.info(f"Document URL resolved: {raw_url[:50]}... -> {resolved_url[:50]}...")
+                    logger.info(
+                        f"Document URL resolved: {raw_url[:50]}... -> {resolved_url[:50]}..."
+                    )
                 else:
-                    logger.warning(f"Could not resolve document URL for {filename}: {raw_url[:100] if raw_url else 'empty'}")
+                    logger.warning(
+                        f"Could not resolve document URL for {filename}: {raw_url[:100] if raw_url else 'empty'}"
+                    )
 
             logger.info(f"Found {len(documents)} documents")
             return documents
@@ -467,7 +489,8 @@ Look for download links in tables, lists, or attachment sections on the page.
                 if question:  # Only add if there's a question
                     qa_items.append(
                         ScrapedQA(
-                            question_number=qa.get("question_number") or qa.get("questionNumber"),
+                            question_number=qa.get("question_number")
+                            or qa.get("questionNumber"),
                             question_text=question,
                             answer_text=qa.get("answer") or qa.get("answerText"),
                             asked_date=self._parse_date(
@@ -503,7 +526,9 @@ Look for download links in tables, lists, or attachment sections on the page.
             List of ScrapedDocument with local file paths
         """
         print(f"[DOWNLOAD] download_documents called for RFP {rfp_id}")
-        print(f"[DOWNLOAD] Documents to download: {[d.filename for d in rfp.documents] if rfp.documents else 'None'}")
+        print(
+            f"[DOWNLOAD] Documents to download: {[d.filename for d in rfp.documents] if rfp.documents else 'None'}"
+        )
         storage_path = self.get_document_storage_path(rfp_id)
         downloaded_docs = []
 
@@ -514,17 +539,25 @@ Look for download links in tables, lists, or attachment sections on the page.
 
         # Try browser-based download first (click links)
         try:
-            print("[DOWNLOAD] Starting browser-based download via _download_via_browser...")
+            print(
+                "[DOWNLOAD] Starting browser-based download via _download_via_browser..."
+            )
             downloaded_docs = await self._download_via_browser(rfp, storage_path)
             if downloaded_docs:
-                print(f"[DOWNLOAD] Successfully downloaded {len(downloaded_docs)} documents via browser")
-                logger.info(f"Successfully downloaded {len(downloaded_docs)} documents via browser")
+                print(
+                    f"[DOWNLOAD] Successfully downloaded {len(downloaded_docs)} documents via browser"
+                )
+                logger.info(
+                    f"Successfully downloaded {len(downloaded_docs)} documents via browser"
+                )
                 return downloaded_docs
             else:
                 print("[DOWNLOAD] Browser download returned empty list")
         except Exception as e:
             print(f"[DOWNLOAD] Browser-based download failed with exception: {e}")
-            logger.warning(f"Browser-based download failed: {e}, falling back to direct download")
+            logger.warning(
+                f"Browser-based download failed: {e}, falling back to direct download"
+            )
 
         # Fallback to direct URL download
         timeout = ClientTimeout(total=self.DOWNLOAD_TIMEOUT_SECONDS)
@@ -559,25 +592,27 @@ Look for download links in tables, lists, or attachment sections on the page.
         session_id = None
 
         try:
-            print(f"[DOWNLOAD] === Starting browser session for Download Package ===")
+            print("[DOWNLOAD] === Starting browser session for Download Package ===")
             logger.info("Starting browser session for Download Package button")
 
             stagehand = await self._create_stagehand_session()
             page = stagehand.page
 
             # Get session ID for later download retrieval
-            if hasattr(stagehand, 'session_id'):
+            if hasattr(stagehand, "session_id"):
                 session_id = stagehand.session_id
-            elif hasattr(stagehand, 'browserbase_session_id'):
+            elif hasattr(stagehand, "browserbase_session_id"):
                 session_id = stagehand.browserbase_session_id
-            elif hasattr(stagehand, '_session_id'):
+            elif hasattr(stagehand, "_session_id"):
                 session_id = stagehand._session_id
 
             print(f"[DOWNLOAD] Session ID: {session_id}")
             logger.info(f"Browserbase session ID: {session_id}")
 
             # Configure CDP for downloads
-            browser = getattr(stagehand, 'browser', None) or getattr(stagehand, '_browser', None)
+            browser = getattr(stagehand, "browser", None) or getattr(
+                stagehand, "_browser", None
+            )
             if browser:
                 try:
                     cdp_session = await browser.new_browser_cdp_session()
@@ -626,18 +661,24 @@ Look for download links in tables, lists, or attachment sections on the page.
         # Retrieve the package from Browserbase cloud storage
         if session_id:
             try:
-                print(f"[DOWNLOAD] Retrieving package from Browserbase session: {session_id}")
+                print(
+                    f"[DOWNLOAD] Retrieving package from Browserbase session: {session_id}"
+                )
                 downloaded_docs = await self._retrieve_browserbase_downloads(
                     session_id, rfp.documents, storage_path
                 )
-                print(f"[DOWNLOAD] ✓ Retrieved {len(downloaded_docs)} documents from package")
+                print(
+                    f"[DOWNLOAD] ✓ Retrieved {len(downloaded_docs)} documents from package"
+                )
             except Exception as e:
                 print(f"[DOWNLOAD] Failed to retrieve package: {e}")
                 logger.error(f"Failed to retrieve from Browserbase: {e}")
         else:
             print("[DOWNLOAD] No session ID - cannot retrieve downloads")
 
-        print(f"[DOWNLOAD] === Total downloaded: {len(downloaded_docs)}/{len(rfp.documents)} ===")
+        print(
+            f"[DOWNLOAD] === Total downloaded: {len(downloaded_docs)}/{len(rfp.documents)} ==="
+        )
         return downloaded_docs
 
     async def _retrieve_browserbase_downloads(
@@ -645,7 +686,7 @@ Look for download links in tables, lists, or attachment sections on the page.
         session_id: str,
         documents: list[ScrapedDocument],
         storage_path: Path,
-        retry_seconds: int = 30
+        retry_seconds: int = 30,
     ) -> list[ScrapedDocument]:
         """
         Retrieve downloaded files from Browserbase cloud storage.
@@ -669,45 +710,62 @@ Look for download links in tables, lists, or attachment sections on the page.
         end_time = time.time() + retry_seconds
 
         bb = Browserbase(api_key=self.browserbase_api_key)
-        print(f"[DOWNLOAD] Browserbase client created, polling for downloads...")
+        print("[DOWNLOAD] Browserbase client created, polling for downloads...")
         logger.info(f"Retrieving downloads from Browserbase session: {session_id}")
 
         while time.time() < end_time:
             try:
                 response = bb.sessions.downloads.list(session_id)
 
-                if response and hasattr(response, 'status_code') and response.status_code == 200:
+                if (
+                    response
+                    and hasattr(response, "status_code")
+                    and response.status_code == 200
+                ):
                     content = response.read()
                     # Check if we have actual content (ZIP header is 22+ bytes)
                     if len(content) > 22:
-                        print(f"[DOWNLOAD] Retrieved {len(content)} bytes from Browserbase")
+                        print(
+                            f"[DOWNLOAD] Retrieved {len(content)} bytes from Browserbase"
+                        )
                         logger.info(f"Retrieved {len(content)} bytes from Browserbase")
 
                         # Extract ZIP contents
-                        with zipfile.ZipFile(io.BytesIO(content), 'r') as zip_ref:
+                        with zipfile.ZipFile(io.BytesIO(content), "r") as zip_ref:
                             file_names = zip_ref.namelist()
-                            print(f"[DOWNLOAD] ZIP contains {len(file_names)} files: {file_names}")
+                            print(
+                                f"[DOWNLOAD] ZIP contains {len(file_names)} files: {file_names}"
+                            )
                             logger.info(f"ZIP contains files: {file_names}")
 
                             for zip_filename in file_names:
                                 # Browserbase adds timestamp suffix: sample-1719265797164.pdf
                                 # Try to match with our expected documents
                                 for doc in documents:
-                                    base_name = doc.filename.rsplit('.', 1)[0]
-                                    if base_name in zip_filename or doc.filename in zip_filename:
+                                    base_name = doc.filename.rsplit(".", 1)[0]
+                                    if (
+                                        base_name in zip_filename
+                                        or doc.filename in zip_filename
+                                    ):
                                         # Extract and save the file
-                                        safe_filename = self._sanitize_filename(doc.filename)
+                                        safe_filename = self._sanitize_filename(
+                                            doc.filename
+                                        )
                                         local_path = storage_path / safe_filename
 
                                         with zip_ref.open(zip_filename) as src:
                                             file_content = src.read()
-                                            async with aiofiles.open(local_path, 'wb') as dst:
+                                            async with aiofiles.open(
+                                                local_path, "wb"
+                                            ) as dst:
                                                 await dst.write(file_content)
 
                                         file_size = len(file_content)
                                         doc.file_path = str(local_path)
                                         doc.file_size = file_size
-                                        doc.checksum = self.compute_file_checksum(str(local_path))
+                                        doc.checksum = self.compute_file_checksum(
+                                            str(local_path)
+                                        )
                                         doc.downloaded_at = datetime.now(timezone.utc)
 
                                         downloaded_docs.append(doc)
@@ -718,28 +776,37 @@ Look for download links in tables, lists, or attachment sections on the page.
 
                         return downloaded_docs
 
-                elif hasattr(response, 'content'):
+                elif hasattr(response, "content"):
                     # Alternative response format
                     content = response.content
                     if len(content) > 22:
                         # Same extraction logic
-                        with zipfile.ZipFile(io.BytesIO(content), 'r') as zip_ref:
+                        with zipfile.ZipFile(io.BytesIO(content), "r") as zip_ref:
                             for zip_filename in zip_ref.namelist():
                                 for doc in documents:
-                                    base_name = doc.filename.rsplit('.', 1)[0]
-                                    if base_name in zip_filename or doc.filename in zip_filename:
-                                        safe_filename = self._sanitize_filename(doc.filename)
+                                    base_name = doc.filename.rsplit(".", 1)[0]
+                                    if (
+                                        base_name in zip_filename
+                                        or doc.filename in zip_filename
+                                    ):
+                                        safe_filename = self._sanitize_filename(
+                                            doc.filename
+                                        )
                                         local_path = storage_path / safe_filename
 
                                         with zip_ref.open(zip_filename) as src:
                                             file_content = src.read()
-                                            async with aiofiles.open(local_path, 'wb') as dst:
+                                            async with aiofiles.open(
+                                                local_path, "wb"
+                                            ) as dst:
                                                 await dst.write(file_content)
 
                                         file_size = len(file_content)
                                         doc.file_path = str(local_path)
                                         doc.file_size = file_size
-                                        doc.checksum = self.compute_file_checksum(str(local_path))
+                                        doc.checksum = self.compute_file_checksum(
+                                            str(local_path)
+                                        )
                                         doc.downloaded_at = datetime.now(timezone.utc)
 
                                         downloaded_docs.append(doc)
@@ -766,7 +833,9 @@ Look for download links in tables, lists, or attachment sections on the page.
 
         # Validate URL before attempting download
         if not doc.source_url or not doc.source_url.startswith(("http://", "https://")):
-            logger.error(f"Invalid document URL: {doc.source_url} for file {doc.filename}")
+            logger.error(
+                f"Invalid document URL: {doc.source_url} for file {doc.filename}"
+            )
             return None
 
         for attempt in range(1, self.DOWNLOAD_MAX_RETRIES + 1):
@@ -883,7 +952,18 @@ Look for download links in tables, lists, or attachment sections on the page.
         # Clean up the date string - remove timezone abbreviations and extra parts
         cleaned = date_str.strip()
         # Remove common timezone abbreviations
-        for tz in [" CST", " EST", " PST", " MST", " CDT", " EDT", " PDT", " MDT", " UTC", " GMT"]:
+        for tz in [
+            " CST",
+            " EST",
+            " PST",
+            " MST",
+            " CDT",
+            " EDT",
+            " PDT",
+            " MDT",
+            " UTC",
+            " GMT",
+        ]:
             cleaned = cleaned.replace(tz, "")
         # Remove "at" between date and time
         cleaned = cleaned.replace(" at ", " ")

@@ -5,6 +5,7 @@ Handles:
 - Periodic alert rule evaluation
 - Email notification delivery
 """
+
 import asyncio
 import logging
 import os
@@ -16,7 +17,11 @@ from email.mime.text import MIMEText
 from celery import shared_task
 
 # Add project paths
-project_root = os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(__file__))))))
+project_root = os.path.dirname(
+    os.path.dirname(
+        os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(__file__))))
+    )
+)
 if project_root not in sys.path:
     sys.path.insert(0, project_root)
 
@@ -27,6 +32,7 @@ def broadcast_alert(notification: dict):
     """Broadcast alert notification via WebSocket."""
     try:
         from api.app.websockets.channels import broadcast_alert_notification
+
         asyncio.run(broadcast_alert_notification(notification))
     except Exception as e:
         logger.warning(f"Failed to broadcast alert: {e}")
@@ -49,33 +55,37 @@ def evaluate_alert_rules(self, rfp_id: str | None = None) -> dict:
     logger.info(f"Evaluating alert rules - RFP: {rfp_id or 'all'}")
 
     try:
-        from api.app.core.database import SessionLocal
-        from api.app.models.database import (
-            AlertNotification,
-            AlertRule,
-            AlertType,
-            RFPOpportunity,
-        )
         from datetime import datetime, timedelta
+
+        from api.app.core.database import SessionLocal
+        from api.app.models.database import AlertNotification, AlertRule, RFPOpportunity
 
         with SessionLocal() as db:
             # Get active rules
-            rules = db.query(AlertRule).filter(AlertRule.is_active == True).all()
+            rules = db.query(AlertRule).filter(AlertRule.is_active).all()
 
             if not rules:
-                return {"status": "success", "rules_evaluated": 0, "notifications_created": 0}
+                return {
+                    "status": "success",
+                    "rules_evaluated": 0,
+                    "notifications_created": 0,
+                }
 
             # Get RFPs to evaluate
             if rfp_id:
-                rfps = db.query(RFPOpportunity).filter(
-                    RFPOpportunity.rfp_id == rfp_id
-                ).all()
+                rfps = (
+                    db.query(RFPOpportunity)
+                    .filter(RFPOpportunity.rfp_id == rfp_id)
+                    .all()
+                )
             else:
                 # Get RFPs from last 24 hours (for periodic evaluation)
                 cutoff = datetime.utcnow() - timedelta(hours=24)
-                rfps = db.query(RFPOpportunity).filter(
-                    RFPOpportunity.created_at >= cutoff
-                ).all()
+                rfps = (
+                    db.query(RFPOpportunity)
+                    .filter(RFPOpportunity.created_at >= cutoff)
+                    .all()
+                )
 
             notifications_created = 0
 
@@ -89,11 +99,17 @@ def evaluate_alert_rules(self, rfp_id: str | None = None) -> dict:
 
                     # Check daily limit
                     if rule.max_alerts_per_day:
-                        today_start = datetime.utcnow().replace(hour=0, minute=0, second=0, microsecond=0)
-                        today_count = db.query(AlertNotification).filter(
-                            AlertNotification.rule_id == rule.id,
-                            AlertNotification.created_at >= today_start
-                        ).count()
+                        today_start = datetime.utcnow().replace(
+                            hour=0, minute=0, second=0, microsecond=0
+                        )
+                        today_count = (
+                            db.query(AlertNotification)
+                            .filter(
+                                AlertNotification.rule_id == rule.id,
+                                AlertNotification.created_at >= today_start,
+                            )
+                            .count()
+                        )
                         if today_count >= rule.max_alerts_per_day:
                             continue
 
@@ -101,11 +117,15 @@ def evaluate_alert_rules(self, rfp_id: str | None = None) -> dict:
                     for rfp in rfps:
                         if _matches_rule(rule, rfp):
                             # Check if notification already exists
-                            existing = db.query(AlertNotification).filter(
-                                AlertNotification.rule_id == rule.id,
-                                AlertNotification.rfp_id == rfp.id,
-                                AlertNotification.is_dismissed == False
-                            ).first()
+                            existing = (
+                                db.query(AlertNotification)
+                                .filter(
+                                    AlertNotification.rule_id == rule.id,
+                                    AlertNotification.rfp_id == rfp.id,
+                                    AlertNotification.is_dismissed is False,
+                                )
+                                .first()
+                            )
 
                             if existing:
                                 continue
@@ -128,18 +148,29 @@ def evaluate_alert_rules(self, rfp_id: str | None = None) -> dict:
                             notifications_created += 1
 
                             # Trigger email if configured
-                            if "email" in (rule.notification_channels or []) and rule.email_recipients:
+                            if (
+                                "email" in (rule.notification_channels or [])
+                                and rule.email_recipients
+                            ):
                                 db.flush()  # Get notification ID
-                                send_alert_email.delay(notification.id, rule.email_recipients)
+                                send_alert_email.delay(
+                                    notification.id, rule.email_recipients
+                                )
 
                             # Broadcast to WebSocket
-                            broadcast_alert({
-                                "id": notification.id,
-                                "title": notification.title,
-                                "message": notification.message,
-                                "priority": notification.priority.value if notification.priority else "medium",
-                                "rfp_id": rfp.rfp_id,
-                            })
+                            broadcast_alert(
+                                {
+                                    "id": notification.id,
+                                    "title": notification.title,
+                                    "message": notification.message,
+                                    "priority": (
+                                        notification.priority.value
+                                        if notification.priority
+                                        else "medium"
+                                    ),
+                                    "rfp_id": rfp.rfp_id,
+                                }
+                            )
 
                 except Exception as e:
                     logger.error(f"Error evaluating rule {rule.id}: {e}")
@@ -151,15 +182,12 @@ def evaluate_alert_rules(self, rfp_id: str | None = None) -> dict:
                 "status": "success",
                 "rules_evaluated": len(rules),
                 "rfps_checked": len(rfps),
-                "notifications_created": notifications_created
+                "notifications_created": notifications_created,
             }
 
     except Exception as e:
         logger.error(f"Alert evaluation failed: {e}")
-        return {
-            "status": "error",
-            "error": str(e)
-        }
+        return {"status": "error", "error": str(e)}
 
 
 def _matches_rule(rule, rfp) -> bool:
@@ -198,6 +226,7 @@ def _matches_rule(rule, rfp) -> bool:
 
     elif alert_type == AlertType.DEADLINE_APPROACHING:
         from datetime import datetime, timedelta
+
         days = criteria.get("days_before", 7)
         if rfp.response_deadline:
             deadline = rfp.response_deadline
@@ -230,11 +259,7 @@ def _build_notification_message(rule, rfp) -> str:
 
 
 @shared_task(bind=True, name="api.app.worker.tasks.alerts.send_alert_email")
-def send_alert_email(
-    self,
-    notification_id: int,
-    recipients: list[str]
-) -> dict:
+def send_alert_email(self, notification_id: int, recipients: list[str]) -> dict:
     """
     Send alert notification email.
 
@@ -245,7 +270,9 @@ def send_alert_email(
     Returns:
         Dict with send status
     """
-    logger.info(f"Sending alert email - Notification: {notification_id}, Recipients: {recipients}")
+    logger.info(
+        f"Sending alert email - Notification: {notification_id}, Recipients: {recipients}"
+    )
 
     try:
         from api.app.core.config import settings
@@ -254,16 +281,20 @@ def send_alert_email(
 
         # Load notification
         with SessionLocal() as db:
-            notification = db.query(AlertNotification).filter(
-                AlertNotification.id == notification_id
-            ).first()
+            notification = (
+                db.query(AlertNotification)
+                .filter(AlertNotification.id == notification_id)
+                .first()
+            )
 
             if not notification:
                 return {"status": "error", "error": "Notification not found"}
 
-            rfp = db.query(RFPOpportunity).filter(
-                RFPOpportunity.id == notification.rfp_id
-            ).first()
+            rfp = (
+                db.query(RFPOpportunity)
+                .filter(RFPOpportunity.id == notification.rfp_id)
+                .first()
+            )
 
             # Build email content
             subject = notification.title
@@ -351,7 +382,9 @@ def _render_email_template(notification, rfp) -> str:
 """
 
 
-def _send_via_sendgrid(recipients: list[str], subject: str, html_content: str, api_key: str) -> bool:
+def _send_via_sendgrid(
+    recipients: list[str], subject: str, html_content: str, api_key: str
+) -> bool:
     """Send email via SendGrid API."""
     import httpx
 
@@ -362,15 +395,15 @@ def _send_via_sendgrid(recipients: list[str], subject: str, html_content: str, a
             "https://api.sendgrid.com/v3/mail/send",
             headers={
                 "Authorization": f"Bearer {api_key}",
-                "Content-Type": "application/json"
+                "Content-Type": "application/json",
             },
             json={
                 "personalizations": [{"to": [{"email": e} for e in recipients]}],
                 "from": {"email": from_email},
                 "subject": subject,
-                "content": [{"type": "text/html", "value": html_content}]
+                "content": [{"type": "text/html", "value": html_content}],
             },
-            timeout=30.0
+            timeout=30.0,
         )
         return response.status_code == 202
     except Exception as e:
@@ -378,7 +411,9 @@ def _send_via_sendgrid(recipients: list[str], subject: str, html_content: str, a
         return False
 
 
-def _send_via_smtp(recipients: list[str], subject: str, html_content: str, text_content: str, settings) -> bool:
+def _send_via_smtp(
+    recipients: list[str], subject: str, html_content: str, text_content: str, settings
+) -> bool:
     """Send email via SMTP."""
     try:
         msg = MIMEMultipart("alternative")

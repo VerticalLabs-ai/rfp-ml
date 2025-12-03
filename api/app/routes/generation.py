@@ -28,6 +28,9 @@ from app.dependencies import RFPDep
 from src.bid_generation.style_manager import style_manager
 from src.config.enhanced_bid_llm import EnhancedBidLLMManager
 
+# Module-level File dependency for required file uploads
+_REQUIRED_FILE = File(...)
+
 logger = logging.getLogger(__name__)
 router = APIRouter()
 
@@ -377,7 +380,7 @@ class SummarizeRequest(BaseModel):
 
 
 @router.post("/style/upload")
-async def upload_style_reference(file: UploadFile = File(...)):
+async def upload_style_reference(file: UploadFile = _REQUIRED_FILE):
     """
     Upload a past proposal or reference document to train the 'Voice of the Customer' model.
     Supports .txt, .md (PDF/Docx support to be added via unstructured loader).
@@ -416,7 +419,9 @@ async def upload_style_reference(file: UploadFile = File(...)):
         }
 
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Processing failed: {str(e)}")
+        raise HTTPException(
+            status_code=500, detail=f"Processing failed: {str(e)}"
+        ) from e
 
 
 @router.post("/refine")
@@ -645,7 +650,9 @@ With examples:""",
 
     except Exception as e:
         logger.error(f"Content expansion failed: {e}")
-        raise HTTPException(status_code=500, detail=f"Expansion failed: {str(e)}")
+        raise HTTPException(
+            status_code=500, detail=f"Expansion failed: {str(e)}"
+        ) from e
 
 
 @router.post("/{rfp_id}/writer/summarize")
@@ -714,7 +721,9 @@ Technical Summary:""",
 
     except Exception as e:
         logger.error(f"Content summarization failed: {e}")
-        raise HTTPException(status_code=500, detail=f"Summarization failed: {str(e)}")
+        raise HTTPException(
+            status_code=500, detail=f"Summarization failed: {str(e)}"
+        ) from e
 
 
 @router.post("/{rfp_id}/writer/improve")

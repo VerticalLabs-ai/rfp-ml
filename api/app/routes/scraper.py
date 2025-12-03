@@ -9,12 +9,11 @@ from datetime import datetime, timezone
 from urllib.parse import urlparse
 from uuid import uuid4
 
-from app.core.database import get_db
+from app.dependencies import DBDep
 from app.models.database import PipelineStage, RFPDocument, RFPOpportunity, RFPQandA
-from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException
+from fastapi import APIRouter, BackgroundTasks, HTTPException
 from fastapi.responses import FileResponse
 from pydantic import BaseModel, field_validator
-from sqlalchemy.orm import Session
 
 logger = logging.getLogger(__name__)
 router = APIRouter()
@@ -103,7 +102,7 @@ def get_scraper(url: str):
 async def scrape_rfp(
     request: ScrapeRequest,
     background_tasks: BackgroundTasks,
-    db: Session = Depends(get_db),
+    db: DBDep = ...,
 ):
     """
     Scrape an RFP from an external portal URL.
@@ -208,7 +207,7 @@ async def scrape_rfp(
         raise
     except Exception as e:
         logger.error(f"Error scraping RFP: {e}")
-        raise HTTPException(status_code=500, detail=f"Scraping failed: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Scraping failed: {str(e)}") from e
 
 
 async def _download_and_save_documents(
@@ -267,7 +266,7 @@ async def _download_and_save_documents(
 
 @router.post("/{rfp_id}/refresh", response_model=RefreshResponse)
 async def refresh_rfp(
-    rfp_id: str, background_tasks: BackgroundTasks, db: Session = Depends(get_db)
+    rfp_id: str, background_tasks: BackgroundTasks, db: DBDep = ...,
 ):
     """
     Refresh/re-scrape an existing RFP to check for updates.
@@ -395,11 +394,11 @@ async def refresh_rfp(
 
     except Exception as e:
         logger.error(f"Error refreshing RFP {rfp_id}: {e}")
-        raise HTTPException(status_code=500, detail=f"Refresh failed: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Refresh failed: {str(e)}") from e
 
 
 @router.get("/{rfp_id}/documents", response_model=list[RFPDocumentResponse])
-async def get_rfp_documents(rfp_id: str, db: Session = Depends(get_db)):
+async def get_rfp_documents(rfp_id: str, db: DBDep):
     """Get all documents for an RFP, including download status."""
     rfp = db.query(RFPOpportunity).filter(RFPOpportunity.rfp_id == rfp_id).first()
     if not rfp:
@@ -435,7 +434,7 @@ async def get_rfp_documents(rfp_id: str, db: Session = Depends(get_db)):
 
 
 @router.get("/{rfp_id}/documents/{doc_id}/download")
-async def download_document(rfp_id: str, doc_id: int, db: Session = Depends(get_db)):
+async def download_document(rfp_id: str, doc_id: int, db: DBDep):
     """Download a specific document."""
     rfp = db.query(RFPOpportunity).filter(RFPOpportunity.rfp_id == rfp_id).first()
     if not rfp:
@@ -462,7 +461,7 @@ async def download_document(rfp_id: str, doc_id: int, db: Session = Depends(get_
 
 @router.get("/{rfp_id}/qa", response_model=list[RFPQandAResponse])
 async def get_rfp_qa(
-    rfp_id: str, new_only: bool = False, db: Session = Depends(get_db)
+    rfp_id: str, new_only: bool = False, db: DBDep = ...,
 ):
     """Get Q&A items for an RFP."""
     rfp = db.query(RFPOpportunity).filter(RFPOpportunity.rfp_id == rfp_id).first()
@@ -479,7 +478,7 @@ async def get_rfp_qa(
 
 
 @router.post("/{rfp_id}/qa/analyze")
-async def analyze_qa(rfp_id: str, db: Session = Depends(get_db)):
+async def analyze_qa(rfp_id: str, db: DBDep):
     """
     Run AI analysis on Q&A items to categorize and extract insights.
     """

@@ -210,7 +210,7 @@ async def generate_predictions_with_timeout(
     except Exception as e:
         _last_error = str(e)
         logger.exception("Prediction generation failed")
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(status_code=500, detail=str(e)) from e
     finally:
         _generation_in_progress = False
 

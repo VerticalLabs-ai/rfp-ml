@@ -7,12 +7,11 @@ Provides channel-based subscriptions for:
 - Job progress tracking
 - Chat streaming
 """
-import asyncio
+
 import json
 import logging
 from datetime import datetime
 from enum import Enum
-from typing import Any, Dict, Set
 
 from fastapi import APIRouter, WebSocket, WebSocketDisconnect
 
@@ -22,6 +21,7 @@ router = APIRouter()
 
 class MessageType(str, Enum):
     """WebSocket message types."""
+
     # Existing types (backwards compatible)
     RFP_UPDATE = "rfp_update"
     SUBMISSION_UPDATE = "submission_update"
@@ -64,11 +64,11 @@ class ChannelManager:
 
     def __init__(self):
         # Channel subscriptions: channel_name -> set of websockets
-        self.channels: Dict[str, Set[WebSocket]] = {}
+        self.channels: dict[str, set[WebSocket]] = {}
         # Websocket to channels mapping (for cleanup)
-        self.websocket_channels: Dict[WebSocket, Set[str]] = {}
+        self.websocket_channels: dict[WebSocket, set[str]] = {}
         # All active connections
-        self.connections: Set[WebSocket] = set()
+        self.connections: set[WebSocket] = set()
 
     async def connect(self, websocket: WebSocket) -> None:
         """Accept a new WebSocket connection."""
@@ -90,7 +90,9 @@ class ChannelManager:
             del self.websocket_channels[websocket]
 
         self.connections.discard(websocket)
-        logger.info(f"WebSocket disconnected. Total connections: {len(self.connections)}")
+        logger.info(
+            f"WebSocket disconnected. Total connections: {len(self.connections)}"
+        )
 
     async def subscribe(self, websocket: WebSocket, channel: str) -> bool:
         """Subscribe a websocket to a channel."""
@@ -103,7 +105,9 @@ class ChannelManager:
         self.channels[channel].add(websocket)
         self.websocket_channels[websocket].add(channel)
 
-        logger.debug(f"Subscribed to channel: {channel}. Subscribers: {len(self.channels[channel])}")
+        logger.debug(
+            f"Subscribed to channel: {channel}. Subscribers: {len(self.channels[channel])}"
+        )
         return True
 
     async def unsubscribe(self, websocket: WebSocket, channel: str) -> bool:
@@ -120,10 +124,7 @@ class ChannelManager:
         return True
 
     async def broadcast_to_channel(
-        self,
-        channel: str,
-        message: dict,
-        exclude: WebSocket | None = None
+        self, channel: str, message: dict, exclude: WebSocket | None = None
     ) -> int:
         """
         Broadcast a message to all subscribers of a channel.
@@ -202,7 +203,7 @@ class ChannelManager:
         """Get the number of subscribers to a channel."""
         return len(self.channels.get(channel, set()))
 
-    def get_websocket_channels(self, websocket: WebSocket) -> Set[str]:
+    def get_websocket_channels(self, websocket: WebSocket) -> set[str]:
         """Get all channels a websocket is subscribed to."""
         return self.websocket_channels.get(websocket, set()).copy()
 
@@ -211,9 +212,7 @@ class ChannelManager:
         return {
             "total_connections": len(self.connections),
             "total_channels": len(self.channels),
-            "channels": {
-                name: len(subs) for name, subs in self.channels.items()
-            }
+            "channels": {name: len(subs) for name, subs in self.channels.items()},
         }
 
 
@@ -237,11 +236,14 @@ async def rfp_channel(websocket: WebSocket, rfp_id: str):
     await channel_manager.subscribe(websocket, channel)
 
     # Send subscription confirmation
-    await channel_manager.send_to_websocket(websocket, {
-        "type": MessageType.ACK.value,
-        "channel": channel,
-        "message": f"Subscribed to RFP {rfp_id} updates"
-    })
+    await channel_manager.send_to_websocket(
+        websocket,
+        {
+            "type": MessageType.ACK.value,
+            "channel": channel,
+            "message": f"Subscribed to RFP {rfp_id} updates",
+        },
+    )
 
     try:
         while True:
@@ -251,40 +253,46 @@ async def rfp_channel(websocket: WebSocket, rfp_id: str):
                 msg_type = message.get("type")
 
                 if msg_type == MessageType.PING.value:
-                    await channel_manager.send_to_websocket(websocket, {
-                        "type": MessageType.PONG.value
-                    })
+                    await channel_manager.send_to_websocket(
+                        websocket, {"type": MessageType.PONG.value}
+                    )
                 elif msg_type == MessageType.SUBSCRIBE.value:
                     # Allow subscribing to additional channels
                     new_channel = message.get("channel")
                     if new_channel:
                         await channel_manager.subscribe(websocket, new_channel)
-                        await channel_manager.send_to_websocket(websocket, {
-                            "type": MessageType.ACK.value,
-                            "channel": new_channel,
-                            "message": f"Subscribed to {new_channel}"
-                        })
+                        await channel_manager.send_to_websocket(
+                            websocket,
+                            {
+                                "type": MessageType.ACK.value,
+                                "channel": new_channel,
+                                "message": f"Subscribed to {new_channel}",
+                            },
+                        )
                 elif msg_type == MessageType.UNSUBSCRIBE.value:
                     old_channel = message.get("channel")
                     if old_channel:
                         await channel_manager.unsubscribe(websocket, old_channel)
-                        await channel_manager.send_to_websocket(websocket, {
-                            "type": MessageType.ACK.value,
-                            "channel": old_channel,
-                            "message": f"Unsubscribed from {old_channel}"
-                        })
+                        await channel_manager.send_to_websocket(
+                            websocket,
+                            {
+                                "type": MessageType.ACK.value,
+                                "channel": old_channel,
+                                "message": f"Unsubscribed from {old_channel}",
+                            },
+                        )
                 else:
                     # Echo/acknowledge other messages
-                    await channel_manager.send_to_websocket(websocket, {
-                        "type": MessageType.ACK.value,
-                        "received_type": msg_type
-                    })
+                    await channel_manager.send_to_websocket(
+                        websocket,
+                        {"type": MessageType.ACK.value, "received_type": msg_type},
+                    )
 
             except json.JSONDecodeError:
-                await channel_manager.send_to_websocket(websocket, {
-                    "type": MessageType.ERROR.value,
-                    "message": "Invalid JSON"
-                })
+                await channel_manager.send_to_websocket(
+                    websocket,
+                    {"type": MessageType.ERROR.value, "message": "Invalid JSON"},
+                )
 
     except WebSocketDisconnect:
         channel_manager.disconnect(websocket)
@@ -301,11 +309,14 @@ async def alerts_channel(websocket: WebSocket):
     await channel_manager.connect(websocket)
     await channel_manager.subscribe(websocket, "alerts")
 
-    await channel_manager.send_to_websocket(websocket, {
-        "type": MessageType.ACK.value,
-        "channel": "alerts",
-        "message": "Subscribed to alert notifications"
-    })
+    await channel_manager.send_to_websocket(
+        websocket,
+        {
+            "type": MessageType.ACK.value,
+            "channel": "alerts",
+            "message": "Subscribed to alert notifications",
+        },
+    )
 
     try:
         while True:
@@ -313,13 +324,13 @@ async def alerts_channel(websocket: WebSocket):
             try:
                 message = json.loads(data)
                 if message.get("type") == MessageType.PING.value:
-                    await channel_manager.send_to_websocket(websocket, {
-                        "type": MessageType.PONG.value
-                    })
+                    await channel_manager.send_to_websocket(
+                        websocket, {"type": MessageType.PONG.value}
+                    )
                 else:
-                    await channel_manager.send_to_websocket(websocket, {
-                        "type": MessageType.ACK.value
-                    })
+                    await channel_manager.send_to_websocket(
+                        websocket, {"type": MessageType.ACK.value}
+                    )
             except json.JSONDecodeError:
                 pass
 
@@ -339,12 +350,15 @@ async def job_channel(websocket: WebSocket, job_id: str):
     channel = f"jobs:{job_id}"
     await channel_manager.subscribe(websocket, channel)
 
-    await channel_manager.send_to_websocket(websocket, {
-        "type": MessageType.ACK.value,
-        "channel": channel,
-        "job_id": job_id,
-        "message": f"Tracking job {job_id}"
-    })
+    await channel_manager.send_to_websocket(
+        websocket,
+        {
+            "type": MessageType.ACK.value,
+            "channel": channel,
+            "job_id": job_id,
+            "message": f"Tracking job {job_id}",
+        },
+    )
 
     try:
         while True:
@@ -352,9 +366,9 @@ async def job_channel(websocket: WebSocket, job_id: str):
             try:
                 message = json.loads(data)
                 if message.get("type") == MessageType.PING.value:
-                    await channel_manager.send_to_websocket(websocket, {
-                        "type": MessageType.PONG.value
-                    })
+                    await channel_manager.send_to_websocket(
+                        websocket, {"type": MessageType.PONG.value}
+                    )
             except json.JSONDecodeError:
                 pass
 
@@ -370,47 +384,52 @@ async def get_channel_stats():
 
 # Helper functions for broadcasting from other parts of the application
 
+
 async def broadcast_scoring_update(rfp_id: str, scores: dict):
     """Broadcast scoring update to RFP channel."""
-    await channel_manager.broadcast_to_channel(f"rfp:{rfp_id}", {
-        "type": MessageType.SCORING_UPDATE.value,
-        "rfp_id": rfp_id,
-        "data": scores
-    })
+    await channel_manager.broadcast_to_channel(
+        f"rfp:{rfp_id}",
+        {"type": MessageType.SCORING_UPDATE.value, "rfp_id": rfp_id, "data": scores},
+    )
 
 
 async def broadcast_pricing_update(rfp_id: str, pricing: dict):
     """Broadcast pricing update to RFP channel."""
-    await channel_manager.broadcast_to_channel(f"rfp:{rfp_id}", {
-        "type": MessageType.PRICING_UPDATE.value,
-        "rfp_id": rfp_id,
-        "data": pricing
-    })
+    await channel_manager.broadcast_to_channel(
+        f"rfp:{rfp_id}",
+        {"type": MessageType.PRICING_UPDATE.value, "rfp_id": rfp_id, "data": pricing},
+    )
 
 
 async def broadcast_compliance_update(rfp_id: str, compliance: dict):
     """Broadcast compliance update to RFP channel."""
-    await channel_manager.broadcast_to_channel(f"rfp:{rfp_id}", {
-        "type": MessageType.COMPLIANCE_UPDATE.value,
-        "rfp_id": rfp_id,
-        "data": compliance
-    })
+    await channel_manager.broadcast_to_channel(
+        f"rfp:{rfp_id}",
+        {
+            "type": MessageType.COMPLIANCE_UPDATE.value,
+            "rfp_id": rfp_id,
+            "data": compliance,
+        },
+    )
 
 
 async def broadcast_job_progress(job_id: str, progress: int, status: str, **kwargs):
     """Broadcast job progress update."""
-    await channel_manager.broadcast_to_channel(f"jobs:{job_id}", {
-        "type": MessageType.JOB_PROGRESS.value,
-        "job_id": job_id,
-        "progress": progress,
-        "status": status,
-        **kwargs
-    })
+    await channel_manager.broadcast_to_channel(
+        f"jobs:{job_id}",
+        {
+            "type": MessageType.JOB_PROGRESS.value,
+            "job_id": job_id,
+            "progress": progress,
+            "status": status,
+            **kwargs,
+        },
+    )
 
 
 async def broadcast_alert_notification(notification: dict):
     """Broadcast alert notification to all subscribers."""
-    await channel_manager.broadcast_to_channel("alerts", {
-        "type": MessageType.ALERT_NOTIFICATION.value,
-        "notification": notification
-    })
+    await channel_manager.broadcast_to_channel(
+        "alerts",
+        {"type": MessageType.ALERT_NOTIFICATION.value, "notification": notification},
+    )

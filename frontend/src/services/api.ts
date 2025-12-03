@@ -311,7 +311,7 @@ export const api = {
     top_k?: number
     skip?: number
     min_score?: number
-    filters?: Record<string, any>
+    filters?: Record<string, unknown>
   }) =>
     apiClient.post('/discovery/search', params).then(res => res.data),
 

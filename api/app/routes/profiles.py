@@ -5,11 +5,10 @@ Company Profile management API endpoints.
 import re
 from datetime import datetime
 
-from app.core.database import get_db
+from app.dependencies import DBDep
 from app.models.database import CompanyProfile
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel, field_validator
-from sqlalchemy.orm import Session
 
 router = APIRouter()
 
@@ -108,7 +107,7 @@ class CompanyProfileResponse(CompanyProfileBase):
 
 
 @router.get("", response_model=list[CompanyProfileResponse])
-async def list_profiles(skip: int = 0, limit: int = 100, db: Session = Depends(get_db)):
+async def list_profiles(skip: int = 0, limit: int = 100, db: DBDep = ...):
     """Get all company profiles."""
     profiles = db.query(CompanyProfile).offset(skip).limit(limit).all()
     return profiles
@@ -116,7 +115,7 @@ async def list_profiles(skip: int = 0, limit: int = 100, db: Session = Depends(g
 
 @router.post("", response_model=CompanyProfileResponse)
 async def create_profile(
-    profile_data: CompanyProfileCreate, db: Session = Depends(get_db)
+    profile_data: CompanyProfileCreate, db: DBDep = ...,
 ):
     """Create a new company profile."""
     # Check for duplicate name
@@ -142,7 +141,7 @@ async def create_profile(
 
 
 @router.get("/{profile_id}", response_model=CompanyProfileResponse)
-async def get_profile(profile_id: int, db: Session = Depends(get_db)):
+async def get_profile(profile_id: int, db: DBDep):
     """Get a company profile by ID."""
     profile = db.query(CompanyProfile).filter(CompanyProfile.id == profile_id).first()
     if not profile:
@@ -152,7 +151,7 @@ async def get_profile(profile_id: int, db: Session = Depends(get_db)):
 
 @router.put("/{profile_id}", response_model=CompanyProfileResponse)
 async def update_profile(
-    profile_id: int, profile_data: CompanyProfileUpdate, db: Session = Depends(get_db)
+    profile_id: int, profile_data: CompanyProfileUpdate, db: DBDep = ...,
 ):
     """Update a company profile."""
     profile = db.query(CompanyProfile).filter(CompanyProfile.id == profile_id).first()
@@ -188,7 +187,7 @@ async def update_profile(
 
 
 @router.delete("/{profile_id}")
-async def delete_profile(profile_id: int, db: Session = Depends(get_db)):
+async def delete_profile(profile_id: int, db: DBDep):
     """Delete a company profile."""
     profile = db.query(CompanyProfile).filter(CompanyProfile.id == profile_id).first()
     if not profile:
@@ -200,7 +199,7 @@ async def delete_profile(profile_id: int, db: Session = Depends(get_db)):
 
 
 @router.post("/{profile_id}/default", response_model=CompanyProfileResponse)
-async def set_default_profile(profile_id: int, db: Session = Depends(get_db)):
+async def set_default_profile(profile_id: int, db: DBDep):
     """Set a profile as the default."""
     profile = db.query(CompanyProfile).filter(CompanyProfile.id == profile_id).first()
     if not profile:
@@ -217,7 +216,7 @@ async def set_default_profile(profile_id: int, db: Session = Depends(get_db)):
 
 
 @router.get("/default/current", response_model=CompanyProfileResponse)
-async def get_default_profile(db: Session = Depends(get_db)):
+async def get_default_profile(db: DBDep):
     """Get the default company profile."""
     profile = db.query(CompanyProfile).filter(CompanyProfile.is_default == True).first()
     if not profile:

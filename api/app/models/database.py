@@ -1,6 +1,7 @@
 """
 Database models for RFP Dashboard and Submission System.
 """
+
 from datetime import datetime
 from enum import Enum as PyEnum
 
@@ -24,6 +25,7 @@ Base = declarative_base()
 
 class PipelineStage(str, PyEnum):
     """Pipeline stage enumeration."""
+
     DISCOVERED = "discovered"
     TRIAGED = "triaged"
     ANALYZING = "analyzing"
@@ -41,6 +43,7 @@ class PipelineStage(str, PyEnum):
 
 class SubmissionStatus(str, PyEnum):
     """Submission status enumeration."""
+
     QUEUED = "queued"
     VALIDATING = "validating"
     FORMATTING = "formatting"
@@ -53,6 +56,7 @@ class SubmissionStatus(str, PyEnum):
 
 class RFPOpportunity(Base):
     """RFP opportunity in the pipeline."""
+
     __tablename__ = "rfp_opportunities"
 
     id = Column(Integer, primary_key=True, index=True)
@@ -101,15 +105,21 @@ class RFPOpportunity(Base):
     scrape_checksum = Column(String, nullable=True)  # For detecting page changes
 
     # Company profile for proposal generation
-    company_profile_id = Column(Integer, ForeignKey("company_profiles.id"), nullable=True)
+    company_profile_id = Column(
+        Integer, ForeignKey("company_profiles.id"), nullable=True
+    )
 
     # Relationships
-    compliance_matrix = relationship("ComplianceMatrix", back_populates="rfp", uselist=False)
+    compliance_matrix = relationship(
+        "ComplianceMatrix", back_populates="rfp", uselist=False
+    )
     pricing_result = relationship("PricingResult", back_populates="rfp", uselist=False)
     bid_document = relationship("BidDocument", back_populates="rfp", uselist=False)
     submissions = relationship("Submission", back_populates="rfp")
     pipeline_events = relationship("PipelineEvent", back_populates="rfp")
-    post_award_checklist = relationship("PostAwardChecklist", back_populates="rfp", uselist=False)
+    post_award_checklist = relationship(
+        "PostAwardChecklist", back_populates="rfp", uselist=False
+    )
     documents = relationship("RFPDocument", back_populates="rfp")
     qa_items = relationship("RFPQandA", back_populates="rfp")
     company_profile = relationship("CompanyProfile", back_populates="rfps")
@@ -126,7 +136,9 @@ class RFPOpportunity(Base):
             "naics_code": self.naics_code,
             "category": self.category,
             "posted_date": self.posted_date.isoformat() if self.posted_date else None,
-            "response_deadline": self.response_deadline.isoformat() if self.response_deadline else None,
+            "response_deadline": (
+                self.response_deadline.isoformat() if self.response_deadline else None
+            ),
             "award_date": self.award_date.isoformat() if self.award_date else None,
             "award_amount": self.award_amount,
             "estimated_value": self.estimated_value,
@@ -135,22 +147,29 @@ class RFPOpportunity(Base):
             "overall_score": self.overall_score,
             "decision_recommendation": self.decision_recommendation,
             "confidence_level": self.confidence_level,
-            "discovered_at": self.discovered_at.isoformat() if self.discovered_at else None,
+            "discovered_at": (
+                self.discovered_at.isoformat() if self.discovered_at else None
+            ),
             "started_at": self.started_at.isoformat() if self.started_at else None,
             "updated_at": self.updated_at.isoformat() if self.updated_at else None,
-            "completed_at": self.completed_at.isoformat() if self.completed_at else None,
+            "completed_at": (
+                self.completed_at.isoformat() if self.completed_at else None
+            ),
             "assigned_to": self.assigned_to,
             "priority": self.priority,
             "rfp_metadata": self.rfp_metadata,
             "source_url": self.source_url,
             "source_platform": self.source_platform,
-            "last_scraped_at": self.last_scraped_at.isoformat() if self.last_scraped_at else None,
+            "last_scraped_at": (
+                self.last_scraped_at.isoformat() if self.last_scraped_at else None
+            ),
             "company_profile_id": self.company_profile_id,
         }
 
 
 class ComplianceMatrix(Base):
     """Compliance matrix for an RFP."""
+
     __tablename__ = "compliance_matrices"
 
     id = Column(Integer, primary_key=True, index=True)
@@ -169,6 +188,7 @@ class ComplianceMatrix(Base):
 
 class PricingResult(Base):
     """Pricing result for an RFP."""
+
     __tablename__ = "pricing_results"
 
     id = Column(Integer, primary_key=True, index=True)
@@ -193,6 +213,7 @@ class PricingResult(Base):
 
 class BidDocument(Base):
     """Generated bid document."""
+
     __tablename__ = "bid_documents"
 
     id = Column(Integer, primary_key=True, index=True)
@@ -220,6 +241,7 @@ class BidDocument(Base):
 
 class BidDocumentVersion(Base):
     """Version history for bid documents."""
+
     __tablename__ = "bid_document_versions"
 
     id = Column(Integer, primary_key=True, index=True)
@@ -239,6 +261,7 @@ class BidDocumentVersion(Base):
 
 class Submission(Base):
     """Bid submission to government portal."""
+
     __tablename__ = "submissions"
 
     id = Column(Integer, primary_key=True, index=True)
@@ -277,6 +300,7 @@ class Submission(Base):
 
 class SubmissionAuditLog(Base):
     """Audit log for submission events."""
+
     __tablename__ = "submission_audit_logs"
 
     id = Column(Integer, primary_key=True, index=True)
@@ -295,6 +319,7 @@ class SubmissionAuditLog(Base):
 
 class PipelineEvent(Base):
     """Pipeline stage transition events."""
+
     __tablename__ = "pipeline_events"
 
     id = Column(Integer, primary_key=True, index=True)
@@ -317,16 +342,21 @@ class PipelineEvent(Base):
 
 class PostAwardChecklist(Base):
     """Post-award compliance checklist for an awarded RFP."""
+
     __tablename__ = "post_award_checklists"
 
     id = Column(Integer, primary_key=True, index=True)
-    rfp_id = Column(Integer, ForeignKey("rfp_opportunities.id"), unique=True, nullable=False)
-    bid_document_id = Column(String, nullable=True) # Reference to the specific bid that won
+    rfp_id = Column(
+        Integer, ForeignKey("rfp_opportunities.id"), unique=True, nullable=False
+    )
+    bid_document_id = Column(
+        String, nullable=True
+    )  # Reference to the specific bid that won
 
     generated_at = Column(DateTime, default=datetime.utcnow)
-    status = Column(String, default="draft") # draft, active, completed
-    items = Column(JSON, default=lambda: []) # List of checklist items
-    summary = Column(JSON, default=lambda: {}) # Summary statistics about the checklist
+    status = Column(String, default="draft")  # draft, active, completed
+    items = Column(JSON, default=lambda: [])  # List of checklist items
+    summary = Column(JSON, default=lambda: {})  # Summary statistics about the checklist
 
     created_at = Column(DateTime, default=datetime.utcnow)
     updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
@@ -338,7 +368,9 @@ class PostAwardChecklist(Base):
             "id": self.id,
             "rfp_id": self.rfp_id,
             "bid_document_id": self.bid_document_id,
-            "generated_at": self.generated_at.isoformat() if self.generated_at else None,
+            "generated_at": (
+                self.generated_at.isoformat() if self.generated_at else None
+            ),
             "status": self.status,
             "items": self.items,
             "summary": self.summary,
@@ -349,6 +381,7 @@ class PostAwardChecklist(Base):
 
 class CompanyProfile(Base):
     """Multi-tenant company profiles for proposal generation."""
+
     __tablename__ = "company_profiles"
 
     id = Column(Integer, primary_key=True, index=True)
@@ -410,16 +443,21 @@ class CompanyProfile(Base):
 
 class RFPDocument(Base):
     """Document attachments for RFPs (downloaded from scraped sources)."""
+
     __tablename__ = "rfp_documents"
 
     id = Column(Integer, primary_key=True, index=True)
     rfp_id = Column(Integer, ForeignKey("rfp_opportunities.id"), nullable=False)
 
     filename = Column(String, nullable=False)  # Original filename
-    file_path = Column(String, nullable=True)  # Local storage path (set after download completes)
+    file_path = Column(
+        String, nullable=True
+    )  # Local storage path (set after download completes)
     file_type = Column(String, nullable=True)  # "pdf", "docx", "xlsx"
     file_size = Column(Integer, nullable=True)  # Size in bytes
-    document_type = Column(String, nullable=True)  # "solicitation", "amendment", "attachment", "qa_response"
+    document_type = Column(
+        String, nullable=True
+    )  # "solicitation", "amendment", "attachment", "qa_response"
     source_url = Column(String, nullable=True)  # Original download URL
     downloaded_at = Column(DateTime, default=datetime.utcnow)
     checksum = Column(String, nullable=True)  # For change detection (MD5/SHA256)
@@ -441,7 +479,9 @@ class RFPDocument(Base):
             "file_size": self.file_size,
             "document_type": self.document_type,
             "source_url": self.source_url,
-            "downloaded_at": self.downloaded_at.isoformat() if self.downloaded_at else None,
+            "downloaded_at": (
+                self.downloaded_at.isoformat() if self.downloaded_at else None
+            ),
             "checksum": self.checksum,
             "created_at": self.created_at.isoformat() if self.created_at else None,
             "updated_at": self.updated_at.isoformat() if self.updated_at else None,
@@ -450,6 +490,7 @@ class RFPDocument(Base):
 
 class RFPQandA(Base):
     """Q&A entries for RFPs with AI-powered analysis."""
+
     __tablename__ = "rfp_qa"
 
     id = Column(Integer, primary_key=True, index=True)
@@ -462,7 +503,9 @@ class RFPQandA(Base):
     answered_date = Column(DateTime, nullable=True)
 
     # AI Analysis
-    category = Column(String, nullable=True)  # "technical", "pricing", "scope", "timeline", "compliance"
+    category = Column(
+        String, nullable=True
+    )  # "technical", "pricing", "scope", "timeline", "compliance"
     key_insights = Column(JSON, default=lambda: [])  # AI-extracted insights
     related_sections = Column(JSON, default=lambda: [])  # Proposal sections affected
 
@@ -482,7 +525,9 @@ class RFPQandA(Base):
             "question_text": self.question_text,
             "answer_text": self.answer_text,
             "asked_date": self.asked_date.isoformat() if self.asked_date else None,
-            "answered_date": self.answered_date.isoformat() if self.answered_date else None,
+            "answered_date": (
+                self.answered_date.isoformat() if self.answered_date else None
+            ),
             "category": self.category,
             "key_insights": self.key_insights,
             "related_sections": self.related_sections,
@@ -494,6 +539,7 @@ class RFPQandA(Base):
 
 class AlertType(str, PyEnum):
     """Alert type enumeration."""
+
     NEW_RFP = "new_rfp"
     DEADLINE_APPROACHING = "deadline_approaching"
     STAGE_CHANGE = "stage_change"
@@ -508,6 +554,7 @@ class AlertType(str, PyEnum):
 
 class AlertPriority(str, PyEnum):
     """Alert priority levels."""
+
     LOW = "low"
     MEDIUM = "medium"
     HIGH = "high"
@@ -516,6 +563,7 @@ class AlertPriority(str, PyEnum):
 
 class NotificationChannel(str, PyEnum):
     """Notification delivery channels."""
+
     IN_APP = "in_app"
     EMAIL = "email"
     WEBHOOK = "webhook"
@@ -524,6 +572,7 @@ class NotificationChannel(str, PyEnum):
 
 class AlertRule(Base):
     """User-defined alert rules for RFP monitoring (GovGPT Smart Alerts parity)."""
+
     __tablename__ = "alert_rules"
 
     id = Column(Integer, primary_key=True, index=True)
@@ -560,7 +609,9 @@ class AlertRule(Base):
 
     # User/tenant
     created_by = Column(String, nullable=True)
-    company_profile_id = Column(Integer, ForeignKey("company_profiles.id"), nullable=True)
+    company_profile_id = Column(
+        Integer, ForeignKey("company_profiles.id"), nullable=True
+    )
 
     # Timestamps
     created_at = Column(DateTime, default=datetime.utcnow)
@@ -586,7 +637,9 @@ class AlertRule(Base):
             "cooldown_minutes": self.cooldown_minutes,
             "max_alerts_per_day": self.max_alerts_per_day,
             "triggered_count": self.triggered_count,
-            "last_triggered_at": self.last_triggered_at.isoformat() if self.last_triggered_at else None,
+            "last_triggered_at": (
+                self.last_triggered_at.isoformat() if self.last_triggered_at else None
+            ),
             "created_by": self.created_by,
             "company_profile_id": self.company_profile_id,
             "created_at": self.created_at.isoformat() if self.created_at else None,
@@ -596,6 +649,7 @@ class AlertRule(Base):
 
 class AlertNotification(Base):
     """Individual alert notifications generated from rules."""
+
     __tablename__ = "alert_notifications"
 
     id = Column(Integer, primary_key=True, index=True)
@@ -646,12 +700,15 @@ class AlertNotification(Base):
             "context_data": self.context_data,
             "created_at": self.created_at.isoformat() if self.created_at else None,
             "read_at": self.read_at.isoformat() if self.read_at else None,
-            "dismissed_at": self.dismissed_at.isoformat() if self.dismissed_at else None,
+            "dismissed_at": (
+                self.dismissed_at.isoformat() if self.dismissed_at else None
+            ),
         }
 
 
 class DashboardMetrics(Base):
     """Cached dashboard metrics for performance."""
+
     __tablename__ = "dashboard_metrics"
 
     id = Column(Integer, primary_key=True, index=True)
@@ -678,12 +735,17 @@ class DashboardMetrics(Base):
 
 class SamEntity(Base):
     """Represents an entity from SAM.gov Public Entity Extracts."""
+
     __tablename__ = "sam_entities"
 
     id = Column(Integer, primary_key=True, index=True)
-    uei = Column(String, unique=True, index=True, nullable=False) # Unique Entity Identifier
+    uei = Column(
+        String, unique=True, index=True, nullable=False
+    )  # Unique Entity Identifier
     legal_business_name = Column(String, nullable=False)
-    duns = Column(String, nullable=True) # Old DUNS number, might still be present in some datasets
+    duns = Column(
+        String, nullable=True
+    )  # Old DUNS number, might still be present in some datasets
 
     # Address Information
     address_line1 = Column(String, nullable=True)
@@ -694,21 +756,25 @@ class SamEntity(Base):
     address_country = Column(String, default="US")
 
     # Business Details
-    entity_type = Column(String, nullable=True) # e.g., For-Profit Organization, Non-Profit
+    entity_type = Column(
+        String, nullable=True
+    )  # e.g., For-Profit Organization, Non-Profit
     business_start_date = Column(DateTime, nullable=True)
     organization_structure = Column(String, nullable=True)
 
     # Codes and Classifications
-    naics_codes = Column(JSON, default=lambda: []) # List of NAICS codes
-    psc_codes = Column(JSON, default=lambda: [])   # List of Product Service Codes
+    naics_codes = Column(JSON, default=lambda: [])  # List of NAICS codes
+    psc_codes = Column(JSON, default=lambda: [])  # List of Product Service Codes
 
     # Certifications and Business Types (Socioeconomic)
-    business_types = Column(JSON, default=lambda: []) # List of certifications (e.g., SDB, WOSB, SDVOSB, HUBZone)
+    business_types = Column(
+        JSON, default=lambda: []
+    )  # List of certifications (e.g., SDB, WOSB, SDVOSB, HUBZone)
 
     # Capabilities and Keywords
     purpose_of_registration = Column(Text, nullable=True)
     capabilities_narrative = Column(Text, nullable=True)
-    keywords = Column(Text, nullable=True) # Comma-separated or similar
+    keywords = Column(Text, nullable=True)  # Comma-separated or similar
 
     # Contact Info
     primary_poc_name = Column(String, nullable=True)
@@ -735,7 +801,11 @@ class SamEntity(Base):
             "address_zip": self.address_zip,
             "address_country": self.address_country,
             "entity_type": self.entity_type,
-            "business_start_date": self.business_start_date.isoformat() if self.business_start_date else None,
+            "business_start_date": (
+                self.business_start_date.isoformat()
+                if self.business_start_date
+                else None
+            ),
             "organization_structure": self.organization_structure,
             "naics_codes": self.naics_codes,
             "psc_codes": self.psc_codes,
@@ -746,15 +816,20 @@ class SamEntity(Base):
             "primary_poc_name": self.primary_poc_name,
             "primary_poc_email": self.primary_poc_email,
             "website": self.website,
-            "registration_date": self.registration_date.isoformat() if self.registration_date else None,
-            "expiration_date": self.expiration_date.isoformat() if self.expiration_date else None,
+            "registration_date": (
+                self.registration_date.isoformat() if self.registration_date else None
+            ),
+            "expiration_date": (
+                self.expiration_date.isoformat() if self.expiration_date else None
+            ),
             "created_at": self.created_at.isoformat() if self.created_at else None,
-            "updated_at": self.updated_at.isoformat() if self.updated_at else None
+            "updated_at": self.updated_at.isoformat() if self.updated_at else None,
         }
 
 
 class ChatSession(Base):
     """Chat session for RFP Q&A conversations."""
+
     __tablename__ = "chat_sessions"
 
     id = Column(Integer, primary_key=True, index=True)
@@ -776,7 +851,9 @@ class ChatSession(Base):
 
     # Relationships
     rfp = relationship("RFPOpportunity")
-    messages = relationship("ChatMessage", back_populates="session", cascade="all, delete-orphan")
+    messages = relationship(
+        "ChatMessage", back_populates="session", cascade="all, delete-orphan"
+    )
 
     def to_dict(self):
         return {
@@ -789,12 +866,15 @@ class ChatSession(Base):
             "message_count": self.message_count,
             "created_at": self.created_at.isoformat() if self.created_at else None,
             "updated_at": self.updated_at.isoformat() if self.updated_at else None,
-            "last_message_at": self.last_message_at.isoformat() if self.last_message_at else None,
+            "last_message_at": (
+                self.last_message_at.isoformat() if self.last_message_at else None
+            ),
         }
 
 
 class ChatMessage(Base):
     """Individual chat message in a session."""
+
     __tablename__ = "chat_messages"
 
     id = Column(Integer, primary_key=True, index=True)

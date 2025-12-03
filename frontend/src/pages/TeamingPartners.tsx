@@ -1,7 +1,7 @@
-import { useParams } from 'react-router-dom'
-import { useQuery } from '@tanstack/react-query'
 import { api } from '@/services/api'
-import { Users, Globe, Mail, Tag, ShieldCheck, Loader2 } from 'lucide-react'
+import { useQuery } from '@tanstack/react-query'
+import { Globe, Loader2, Mail, ShieldCheck, Tag, Users } from 'lucide-react'
+import { useParams } from 'react-router-dom'
 
 interface TeamingPartner {
   uei: string
@@ -78,7 +78,7 @@ function PartnerCard({ partner }: { partner: TeamingPartner }) {
   let certs: string[] = []
   try {
     certs = JSON.parse(partner.business_types || '[]')
-  } catch (e) {
+  } catch {
     certs = []
   }
 
@@ -118,19 +118,19 @@ function PartnerCard({ partner }: { partner: TeamingPartner }) {
               ))}
             </div>
           )}
-          
+
           <div className="text-xs text-slate-400">
-             Match Reason: {partner.match_reason}
+            Match Reason: {partner.match_reason}
           </div>
         </div>
 
-        <div className="md:w-64 flex-shrink-0 space-y-3 border-t md:border-t-0 md:border-l border-slate-200 dark:border-slate-700 md:pl-6 pt-4 md:pt-0">
+        <div className="md:w-64 shrink-0 space-y-3 border-t md:border-t-0 md:border-l border-slate-200 dark:border-slate-700 md:pl-6 pt-4 md:pt-0">
           <h4 className="text-sm font-semibold text-slate-900 dark:text-white">Contact Info</h4>
-          
+
           {partner.website && (
-            <a 
-              href={partner.website.startsWith('http') ? partner.website : `https://${partner.website}`} 
-              target="_blank" 
+            <a
+              href={partner.website.startsWith('http') ? partner.website : `https://${partner.website}`}
+              target="_blank"
               rel="noreferrer"
               className="flex items-center gap-2 text-sm text-blue-600 hover:underline"
             >
@@ -138,7 +138,7 @@ function PartnerCard({ partner }: { partner: TeamingPartner }) {
               Website
             </a>
           )}
-          
+
           {partner.poc_email && (
             <div className="flex items-center gap-2 text-sm text-slate-600 dark:text-slate-400">
               <Mail className="h-4 w-4" />

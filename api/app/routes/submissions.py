@@ -4,12 +4,11 @@ Submission management API endpoints.
 from datetime import datetime
 from typing import List
 
-from app.core.database import get_db
+from app.dependencies import DBDep
 from app.models.database import SubmissionStatus
 from app.services.submission_service import SubmissionService
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel
-from sqlalchemy.orm import Session
 
 router = APIRouter()
 
@@ -41,7 +40,7 @@ class SubmissionResponse(BaseModel):
 @router.get("/queue", response_model=List[SubmissionResponse])
 async def get_submission_queue(
     status: SubmissionStatus | None = None,
-    db: Session = Depends(get_db)
+    db: DBDep = ...,
 ):
     """Get submission queue."""
     service = SubmissionService(db)
@@ -52,7 +51,7 @@ async def get_submission_queue(
 @router.post("", response_model=SubmissionResponse)
 async def create_submission(
     submission_data: SubmissionCreate,
-    db: Session = Depends(get_db)
+    db: DBDep = ...,
 ):
     """Create a new submission."""
     service = SubmissionService(db)
@@ -61,7 +60,7 @@ async def create_submission(
 
 
 @router.get("/{submission_id}", response_model=SubmissionResponse)
-async def get_submission(submission_id: str, db: Session = Depends(get_db)):
+async def get_submission(submission_id: str, db: DBDep):
     """Get submission details."""
     service = SubmissionService(db)
     submission = service.get_submission(submission_id)
@@ -71,7 +70,7 @@ async def get_submission(submission_id: str, db: Session = Depends(get_db)):
 
 
 @router.post("/{submission_id}/retry")
-async def retry_submission(submission_id: str, db: Session = Depends(get_db)):
+async def retry_submission(submission_id: str, db: DBDep):
     """Retry a failed submission."""
     service = SubmissionService(db)
     submission = service.retry_submission(submission_id)
@@ -81,7 +80,7 @@ async def retry_submission(submission_id: str, db: Session = Depends(get_db)):
 
 
 @router.get("/stats/overview")
-async def get_submission_stats(db: Session = Depends(get_db)):
+async def get_submission_stats(db: DBDep):
     """Get submission statistics."""
     service = SubmissionService(db)
     stats = service.get_statistics()

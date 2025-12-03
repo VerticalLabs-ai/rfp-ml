@@ -105,7 +105,7 @@ async def start_generation_job(
         )
     except Exception as e:
         logger.error(f"Failed to start generation job: {e}")
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(status_code=500, detail=str(e)) from e
 
 
 @router.get("/{job_id}")
@@ -167,7 +167,7 @@ async def get_job_status(
         )
     except Exception as e:
         logger.error(f"Failed to get job status: {e}")
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(status_code=500, detail=str(e)) from e
 
 
 @router.delete("/{job_id}")
@@ -198,7 +198,7 @@ async def cancel_job(
         )
     except Exception as e:
         logger.error(f"Failed to cancel job: {e}")
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(status_code=500, detail=str(e)) from e
 
 
 @router.post("/alerts/evaluate")
@@ -229,4 +229,4 @@ async def trigger_alert_evaluation(
         )
     except Exception as e:
         logger.error(f"Failed to trigger alert evaluation: {e}")
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(status_code=500, detail=str(e)) from e

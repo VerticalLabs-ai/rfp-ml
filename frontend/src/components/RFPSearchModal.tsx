@@ -55,7 +55,7 @@ interface SearchResponse {
   query_info: {
     original_query: string
     semantic_query: string
-    extracted_filters: Record<string, any>
+    extracted_filters: Record<string, unknown>
     keywords: string[]
     intent: string
     confidence: number

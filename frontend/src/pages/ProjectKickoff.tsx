@@ -13,7 +13,7 @@ interface ChecklistItem {
   assigned_to?: string
   due_date?: string
   notes?: string
-  meta?: Record<string, any>
+  meta?: Record<string, unknown>
 }
 
 interface PostAwardChecklist {
@@ -23,7 +23,7 @@ interface PostAwardChecklist {
   generated_at: string
   status: string
   items: ChecklistItem[]
-  summary: Record<string, any>
+  summary: Record<string, unknown>
 }
 
 export default function ProjectKickoffPage() {
@@ -105,8 +105,8 @@ export default function ProjectKickoffPage() {
 
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
         <InfoCard title="Checklist Status" value={checklist.status?.toUpperCase() || 'N/A'} colorClass="text-green-600" />
-        <InfoCard title="Total Items" value={checklist.summary?.total_items || 0} />
-        <InfoCard title="Pending Items" value={checklist.summary?.pending_items || 0} colorClass="text-yellow-600" />
+        <InfoCard title="Total Items" value={(checklist.summary?.total_items as number) || 0} />
+        <InfoCard title="Pending Items" value={(checklist.summary?.pending_items as number) || 0} colorClass="text-yellow-600" />
       </div>
 
       <div className="bg-white dark:bg-slate-800 shadow rounded-lg overflow-hidden">
@@ -117,7 +117,7 @@ export default function ProjectKickoffPage() {
           {checklist.items?.map((item) => (
             <li key={item.id} className="p-4 flex items-start space-x-3">
               <CheckSquare
-                className={`h-6 w-6 flex-shrink-0 ${item.status === 'completed' ? 'text-green-500' : 'text-slate-300 dark:text-slate-600'}`}
+                className={`h-6 w-6 shrink-0 ${item.status === 'completed' ? 'text-green-500' : 'text-slate-300 dark:text-slate-600'}`}
               />
               <div className="flex-1">
                 <p className="text-lg font-medium text-slate-900 dark:text-white">{item.description}</p>

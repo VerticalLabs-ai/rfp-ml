@@ -1,49 +1,63 @@
-import { useState, useRef, useCallback, useEffect } from 'react'
-import { useParams, useNavigate } from 'react-router-dom'
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
+import { format, formatDistanceToNow } from 'date-fns'
 import {
-  ArrowLeft,
-  RefreshCw,
-  FileText,
-  MessageSquare,
-  Building2,
-  Clock,
-  ExternalLink,
-  Download,
-  Sparkles,
   AlertCircle,
+  Archive,
+  ArrowLeft,
+  Bot,
+  Building2,
+  CalendarDays,
+  Check,
   CheckCircle2,
-  Loader2,
+  ChevronRight,
+  Clock,
+  Copy,
+  DollarSign,
+  Download,
+  Edit3,
+  ExternalLink,
   FileIcon,
   FileOutput,
-  Copy,
-  Check,
-  DollarSign,
-  Wand2,
-  Upload,
-  Trash2,
+  FileText,
   FileUp,
-  Archive,
-  Edit3,
-  Send,
-  Bot,
-  User,
-  CalendarDays,
-  Shield,
   History,
-  Play,
-  XCircle,
-  ChevronRight,
+  Loader2,
+  MessageSquare,
   MoreVertical,
+  Play,
+  RefreshCw,
+  Send,
+  Shield,
+  Sparkles,
+  Trash2,
+  Upload,
+  User,
+  Wand2,
+  XCircle,
 } from 'lucide-react'
+import { useCallback, useEffect, useRef, useState } from 'react'
+import { useNavigate, useParams } from 'react-router-dom'
 import { toast } from 'sonner'
-import { format, formatDistanceToNow } from 'date-fns'
 
+import PricingTable from '@/components/PricingTable'
+import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
-import { Badge } from '@/components/ui/badge'
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
-import { Skeleton } from '@/components/ui/skeleton'
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog'
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu'
 import { Input } from '@/components/ui/input'
 import { Progress } from '@/components/ui/progress'
 import { ScrollArea } from '@/components/ui/scroll-area'
@@ -54,21 +68,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select'
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuSeparator,
-  DropdownMenuTrigger,
-} from '@/components/ui/dropdown-menu'
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-} from '@/components/ui/dialog'
+import { Skeleton } from '@/components/ui/skeleton'
 import {
   Table,
   TableBody,
@@ -77,8 +77,8 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/table'
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { api } from '@/services/api'
-import PricingTable from '@/components/PricingTable'
 
 interface RFPDocument {
   id: number
@@ -138,7 +138,7 @@ interface ActivityEvent {
   user: string | null
   automated: boolean
   notes: string | null
-  event_metadata: Record<string, any>
+  event_metadata: Record<string, unknown>
 }
 
 interface ChatMessage {
@@ -431,13 +431,13 @@ export default function RFPDetail() {
   // Chat mutation
   const chatMutation = useMutation({
     mutationFn: (message: string) => api.sendChatMessage(rfpId!, message),
-    onSuccess: (data) => {
+    onSuccess: (data, variables) => {
       setChatMessages(prev => [
         ...prev,
         {
           id: `user-${Date.now()}`,
           role: 'user',
-          content: chatMessage,
+          content: variables,
           timestamp: new Date().toISOString(),
         },
         {
@@ -1028,11 +1028,10 @@ export default function RFPDetail() {
               </CardHeader>
               <CardContent>
                 <div
-                  className={`border-2 border-dashed rounded-lg p-8 text-center transition-colors ${
-                    isDragging
-                      ? 'border-blue-500 bg-blue-50 dark:bg-blue-950'
-                      : 'border-gray-300 dark:border-gray-700 hover:border-gray-400'
-                  }`}
+                  className={`border-2 border-dashed rounded-lg p-8 text-center transition-colors ${isDragging
+                    ? 'border-blue-500 bg-blue-50 dark:bg-blue-950'
+                    : 'border-gray-300 dark:border-gray-700 hover:border-gray-400'
+                    }`}
                   onDragOver={handleDragOver}
                   onDragLeave={handleDragLeave}
                   onDrop={handleDrop}
@@ -1415,8 +1414,8 @@ export default function RFPDetail() {
                     {generatedBid.metadata.processing_mode === 'mock'
                       ? 'Preview generated in mock mode (ML components not available)'
                       : generatedBid.metadata.claude_enhanced
-                      ? `Generated with Claude ${generatedBid.metadata.generation_mode?.includes('premium') ? 'Opus 4.5' : 'Sonnet 4.5'}${generatedBid.metadata.thinking_enabled ? ' + Extended Thinking' : ''}`
-                      : 'Full AI-generated proposal based on RAG retrieval and compliance analysis'}
+                        ? `Generated with Claude ${generatedBid.metadata.generation_mode?.includes('premium') ? 'Opus 4.5' : 'Sonnet 4.5'}${generatedBid.metadata.thinking_enabled ? ' + Extended Thinking' : ''}`
+                        : 'Full AI-generated proposal based on RAG retrieval and compliance analysis'}
                   </CardDescription>
                 </CardHeader>
                 <CardContent>
@@ -1558,12 +1557,11 @@ export default function RFPDetail() {
                           </TableCell>
                           <TableCell>
                             <Badge
-                              className={`text-xs ${
-                                req.status === 'met' ? 'bg-green-100 text-green-800' :
+                              className={`text-xs ${req.status === 'met' ? 'bg-green-100 text-green-800' :
                                 req.status === 'partial' ? 'bg-yellow-100 text-yellow-800' :
-                                req.status === 'not_met' ? 'bg-red-100 text-red-800' :
-                                'bg-gray-100 text-gray-800'
-                              }`}
+                                  req.status === 'not_met' ? 'bg-red-100 text-red-800' :
+                                    'bg-gray-100 text-gray-800'
+                                }`}
                             >
                               {req.status === 'met' && <CheckCircle2 className="h-3 w-3 mr-1" />}
                               {req.status === 'not_met' && <XCircle className="h-3 w-3 mr-1" />}
@@ -1616,9 +1614,8 @@ export default function RFPDetail() {
                     {activityLog.map((event: ActivityEvent, idx: number) => (
                       <div key={event.id || idx} className="relative flex gap-4 pl-8">
                         {/* Timeline Dot */}
-                        <div className={`absolute left-2.5 w-3 h-3 rounded-full border-2 ${
-                          event.automated ? 'bg-blue-500 border-blue-500' : 'bg-green-500 border-green-500'
-                        }`} />
+                        <div className={`absolute left-2.5 w-3 h-3 rounded-full border-2 ${event.automated ? 'bg-blue-500 border-blue-500' : 'bg-green-500 border-green-500'
+                          }`} />
 
                         <div className="flex-1 bg-muted/50 rounded-lg p-4">
                           <div className="flex items-center justify-between mb-2">
@@ -1707,6 +1704,7 @@ export default function RFPDetail() {
                     <p>How can I help with this RFP?</p>
                     <div className="mt-3 space-y-1">
                       <button
+                        type="button"
                         className="block w-full text-xs text-left p-2 rounded hover:bg-muted"
                         onClick={() => {
                           setChatMessage("Summarize the key requirements")
@@ -1716,6 +1714,7 @@ export default function RFPDetail() {
                         Summarize key requirements
                       </button>
                       <button
+                        type="button"
                         className="block w-full text-xs text-left p-2 rounded hover:bg-muted"
                         onClick={() => {
                           setChatMessage("What are the compliance risks?")
@@ -1725,6 +1724,7 @@ export default function RFPDetail() {
                         What are the compliance risks?
                       </button>
                       <button
+                        type="button"
                         className="block w-full text-xs text-left p-2 rounded hover:bg-muted"
                         onClick={() => {
                           setChatMessage("Create a win theme strategy")
@@ -1743,25 +1743,24 @@ export default function RFPDetail() {
                         className={`flex gap-2 ${msg.role === 'user' ? 'justify-end' : 'justify-start'}`}
                       >
                         {msg.role === 'assistant' && (
-                          <Bot className="h-6 w-6 text-purple-500 flex-shrink-0" />
+                          <Bot className="h-6 w-6 text-purple-500 shrink-0" />
                         )}
                         <div
-                          className={`max-w-[80%] p-2 rounded-lg text-sm ${
-                            msg.role === 'user'
-                              ? 'bg-purple-500 text-white'
-                              : 'bg-muted'
-                          }`}
+                          className={`max-w-[80%] p-2 rounded-lg text-sm ${msg.role === 'user'
+                            ? 'bg-purple-500 text-white'
+                            : 'bg-muted'
+                            }`}
                         >
                           {msg.content}
                         </div>
                         {msg.role === 'user' && (
-                          <User className="h-6 w-6 text-gray-400 flex-shrink-0" />
+                          <User className="h-6 w-6 text-gray-400 shrink-0" />
                         )}
                       </div>
                     ))}
                     {chatMutation.isPending && (
                       <div className="flex gap-2">
-                        <Bot className="h-6 w-6 text-purple-500 flex-shrink-0" />
+                        <Bot className="h-6 w-6 text-purple-500 shrink-0" />
                         <div className="bg-muted p-2 rounded-lg">
                           <Loader2 className="h-4 w-4 animate-spin" />
                         </div>

@@ -1,33 +1,34 @@
 """
 RFP management API endpoints.
 """
+
 import logging
 import os
 from datetime import datetime
-from typing import Any, Dict, List
+from time import timezone
+from typing import Any
 from uuid import uuid4
 
-from app.core.database import get_db
-from app.dependencies import (
-    DBDep,
-    RFPDep,
-    RFPServiceDep,
-    get_rfp_or_404,
-    rfp_to_dict,
-    rfp_to_processing_dict,
+from app.dependencies import DBDep, RFPDep, RFPServiceDep, rfp_to_processing_dict
+from app.models.database import (
+    BidDocument,
+    PipelineStage,
+    PostAwardChecklist,
+    RFPDocument,
+    RFPOpportunity,
 )
-from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Query
-from pydantic import BaseModel, field_validator
-from sqlalchemy.orm import Session
-
-logger = logging.getLogger(__name__)
-from app.models.database import BidDocument, PipelineStage, PostAwardChecklist, RFPDocument, RFPOpportunity
 from app.services.rfp_processor import processing_jobs, processor
 from app.services.rfp_service import RFPService
+from fastapi import APIRouter, BackgroundTasks, HTTPException, Query
+from pydantic import BaseModel, Field, field_validator
+from sqlalchemy.orm import Session
 
 from src.agents.competitor_analytics import CompetitorAnalyticsService
 from src.pricing.pricing_engine import ScenarioParams
 from src.utils.document_reader import extract_all_document_content
+
+logger = logging.getLogger(__name__)
+
 
 router = APIRouter()
 
@@ -44,10 +45,7 @@ def get_competitor_service():
 
 
 def save_proposal_sections_to_db(
-    rfp_id: int,
-    rfp_id_str: str,
-    bid_document_data: dict,
-    db: Session
+    rfp_id: int, rfp_id_str: str, bid_document_data: dict, db: Session
 ) -> None:
     """
     Parse and save proposal sections to database for Proposal Copilot.
@@ -97,7 +95,9 @@ def save_proposal_sections_to_db(
                     if "deliverables" in content:
                         deliverables = content.get("deliverables", [])
                         if deliverables:
-                            parts.append(f"**Deliverables:** {', '.join(deliverables) if isinstance(deliverables, list) else deliverables}")
+                            parts.append(
+                                f"**Deliverables:** {', '.join(deliverables) if isinstance(deliverables, list) else deliverables}"
+                            )
                     if "timeline" in content:
                         parts.append(f"**Timeline:** {content['timeline']}")
                     sections[section_id] = "\n\n".join(parts) if parts else str(content)
@@ -105,14 +105,20 @@ def save_proposal_sections_to_db(
                 elif section_id == "pricing":
                     parts = []
                     if "recommended_price" in content:
-                        parts.append(f"**Recommended Price:** ${content['recommended_price']:,.2f}" if isinstance(content['recommended_price'], (int, float)) else f"**Recommended Price:** {content['recommended_price']}")
+                        parts.append(
+                            f"**Recommended Price:** ${content['recommended_price']:,.2f}"
+                            if isinstance(content["recommended_price"], (int, float))
+                            else f"**Recommended Price:** {content['recommended_price']}"
+                        )
                     if "pricing_strategies" in content:
                         strategies = content.get("pricing_strategies", [])
                         if strategies:
                             parts.append("**Pricing Strategies:**")
                             for s in strategies[:5]:
                                 if isinstance(s, dict):
-                                    parts.append(f"- {s.get('strategy', s.get('name', str(s)))}")
+                                    parts.append(
+                                        f"- {s.get('strategy', s.get('name', str(s)))}"
+                                    )
                                 else:
                                     parts.append(f"- {s}")
                     sections[section_id] = "\n".join(parts) if parts else str(content)
@@ -120,19 +126,26 @@ def save_proposal_sections_to_db(
                 elif section_id == "compliance_matrix":
                     # Already handled below, but keep as fallback
                     import json
+
                     sections[section_id] = json.dumps(content, indent=2)
 
                 else:
                     # Generic dict to string conversion
                     import json
+
                     sections[section_id] = json.dumps(content, indent=2)
 
         # Ensure compliance_matrix is a string for storage (detailed handling)
-        if "compliance_matrix" in sections and isinstance(sections["compliance_matrix"], dict):
+        if "compliance_matrix" in sections and isinstance(
+            sections["compliance_matrix"], dict
+        ):
             # Convert dict compliance matrix to readable text
             cm = sections["compliance_matrix"]
             if "requirements_and_responses" in cm:
-                lines = ["| Requirement | Response | Status |", "|-------------|----------|--------|"]
+                lines = [
+                    "| Requirement | Response | Status |",
+                    "|-------------|----------|--------|",
+                ]
                 for item in cm.get("requirements_and_responses", []):
                     req = item.get("requirement", "")[:50]
                     resp = item.get("response", "")[:50]
@@ -187,12 +200,18 @@ class DiscoveryParams(BaseModel):
         return v
 
 
+# Module-level default instance for DiscoveryParams
+_DEFAULT_DISCOVERY_PARAMS = DiscoveryParams()
+
+
 class ScenarioInput(BaseModel):
     """Input for pricing scenario simulation."""
+
     labor_cost_multiplier: float = 1.0
     material_cost_multiplier: float = 1.0
     risk_contingency_percent: float = 0.0
     desired_margin: float = 0.0
+
 
 class RFPBase(BaseModel):
     solicitation_number: str | None = None
@@ -236,6 +255,7 @@ class TriageDecision(BaseModel):
 
 class ManualRFPSubmit(BaseModel):
     """Schema for manually submitting an RFP for processing."""
+
     title: str
     agency: str | None = None
     solicitation_number: str | None = None
@@ -248,14 +268,22 @@ class ManualRFPSubmit(BaseModel):
 
 class BidGenerationOptions(BaseModel):
     """Options for bid document generation with Claude 4.5 support."""
-    generation_mode: str = "template"  # template, claude_standard, claude_enhanced, claude_premium
+
+    generation_mode: str = (
+        "template"  # template, claude_standard, claude_enhanced, claude_premium
+    )
     enable_thinking: bool = True  # Enable Claude's extended thinking mode
     thinking_budget: int = 10000  # Token budget for thinking (higher = more thorough)
 
     @field_validator("generation_mode")
     @classmethod
     def validate_mode(cls, v: str) -> str:
-        valid_modes = ["template", "claude_standard", "claude_enhanced", "claude_premium"]
+        valid_modes = [
+            "template",
+            "claude_standard",
+            "claude_enhanced",
+            "claude_premium",
+        ]
         if v.lower() not in valid_modes:
             raise ValueError(f"generation_mode must be one of: {valid_modes}")
         return v.lower()
@@ -275,7 +303,8 @@ class ChecklistItemResponse(BaseModel):
     assigned_to: str | None
     due_date: datetime | None
     notes: str | None
-    meta: Dict[str, Any]
+    meta: dict[str, Any]
+
 
 class PostAwardChecklistResponse(BaseModel):
     id: int
@@ -283,22 +312,27 @@ class PostAwardChecklistResponse(BaseModel):
     bid_document_id: str | None
     generated_at: datetime
     status: str
-    items: List[ChecklistItemResponse]
-    summary: Dict[str, Any]
+    items: list[ChecklistItemResponse]
+    summary: dict[str, Any]
 
     class Config:
         from_attributes = True
 
 
-@router.get("/discovered", response_model=List[RFPResponse])
+@router.get("/discovered", response_model=list[RFPResponse])
 async def get_discovered_rfps(
     skip: int = Query(default=0, ge=0),
     limit: int = Query(default=100, ge=1, le=500),
     category: str | None = None,
     min_score: float | None = Query(default=None, ge=0.0, le=100.0),
-    search: str | None = Query(default=None, description="Search term for title, description, agency, NAICS code"),
-    sortBy: str = Query(default="score", description="Sort by: score, deadline, or recent"),
-    db: Session = Depends(get_db)
+    search: str | None = Query(
+        default=None,
+        description="Search term for title, description, agency, NAICS code",
+    ),
+    sort_by: str = Query(
+        default="score", description="Sort by: score, deadline, or recent"
+    ),
+    db: DBDep = ...,
 ):
     """Get list of discovered RFPs with search and filtering."""
     service = RFPService(db)
@@ -308,23 +342,24 @@ async def get_discovered_rfps(
         category=category,
         min_score=min_score,
         search=search,
-        sort_by=sortBy,
+        sort_by=sort_by,
     )
     return rfps
 
 
-@router.get("/recent", response_model=List[RFPResponse])
-async def get_recent_rfps(
-    limit: int = Query(default=10, le=50),
-    db: Session = Depends(get_db)
-):
+@router.get("/recent", response_model=list[RFPResponse])
+async def get_recent_rfps(limit: int = Query(default=10, le=50), db: DBDep = ...):
     """Get recently discovered RFPs."""
-    query = db.query(RFPOpportunity).order_by(RFPOpportunity.discovered_at.desc()).limit(limit)
+    query = (
+        db.query(RFPOpportunity)
+        .order_by(RFPOpportunity.discovered_at.desc())
+        .limit(limit)
+    )
     return query.all()
 
 
 @router.get("/stats/overview")
-async def get_rfp_stats(db: Session = Depends(get_db)):
+async def get_rfp_stats(db: DBDep):
     """Get overview statistics for RFPs."""
     service = RFPService(db)
     stats = service.get_statistics()
@@ -342,25 +377,19 @@ async def get_competitors(rfp: RFPDep):
     """Get competitor analysis for an RFP."""
     competitor_service = get_competitor_service()
     incumbents = competitor_service.identify_potential_incumbents(
-        description=rfp.description or "",
-        agency=rfp.agency or "Unknown"
+        description=rfp.description or "", agency=rfp.agency or "Unknown"
     )
 
     agency_stats = competitor_service.get_agency_spend_history(
         agency=rfp.agency or "Unknown"
     )
 
-    return {
-        "potential_incumbents": incumbents,
-        "agency_intelligence": agency_stats
-    }
+    return {"potential_incumbents": incumbents, "agency_intelligence": agency_stats}
 
 
 @router.get("/{rfp_id}/partners")
 async def get_teaming_partners(
-    rfp: RFPDep,
-    limit: int = Query(default=10, ge=1, le=50),
-    db: DBDep = None
+    rfp: RFPDep, limit: int = Query(default=10, ge=1, le=50), db: DBDep = None
 ):
     """Get teaming partner recommendations for an RFP."""
     from src.agents.teaming_service import TeamingPartnerService
@@ -371,7 +400,7 @@ async def get_teaming_partners(
         return {
             "rfp_id": rfp.rfp_id,
             "partners": partners,
-            "total_found": len(partners)
+            "total_found": len(partners),
         }
     except Exception as e:
         logger.warning(f"Teaming partner search failed: {e}")
@@ -380,7 +409,7 @@ async def get_teaming_partners(
             "rfp_id": rfp.rfp_id,
             "partners": [],
             "total_found": 0,
-            "message": "Partner search unavailable - SAM.gov API key may not be configured"
+            "message": "Partner search unavailable - SAM.gov API key may not be configured",
         }
 
 
@@ -395,7 +424,7 @@ async def run_pricing_scenarios(rfp: RFPDep, params: ScenarioInput):
         labor_cost_multiplier=params.labor_cost_multiplier,
         material_cost_multiplier=params.material_cost_multiplier,
         risk_contingency_percent=params.risk_contingency_percent,
-        desired_margin=params.desired_margin
+        desired_margin=params.desired_margin,
     )
 
     return processor.pricing_engine.run_war_gaming(rfp_data, custom_params)
@@ -413,8 +442,7 @@ async def get_subcontractor_opportunities(rfp: RFPDep):
 
 @router.get("/{rfp_id}/pricing/ptw")
 async def get_price_to_win(
-    rfp: RFPDep,
-    target_prob: float = Query(default=0.7, ge=0.05, le=0.95)
+    rfp: RFPDep, target_prob: float = Query(default=0.7, ge=0.05, le=0.95)
 ):
     """Calculate Price-to-Win (PTW) analysis."""
     if not processor.pricing_engine:
@@ -425,7 +453,7 @@ async def get_price_to_win(
 
 
 @router.post("", response_model=RFPResponse)
-async def create_rfp(rfp_data: RFPCreate, db: Session = Depends(get_db)):
+async def create_rfp(rfp_data: RFPCreate, db: DBDep):
     """Create a new RFP entry."""
     service = RFPService(db)
     rfp = service.create_rfp(rfp_data.dict())
@@ -433,11 +461,7 @@ async def create_rfp(rfp_data: RFPCreate, db: Session = Depends(get_db)):
 
 
 @router.put("/{rfp_id}", response_model=RFPResponse)
-async def update_rfp(
-    rfp_id: str,
-    update_data: RFPUpdate,
-    db: Session = Depends(get_db)
-):
+async def update_rfp(rfp_id: str, update_data: RFPUpdate, db: DBDep):
     """Update RFP details."""
     service = RFPService(db)
     rfp = service.update_rfp(rfp_id, update_data.dict(exclude_unset=True))
@@ -447,10 +471,7 @@ async def update_rfp(
 
 
 @router.delete("/{rfp_id}")
-async def delete_rfp(
-    rfp_id: str,
-    db: Session = Depends(get_db)
-):
+async def delete_rfp(rfp_id: str, db: DBDep):
     """
     Delete an RFP and all related data (documents, Q&A, bids).
     This allows re-importing the same RFP from scratch.
@@ -480,9 +501,7 @@ async def delete_rfp(
 
 @router.post("/{rfp_id}/triage", response_model=RFPResponse)
 async def update_triage_decision(
-    rfp_id: str,
-    decision: TriageDecision,
-    service: RFPServiceDep
+    rfp_id: str, decision: TriageDecision, service: RFPServiceDep
 ):
     """Update triage decision for an RFP."""
     from app.websockets.websocket_router import broadcast_rfp_update
@@ -492,19 +511,25 @@ async def update_triage_decision(
         raise HTTPException(status_code=404, detail="RFP not found")
 
     # Broadcast update to connected clients
-    await broadcast_rfp_update(rfp_id, "triage_updated", {
-        "decision": decision.decision,
-        "current_stage": rfp.current_stage.value if hasattr(rfp.current_stage, 'value') else str(rfp.current_stage)
-    })
+    await broadcast_rfp_update(
+        rfp_id,
+        "triage_updated",
+        {
+            "decision": decision.decision,
+            "current_stage": (
+                rfp.current_stage.value
+                if hasattr(rfp.current_stage, "value")
+                else str(rfp.current_stage)
+            ),
+        },
+    )
 
     return rfp
 
 
 @router.post("/{rfp_id}/advance-stage")
 async def advance_pipeline_stage(
-    rfp_id: str,
-    service: RFPServiceDep,
-    notes: str | None = None
+    rfp_id: str, service: RFPServiceDep, notes: str | None = None
 ):
     """Advance RFP to next pipeline stage."""
     from app.websockets.websocket_router import broadcast_rfp_update
@@ -514,17 +539,28 @@ async def advance_pipeline_stage(
         raise HTTPException(status_code=404, detail="RFP not found")
 
     # Broadcast stage change to connected clients
-    await broadcast_rfp_update(rfp_id, "stage_advanced", {
-        "current_stage": rfp.current_stage.value if hasattr(rfp.current_stage, 'value') else str(rfp.current_stage)
-    })
+    await broadcast_rfp_update(
+        rfp_id,
+        "stage_advanced",
+        {
+            "current_stage": (
+                rfp.current_stage.value
+                if hasattr(rfp.current_stage, "value")
+                else str(rfp.current_stage)
+            )
+        },
+    )
 
-    return {"message": "Stage advanced successfully", "current_stage": rfp.current_stage}
+    return {
+        "message": "Stage advanced successfully",
+        "current_stage": rfp.current_stage,
+    }
 
 
 @router.post("/discover")
 async def discover_rfps(
-    params: DiscoveryParams = DiscoveryParams(),
-    background_tasks: BackgroundTasks = None
+    params: DiscoveryParams = _DEFAULT_DISCOVERY_PARAMS,
+    background_tasks: BackgroundTasks = None,
 ):
     """
     Trigger automated RFP discovery.
@@ -537,14 +573,14 @@ async def discover_rfps(
         "discovered_count": 0,
         "processed_count": 0,
         "rfps": [],
-        "started_at": datetime.now().isoformat()
+        "started_at": datetime.now().isoformat(),
     }
 
     # Start background task
     background_tasks.add_task(
         processor._run_discovery,
         job_id,
-        {"limit": params.limit, "days_back": params.days_back}
+        {"limit": params.limit, "days_back": params.days_back},
     )
 
     return {"job_id": job_id, "message": "Discovery started"}
@@ -560,10 +596,7 @@ async def get_discovery_status(job_id: str):
 
 
 @router.post("/process")
-async def process_manual_rfp(
-    rfp_data: ManualRFPSubmit,
-    db: Session = Depends(get_db)
-):
+async def process_manual_rfp(rfp_data: ManualRFPSubmit, db: DBDep):
     """
     Manually add an RFP and process it through the ML pipeline.
     Returns processed RFP with triage score, decision, etc.
@@ -584,24 +617,19 @@ async def process_manual_rfp(
         "category": rfp_data.category,
         "response_deadline": rfp_data.response_deadline,
         "triage_score": processed.get("triage_score"),
-        "decision_recommendation": processed.get("decision_recommendation")
+        "decision_recommendation": processed.get("decision_recommendation"),
     }
 
     rfp = service.create_rfp(db_data)
 
-    return {
-        **processed,
-        "id": rfp.id,
-        "rfp_id": rfp.rfp_id,
-        "saved": True
-    }
+    return {**processed, "id": rfp.id, "rfp_id": rfp.rfp_id, "saved": True}
 
 
 @router.post("/{rfp_id}/generate-bid")
 async def generate_bid_document(
     rfp: RFPDep,
-    db: Session = Depends(get_db),
-    options: BidGenerationOptions | None = None
+    db: DBDep,
+    options: BidGenerationOptions | None = None,
 ):
     """
     Generate a complete bid document for an RFP.
@@ -628,32 +656,42 @@ async def generate_bid_document(
         options = BidGenerationOptions()
 
     # Broadcast that bid generation has started
-    await broadcast_rfp_update(rfp.rfp_id, "bid_generation_started", {
-        "title": rfp.title,
-        "generation_mode": options.generation_mode,
-        "enable_thinking": options.enable_thinking
-    })
+    await broadcast_rfp_update(
+        rfp.rfp_id,
+        "bid_generation_started",
+        {
+            "title": rfp.title,
+            "generation_mode": options.generation_mode,
+            "enable_thinking": options.enable_thinking,
+        },
+    )
 
     # Convert RFP to dict for processing
     rfp_data = rfp_to_processing_dict(rfp)
 
     # Fetch Q&A items from database
     qa_records = db.query(RFPQandA).filter(RFPQandA.rfp_id == rfp.id).all()
-    qa_items = [
-        {
-            "question_text": qa.question_text,
-            "answer_text": qa.answer_text,
-            "category": qa.category,
-            "asked_date": qa.asked_date.isoformat() if qa.asked_date else None,
-        }
-        for qa in qa_records
-    ] if qa_records else None
+    qa_items = (
+        [
+            {
+                "question_text": qa.question_text,
+                "answer_text": qa.answer_text,
+                "category": qa.category,
+                "asked_date": qa.asked_date.isoformat() if qa.asked_date else None,
+            }
+            for qa in qa_records
+        ]
+        if qa_records
+        else None
+    )
 
     # Fetch and extract content from RFP documents (PDFs, DOCX, etc.)
     document_content = None
     if options.generation_mode != "template":
         try:
-            doc_records = db.query(RFPDocument).filter(RFPDocument.rfp_id == rfp.id).all()
+            doc_records = (
+                db.query(RFPDocument).filter(RFPDocument.rfp_id == rfp.id).all()
+            )
             if doc_records:
                 # Convert to list of dicts for extraction
                 docs_for_extraction = [
@@ -687,7 +725,9 @@ async def generate_bid_document(
 
             # Log detected signals for visibility
             if signals.detected_signals:
-                logger.info(f"Detected compliance signals for {rfp.rfp_id}: {signals.detected_signals}")
+                logger.info(
+                    f"Detected compliance signals for {rfp.rfp_id}: {signals.detected_signals}"
+                )
         except Exception as e:
             logger.warning(f"Failed to detect compliance signals: {e}")
 
@@ -703,26 +743,33 @@ async def generate_bid_document(
     )
 
     if "error" in bid_document:
-        await broadcast_rfp_update(rfp.rfp_id, "bid_generation_failed", {
-            "error": bid_document["error"]
-        })
-        raise HTTPException(status_code=500, detail=f"Bid generation failed: {bid_document['error']}")
+        await broadcast_rfp_update(
+            rfp.rfp_id, "bid_generation_failed", {"error": bid_document["error"]}
+        )
+        raise HTTPException(
+            status_code=500, detail=f"Bid generation failed: {bid_document['error']}"
+        )
 
     # Save sections to database for Proposal Copilot
     save_proposal_sections_to_db(
-        rfp_id=rfp.id,
-        rfp_id_str=rfp.rfp_id,
-        bid_document_data=bid_document,
-        db=db
+        rfp_id=rfp.id, rfp_id_str=rfp.rfp_id, bid_document_data=bid_document, db=db
     )
 
     # Broadcast successful generation
-    await broadcast_rfp_update(rfp.rfp_id, "bid_generated", {
-        "bid_id": bid_document["bid_id"],
-        "sections": list(bid_document["content"]["sections"].keys()) if bid_document.get("content", {}).get("sections") else [],
-        "generation_mode": options.generation_mode,
-        "claude_enhanced": bid_document["metadata"].get("claude_enhanced", False)
-    })
+    await broadcast_rfp_update(
+        rfp.rfp_id,
+        "bid_generated",
+        {
+            "bid_id": bid_document["bid_id"],
+            "sections": (
+                list(bid_document["content"]["sections"].keys())
+                if bid_document.get("content", {}).get("sections")
+                else []
+            ),
+            "generation_mode": options.generation_mode,
+            "claude_enhanced": bid_document["metadata"].get("claude_enhanced", False),
+        },
+    )
 
     return {
         "bid_id": bid_document["bid_id"],
@@ -730,9 +777,9 @@ async def generate_bid_document(
         "generated_at": bid_document["metadata"]["generated_at"],
         "preview": {
             "markdown": bid_document["content"]["markdown"][:500] + "...",
-            "sections": list(bid_document["content"]["sections"].keys())
+            "sections": list(bid_document["content"]["sections"].keys()),
         },
-        "metadata": bid_document["metadata"]
+        "metadata": bid_document["metadata"],
     }
 
 
@@ -756,46 +803,51 @@ async def download_bid_document(bid_id: str, format: str):
     from fastapi.responses import FileResponse
 
     if format not in ["markdown", "html", "json"]:
-        raise HTTPException(status_code=400, detail="Invalid format. Use: markdown, html, or json")
+        raise HTTPException(
+            status_code=400, detail="Invalid format. Use: markdown, html, or json"
+        )
 
     filepath = processor.export_bid_document(bid_id, format)
 
     if not filepath:
-        raise HTTPException(status_code=404, detail="Bid document not found or export failed")
+        raise HTTPException(
+            status_code=404, detail="Bid document not found or export failed"
+        )
 
     media_types = {
         "markdown": "text/markdown",
         "html": "text/html",
-        "json": "application/json"
+        "json": "application/json",
     }
 
     return FileResponse(
-        filepath,
-        media_type=media_types[format],
-        filename=os.path.basename(filepath)
+        filepath, media_type=media_types[format], filename=os.path.basename(filepath)
     )
 
 
 class PricingTableOptions(BaseModel):
     """Options for generating a pricing table."""
+
     num_websites: int = 3
     base_years: int = 3
     optional_years: int = 2
     base_budget_per_site: float = 50000.0
-    custom_rates: Dict[str, float] | None = None
+    custom_rates: dict[str, float] | None = None
 
 
 @router.post("/{rfp_id}/pricing-table")
 async def generate_pricing_table(
     rfp_id: str,
     options: PricingTableOptions | None = None,
-    db: Session = Depends(get_db)
+    db: DBDep = ...,
 ):
     """
     Generate a detailed pricing table for the RFP bid.
     Includes multi-year breakdown with optional years.
     """
-    from src.bid_generation.pricing_table_generator import create_pricing_table_generator
+    from src.bid_generation.pricing_table_generator import (
+        create_pricing_table_generator,
+    )
 
     # Get RFP
     rfp = db.query(RFPOpportunity).filter(RFPOpportunity.rfp_id == rfp_id).first()
@@ -804,7 +856,12 @@ async def generate_pricing_table(
 
     # Get company profile (use default if none)
     from app.models.database import CompanyProfile
-    profile = db.query(CompanyProfile).filter(CompanyProfile.is_default == True).first()
+
+    profile = (
+        db.query(CompanyProfile).filter(CompanyProfile.is_default).first()
+        if CompanyProfile.is_default
+        else None
+    )
 
     company_profile = {
         "company_name": profile.name if profile else "Your Company",
@@ -840,13 +897,16 @@ async def download_pricing_table_csv(
     base_years: int = 3,
     optional_years: int = 2,
     base_budget_per_site: float = 50000.0,
-    db: Session = Depends(get_db)
+    db: DBDep = ...,
 ):
     """
     Download the pricing table as a CSV file.
     """
     from fastapi.responses import StreamingResponse
-    from src.bid_generation.pricing_table_generator import create_pricing_table_generator
+
+    from src.bid_generation.pricing_table_generator import (
+        create_pricing_table_generator,
+    )
 
     # Get RFP
     rfp = db.query(RFPOpportunity).filter(RFPOpportunity.rfp_id == rfp_id).first()
@@ -855,7 +915,12 @@ async def download_pricing_table_csv(
 
     # Get company profile
     from app.models.database import CompanyProfile
-    profile = db.query(CompanyProfile).filter(CompanyProfile.is_default == True).first()
+
+    profile = (
+        db.query(CompanyProfile).filter(CompanyProfile.is_default).first()
+        if CompanyProfile.is_default
+        else None
+    )
 
     company_profile = {
         "company_name": profile.name if profile else "Your Company",
@@ -885,39 +950,40 @@ async def download_pricing_table_csv(
         media_type="text/csv",
         headers={
             "Content-Disposition": f"attachment; filename=pricing_table_{rfp_id}.csv"
-        }
+        },
     )
 
 
 @router.get("/{rfp_id}/checklist", response_model=PostAwardChecklistResponse)
 async def get_post_award_checklist(rfp: RFPDep, db: DBDep):
     """Get the post-award compliance checklist for a specific RFP."""
-    checklist = db.query(PostAwardChecklist).filter(PostAwardChecklist.rfp_id == rfp.id).first()
+    checklist = (
+        db.query(PostAwardChecklist).filter(PostAwardChecklist.rfp_id == rfp.id).first()
+    )
     if not checklist:
-        raise HTTPException(status_code=404, detail="Post-award checklist not found for this RFP")
+        raise HTTPException(
+            status_code=404, detail="Post-award checklist not found for this RFP"
+        )
 
     return checklist
 
 
 class FeedbackInput(BaseModel):
     """Input for decision feedback loop."""
+
     actual_outcome: str  # WON, LOST, NO_BID
     user_override: str | None = None  # GO, NO_GO
 
 
 @router.post("/{rfp_id}/feedback")
-async def submit_decision_feedback(
-    rfp_id: str,
-    feedback: FeedbackInput,
-    db: Session = Depends(get_db)
-):
+async def submit_decision_feedback(rfp_id: str, feedback: FeedbackInput, db: DBDep):
     """
     Submit feedback on a Go/No-Go decision to improve the model.
     """
     if not processor.pricing_engine:
-         # In a real app we might want a dedicated DecisionEngine instance in processor
-         # For now, we'll assume if pricing engine is there, the system is initialized
-         pass
+        # In a real app we might want a dedicated DecisionEngine instance in processor
+        # For now, we'll assume if pricing engine is there, the system is initialized
+        pass
 
     # Log feedback via the engine (which logs to file/stdout)
     # In the future, this would update weights in the DB
@@ -930,15 +996,12 @@ async def submit_decision_feedback(
     # For this implementation, we'll use the one in the processor if available,
     # or just log it here.
 
-
     return {"message": "Feedback received", "rfp_id": rfp_id}
 
 
 @router.post("/{rfp_id}/async/ingest")
 async def trigger_async_ingestion(
-    rfp_id: str,
-    file_paths: List[str],
-    background_tasks: BackgroundTasks = None
+    rfp_id: str, file_paths: list[str], background_tasks: BackgroundTasks = None
 ):
     """Trigger background RAG ingestion."""
     from app.services.background_tasks import ingest_documents_task
@@ -949,10 +1012,7 @@ async def trigger_async_ingestion(
 
 
 @router.post("/{rfp_id}/async/generate-bid")
-async def trigger_async_bid_generation(
-    rfp: RFPDep,
-    background_tasks: BackgroundTasks
-):
+async def trigger_async_bid_generation(rfp: RFPDep, background_tasks: BackgroundTasks):
     """Trigger background bid generation."""
     from app.services.background_tasks import generate_bid_task
 
@@ -970,15 +1030,13 @@ async def get_background_task_status(task_id: str):
     status = get_task_status(task_id)
     if not status:
         raise HTTPException(status_code=404, detail="Task not found")
-    return {
-        "task_id": task_id,
-        **status
-    }
+    return {"task_id": task_id, **status}
 
 
 # ============================================================================
 # Compliance Matrix Endpoints
 # ============================================================================
+
 
 @router.get("/{rfp_id}/compliance-matrix")
 async def get_compliance_matrix(rfp: RFPDep, db: DBDep):
@@ -988,7 +1046,9 @@ async def get_compliance_matrix(rfp: RFPDep, db: DBDep):
     """
     from app.models.database import ComplianceMatrix
 
-    matrix = db.query(ComplianceMatrix).filter(ComplianceMatrix.rfp_id == rfp.id).first()
+    matrix = (
+        db.query(ComplianceMatrix).filter(ComplianceMatrix.rfp_id == rfp.id).first()
+    )
 
     if not matrix:
         # Return empty structure if no matrix exists yet
@@ -1006,15 +1066,19 @@ async def get_compliance_matrix(rfp: RFPDep, db: DBDep):
     if matrix.matrix_data:
         raw_requirements = matrix.matrix_data.get("requirements", [])
         for i, req in enumerate(raw_requirements):
-            requirements.append({
-                "id": req.get("id", f"REQ-{i+1}"),
-                "requirement_text": req.get("text", req.get("requirement_text", "")),
-                "category": req.get("category", "general"),
-                "priority": req.get("priority", "medium"),
-                "status": req.get("status", "pending"),
-                "response_notes": req.get("response", req.get("response_notes")),
-                "source_section": req.get("source_section"),
-            })
+            requirements.append(
+                {
+                    "id": req.get("id", f"REQ-{i + 1}"),
+                    "requirement_text": req.get(
+                        "text", req.get("requirement_text", "")
+                    ),
+                    "category": req.get("category", "general"),
+                    "priority": req.get("priority", "medium"),
+                    "status": req.get("status", "pending"),
+                    "response_notes": req.get("response", req.get("response_notes")),
+                    "source_section": req.get("source_section"),
+                }
+            )
 
     return {
         "requirements_extracted": matrix.requirements_extracted or len(requirements),
@@ -1029,6 +1093,7 @@ async def get_compliance_matrix(rfp: RFPDep, db: DBDep):
 # ============================================================================
 # Activity Log Endpoints
 # ============================================================================
+
 
 @router.get("/{rfp_id}/activity")
 async def get_activity_log(rfp: RFPDep, db: DBDep):
@@ -1064,6 +1129,7 @@ async def get_activity_log(rfp: RFPDep, db: DBDep):
 # Archive Endpoint
 # ============================================================================
 
+
 @router.post("/{rfp_id}/archive")
 async def archive_rfp(rfp: RFPDep, db: DBDep):
     """
@@ -1077,14 +1143,14 @@ async def archive_rfp(rfp: RFPDep, db: DBDep):
     rfp.current_stage = PipelineStage.REJECTED
     rfp.rfp_metadata = rfp.rfp_metadata or {}
     rfp.rfp_metadata["archived"] = True
-    rfp.rfp_metadata["archived_at"] = datetime.utcnow().isoformat()
+    rfp.rfp_metadata["archived_at"] = datetime.now(timezone.utc).isoformat()
 
     # Create pipeline event
     event = PipelineEvent(
         rfp_id=rfp.id,
         from_stage=old_stage,
         to_stage=PipelineStage.REJECTED,
-        timestamp=datetime.utcnow(),
+        timestamp=datetime.now(timezone.utc),
         automated=False,
         notes="RFP archived by user",
     )
@@ -1098,14 +1164,16 @@ async def archive_rfp(rfp: RFPDep, db: DBDep):
 # AI Chat Endpoints
 # ============================================================================
 
+
 class ChatMessage(BaseModel):
     """Chat message input."""
-    message: str
+
+    message: str = Field(..., min_length=1, max_length=5000)
     conversation_id: str | None = None
 
 
 @router.post("/{rfp_id}/chat")
-async def send_chat_message(rfp: RFPDep, chat: ChatMessage, db: DBDep):
+async def send_chat_message(rfp: RFPDep, chat: ChatMessage):
     """
     Send a chat message about the RFP and get an AI response.
     Uses the RFP context to provide relevant answers.
@@ -1122,7 +1190,9 @@ async def send_chat_message(rfp: RFPDep, chat: ChatMessage, db: DBDep):
             context_parts.append(f"NAICS Code: {rfp.naics_code}")
 
         if rfp.response_deadline:
-            context_parts.append(f"Deadline: {rfp.response_deadline.strftime('%Y-%m-%d')}")
+            context_parts.append(
+                f"Deadline: {rfp.response_deadline.strftime('%Y-%m-%d')}"
+            )
 
         # Get Q&A items for additional context
         qa_items = rfp.qa_items[:5] if rfp.qa_items else []
@@ -1137,7 +1207,7 @@ async def send_chat_message(rfp: RFPDep, chat: ChatMessage, db: DBDep):
 
         # Try to use Claude for response
         try:
-            from src.config.claude_llm_config import create_claude_client, ClaudeModel
+            from src.config.claude_llm_config import ClaudeModel, create_claude_client
 
             client = create_claude_client()
             response = client.messages.create(
@@ -1153,9 +1223,7 @@ Provide helpful, concise answers about this RFP. Focus on:
 - Potential risks and opportunities
 - Strategic recommendations
 Keep responses brief (2-3 paragraphs max) and actionable.""",
-                messages=[
-                    {"role": "user", "content": chat.message}
-                ]
+                messages=[{"role": "user", "content": chat.message}],
             )
 
             ai_response = response.content[0].text
@@ -1180,16 +1248,12 @@ Please try specific questions about requirements, compliance, or strategy."""
         }
 
     except Exception as e:
-        logger.error(f"Chat error: {e}")
-        raise HTTPException(status_code=500, detail=f"Chat failed: {str(e)}")
+        logger.exception("Chat error occurred")
+        raise HTTPException(status_code=500, detail=f"Chat failed: {e!s}") from e
 
 
 @router.get("/{rfp_id}/chat")
-async def get_chat_history(
-    rfp: RFPDep,
-    conversation_id: str | None = None,
-    db: DBDep = None
-):
+async def get_chat_history(conversation_id: str | None = None):
     """
     Get chat history for an RFP (placeholder - would need persistent storage).
     Currently returns empty as chat history is stored client-side.

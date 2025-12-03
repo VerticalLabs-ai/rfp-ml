@@ -18,6 +18,9 @@ from app.dependencies import RFPDep
 from fastapi import APIRouter, BackgroundTasks, File, HTTPException, UploadFile
 from pydantic import BaseModel
 
+# Module-level File dependency for required file uploads
+_REQUIRED_FILE = File(...)
+
 # Add project root to path
 project_root = os.path.dirname(
     os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(__file__))))
@@ -126,7 +129,7 @@ def extract_text_from_file(filepath: Path) -> str:
                 )
     except Exception as e:
         logger.error(f"Failed to extract text from {filepath}: {e}")
-        raise HTTPException(status_code=500, detail=f"Failed to extract text: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Failed to extract text: {str(e)}") from e
 
     return text
 
@@ -217,7 +220,7 @@ def process_document_for_rag(
 @router.post("/{rfp_id}/upload", response_model=UploadedDocument)
 async def upload_document(
     rfp: RFPDep,
-    file: UploadFile = File(...),
+    file: UploadFile = _REQUIRED_FILE,
     background_tasks: BackgroundTasks = None,
 ):
     """

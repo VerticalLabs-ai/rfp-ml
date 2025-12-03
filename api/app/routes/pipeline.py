@@ -11,11 +11,10 @@ import logging
 from datetime import datetime
 from typing import Any, List
 
-from app.core.database import get_db
+from app.dependencies import DBDep
 from app.models.database import PipelineEvent, PipelineStage, RFPOpportunity
-from fastapi import APIRouter, Depends, HTTPException, Query
+from fastapi import APIRouter, HTTPException, Query
 from pydantic import BaseModel
-from sqlalchemy.orm import Session
 
 logger = logging.getLogger(__name__)
 router = APIRouter()
@@ -85,7 +84,7 @@ async def get_pipeline_status(
     skip: int = Query(default=0, ge=0, description="Number of RFPs to skip per stage"),
     limit: int = Query(default=50, ge=1, le=200, description="Max RFPs per stage"),
     use_cache: bool = Query(default=True, description="Use cached data if available"),
-    db: Session = Depends(get_db)
+    db: DBDep = ...,
 ) -> dict[str, Any]:
     """
     Get overall pipeline status with RFPs grouped by stage.
@@ -146,11 +145,11 @@ async def get_pipeline_status(
         if _pipeline_cache:
             logger.warning("Returning stale cache due to error")
             return {**_pipeline_cache, "cached": True, "stale": True}
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(status_code=500, detail=str(e)) from e
 
 
 @router.get("/{rfp_id}", response_model=List[PipelineEventResponse])
-async def get_rfp_pipeline(rfp_id: str, db: Session = Depends(get_db)):
+async def get_rfp_pipeline(rfp_id: str, db: DBDep):
     """Get pipeline history for an RFP."""
     rfp = db.query(RFPOpportunity).filter(
         RFPOpportunity.rfp_id == rfp_id
@@ -174,7 +173,7 @@ async def get_rfp_pipeline(rfp_id: str, db: Session = Depends(get_db)):
 
 
 @router.get("/metrics/performance")
-async def get_pipeline_metrics(db: Session = Depends(get_db)):
+async def get_pipeline_metrics(db: DBDep):
     """Get pipeline performance metrics."""
     # Average processing time by stage
     from sqlalchemy import func

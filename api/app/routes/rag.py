@@ -339,7 +339,7 @@ async def add_documents(request: AddDocumentsRequest) -> AddDocumentsResponse:
         raise HTTPException(
             status_code=500,
             detail=f"Failed to add documents: {str(e)}",
-        )
+        ) from e
 
 
 @router.delete("/index")
@@ -374,4 +374,4 @@ async def delete_index() -> dict:
         raise HTTPException(
             status_code=500,
             detail=f"Failed to delete index: {str(e)}",
-        )
+        ) from e
