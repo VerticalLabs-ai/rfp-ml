@@ -3,6 +3,7 @@
 ## 1. Discovery Pipeline Accuracy
 
 **Category Filtering (NAICS/NIGP)**
+
 - Verified with `rfp_master_dataset.parquet` (100,178 records): used NAICS filtering and fallback to category/classification code where NIGP missing.
 - Portal simulation logic identified target opportunities using production config.
 - **Result:** Accurate identification for bottled water, construction, and delivery categories.
@@ -21,7 +22,7 @@
 ## 4. Output Format Verification
 
 - Generated artifacts saved as CSV and JSON (with timestamps), columns matched bid generation pipeline requirements:
-    - id, title, award_amount, posted_date, response_deadline, description, triage_score, priority, score_explanation, go_nogo_decision, go_nogo_score, decision_justification
+  - id, title, award_amount, posted_date, response_deadline, description, triage_score, priority, score_explanation, go_nogo_decision, go_nogo_score, decision_justification
 - Manual file check confirmed schema, data types, and content.
 
 ## 5. Integration Test Results

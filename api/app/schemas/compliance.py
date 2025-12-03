@@ -1,8 +1,8 @@
 """Pydantic schemas for compliance requirements."""
 from datetime import datetime
-from typing import Optional, List
+
+from app.models.database import RequirementStatus, RequirementType
 from pydantic import BaseModel, Field
-from app.models.database import RequirementType, RequirementStatus
 
 
 class ComplianceRequirementBase(BaseModel):
@@ -10,9 +10,9 @@ class ComplianceRequirementBase(BaseModel):
 
     requirement_id: str = Field(..., description="Requirement identifier (e.g., L.1.2)")
     requirement_text: str = Field(..., description="Full requirement text")
-    source_document: Optional[str] = Field(None, description="Source document name")
-    source_section: Optional[str] = Field(None, description="Section reference")
-    source_page: Optional[int] = Field(None, description="Page number")
+    source_document: str | None = Field(None, description="Source document name")
+    source_section: str | None = Field(None, description="Section reference")
+    source_page: int | None = Field(None, description="Page number")
     requirement_type: RequirementType = Field(default=RequirementType.MANDATORY)
     is_mandatory: bool = Field(default=True)
 
@@ -26,18 +26,18 @@ class ComplianceRequirementCreate(ComplianceRequirementBase):
 class ComplianceRequirementUpdate(BaseModel):
     """Schema for updating a compliance requirement."""
 
-    requirement_text: Optional[str] = None
-    source_document: Optional[str] = None
-    source_section: Optional[str] = None
-    source_page: Optional[int] = None
-    requirement_type: Optional[RequirementType] = None
-    is_mandatory: Optional[bool] = None
-    status: Optional[RequirementStatus] = None
-    response_text: Optional[str] = None
-    compliance_indicator: Optional[str] = None
-    confidence_score: Optional[float] = None
-    order_index: Optional[int] = None
-    assigned_to: Optional[str] = None
+    requirement_text: str | None = None
+    source_document: str | None = None
+    source_section: str | None = None
+    source_page: int | None = None
+    requirement_type: RequirementType | None = None
+    is_mandatory: bool | None = None
+    status: RequirementStatus | None = None
+    response_text: str | None = None
+    compliance_indicator: str | None = None
+    confidence_score: float | None = None
+    order_index: int | None = None
+    assigned_to: str | None = None
 
 
 class ComplianceRequirementResponse(ComplianceRequirementBase):
@@ -46,11 +46,11 @@ class ComplianceRequirementResponse(ComplianceRequirementBase):
     id: int
     rfp_id: int
     status: RequirementStatus
-    response_text: Optional[str]
-    compliance_indicator: Optional[str]
-    confidence_score: Optional[float]
+    response_text: str | None
+    compliance_indicator: str | None
+    confidence_score: float | None
     order_index: int
-    assigned_to: Optional[str]
+    assigned_to: str | None
     created_at: datetime
     updated_at: datetime
 
@@ -60,7 +60,7 @@ class ComplianceRequirementResponse(ComplianceRequirementBase):
 class ComplianceRequirementList(BaseModel):
     """Schema for list of compliance requirements with summary."""
 
-    requirements: List[ComplianceRequirementResponse]
+    requirements: list[ComplianceRequirementResponse]
     total: int
     completed: int
     in_progress: int
@@ -71,14 +71,14 @@ class ComplianceRequirementList(BaseModel):
 class BulkStatusUpdate(BaseModel):
     """Schema for bulk status update."""
 
-    requirement_ids: List[int]
+    requirement_ids: list[int]
     status: RequirementStatus
 
 
 class ReorderRequirements(BaseModel):
     """Schema for reordering requirements."""
 
-    requirement_ids: List[int] = Field(..., description="Ordered list of requirement IDs")
+    requirement_ids: list[int] = Field(..., description="Ordered list of requirement IDs")
 
 
 class AIResponseRequest(BaseModel):
@@ -93,13 +93,13 @@ class AIResponseResult(BaseModel):
 
     response_text: str
     confidence_score: float
-    supporting_evidence: List[str]
+    supporting_evidence: list[str]
 
 
 class ExtractionRequest(BaseModel):
     """Schema for extraction request."""
 
-    document_ids: Optional[List[int]] = Field(
+    document_ids: list[int] | None = Field(
         None, description="Specific document IDs to extract from"
     )
     use_llm: bool = Field(default=True, description="Use LLM for enhanced extraction")
@@ -109,5 +109,5 @@ class ExtractionResult(BaseModel):
     """Schema for extraction result."""
 
     extracted_count: int
-    requirements: List[ComplianceRequirementResponse]
-    source_documents: List[str]
+    requirements: list[ComplianceRequirementResponse]
+    source_documents: list[str]

@@ -1,29 +1,28 @@
 """Compliance matrix API routes."""
 import logging
-from typing import Optional
-from fastapi import APIRouter, HTTPException, Depends, status
-from sqlalchemy.orm import Session
-from sqlalchemy import func
 
 from app.core.database import get_db
 from app.models.database import (
-    RFPOpportunity,
     ComplianceRequirement,
     RequirementStatus,
     RequirementType,
+    RFPOpportunity,
 )
 from app.schemas.compliance import (
-    ComplianceRequirementCreate,
-    ComplianceRequirementUpdate,
-    ComplianceRequirementResponse,
-    ComplianceRequirementList,
-    BulkStatusUpdate,
-    ReorderRequirements,
-    ExtractionRequest,
-    ExtractionResult,
     AIResponseRequest,
     AIResponseResult,
+    BulkStatusUpdate,
+    ComplianceRequirementCreate,
+    ComplianceRequirementList,
+    ComplianceRequirementResponse,
+    ComplianceRequirementUpdate,
+    ExtractionRequest,
+    ExtractionResult,
+    ReorderRequirements,
 )
+from fastapi import APIRouter, Depends, HTTPException, status
+from sqlalchemy import func
+from sqlalchemy.orm import Session
 
 logger = logging.getLogger(__name__)
 
@@ -55,9 +54,9 @@ def get_requirement_or_404(requirement_id: int, db: Session) -> ComplianceRequir
 @router.get("/rfps/{rfp_id}/requirements", response_model=ComplianceRequirementList)
 async def list_requirements(
     rfp_id: int,
-    status_filter: Optional[RequirementStatus] = None,
-    type_filter: Optional[RequirementType] = None,
-    search: Optional[str] = None,
+    status_filter: RequirementStatus | None = None,
+    type_filter: RequirementType | None = None,
+    search: str | None = None,
     db: Session = Depends(get_db),
 ):
     """List all requirements for an RFP with optional filtering."""
@@ -222,7 +221,7 @@ async def reorder_requirements(
 @router.post("/rfps/{rfp_id}/extract-requirements", response_model=ExtractionResult)
 async def extract_requirements(
     rfp_id: int,
-    request: Optional[ExtractionRequest] = None,
+    request: ExtractionRequest | None = None,
     db: Session = Depends(get_db),
 ):
     """Extract requirements from RFP description and Q&A using LLM or rule-based extraction."""
@@ -370,7 +369,7 @@ def _simple_requirement_extraction(text: str) -> list[dict]:
 )
 async def generate_ai_response(
     requirement_id: int,
-    request: Optional[AIResponseRequest] = None,
+    request: AIResponseRequest | None = None,
     db: Session = Depends(get_db),
 ):
     """Generate an AI-assisted response for a requirement."""

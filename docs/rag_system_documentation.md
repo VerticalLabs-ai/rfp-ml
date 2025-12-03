@@ -97,13 +97,13 @@ The engine auto-detects paths for Docker vs local development:
 
 The system was migrated from FAISS to ChromaDB in December 2024:
 
-| Aspect | FAISS (Old) | ChromaDB (New) |
-|--------|-------------|----------------|
-| Persistence | Manual save/load | Automatic |
-| Index Management | Manual build_index() | Auto-managed |
-| Multiple Instances | Bug-prone | Singleton pattern |
-| Initialization | Lazy (failed silently) | Eager at startup |
-| Health Check | None | `/api/v1/rag/ready` |
+| Aspect             | FAISS (Old)            | ChromaDB (New)      |
+| ------------------ | ---------------------- | ------------------- |
+| Persistence        | Manual save/load       | Automatic           |
+| Index Management   | Manual build_index()   | Auto-managed        |
+| Multiple Instances | Bug-prone              | Singleton pattern   |
+| Initialization     | Lazy (failed silently) | Eager at startup    |
+| Health Check       | None                   | `/api/v1/rag/ready` |
 
 ### Backward Compatibility
 
@@ -119,10 +119,10 @@ from src.rag.chroma_rag_engine import get_rag_engine
 
 ## Files
 
-| File | Purpose |
-|------|---------|
-| `src/rag/chroma_rag_engine.py` | Main ChromaDB implementation |
-| `src/rag/rag_engine.py` | Compatibility shim |
+| File                                     | Purpose                       |
+| ---------------------------------------- | ----------------------------- |
+| `src/rag/chroma_rag_engine.py`           | Main ChromaDB implementation  |
+| `src/rag/rag_engine.py`                  | Compatibility shim            |
 | `src/rag/rag_engine_faiss_deprecated.py` | Archived FAISS implementation |
-| `scripts/migrate_to_chroma.py` | Migration script |
-| `data/chroma/` | Persistent storage directory |
+| `scripts/migrate_to_chroma.py`           | Migration script              |
+| `data/chroma/`                           | Persistent storage directory  |
