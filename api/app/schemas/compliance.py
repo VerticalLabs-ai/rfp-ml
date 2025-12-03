@@ -2,7 +2,7 @@
 from datetime import datetime
 from typing import Optional, List
 from pydantic import BaseModel, Field
-from api.app.models.database import RequirementType, RequirementStatus
+from app.models.database import RequirementType, RequirementStatus
 
 
 class ComplianceRequirementBase(BaseModel):
@@ -54,8 +54,7 @@ class ComplianceRequirementResponse(ComplianceRequirementBase):
     created_at: datetime
     updated_at: datetime
 
-    class Config:
-        from_attributes = True
+    model_config = {"from_attributes": True}
 
 
 class ComplianceRequirementList(BaseModel):

@@ -9,6 +9,7 @@ from app.core.database import init_db
 from app.routes import (
     alerts,
     chat,
+    compliance,
     copilot,
     discovery,
     documents,
@@ -133,6 +134,7 @@ app.include_router(rag.router, prefix=f"{settings.API_V1_STR}/rag", tags=["rag"]
 app.include_router(
     documents.router, prefix=f"{settings.API_V1_STR}/documents", tags=["documents"]
 )
+app.include_router(compliance.router, prefix=settings.API_V1_STR)
 app.include_router(websocket_router.router, prefix="/ws", tags=["websocket"])
 app.include_router(
     websocket_channels.router, prefix="/ws/channels", tags=["websocket-channels"]
