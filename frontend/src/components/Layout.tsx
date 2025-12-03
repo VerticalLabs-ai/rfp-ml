@@ -1,5 +1,7 @@
 import { Link, useLocation } from 'react-router-dom'
 import { Bookmark, LayoutDashboard, Search, GitBranch, CheckSquare, Send, Zap, TrendingUp, Settings, Building2 } from 'lucide-react'
+import { useQuery } from '@tanstack/react-query'
+import { api } from '@/services/api'
 import { WebSocketStatus } from '@/components/WebSocketStatus'
 import { RAGStatus } from '@/components/RAGStatus'
 import { useWebSocket } from '@/hooks/useWebSocket'
@@ -22,6 +24,14 @@ const navigation = [
 
 export default function Layout({ children }: LayoutProps) {
   const location = useLocation()
+
+  // Fetch saved RFPs count for badge
+  const { data: savedData } = useQuery({
+    queryKey: ['saved-rfps-count'],
+    queryFn: () => api.savedRfps.list({ limit: 1 }),
+    staleTime: 60000, // Cache for 1 minute
+  })
+  const savedCount = savedData?.total ?? 0
 
   // WebSocket connection for real-time updates
   // Use dynamic URL based on current host (supports both localhost and production)
@@ -98,6 +108,11 @@ export default function Layout({ children }: LayoutProps) {
                 >
                   <Icon className="w-4 h-4" />
                   <span>{item.name}</span>
+                  {item.name === 'Saved' && savedCount > 0 && (
+                    <span className="ml-1 px-1.5 py-0.5 text-xs font-medium bg-blue-100 text-blue-600 dark:bg-blue-900 dark:text-blue-300 rounded-full">
+                      {savedCount}
+                    </span>
+                  )}
                 </Link>
               )
             })}
