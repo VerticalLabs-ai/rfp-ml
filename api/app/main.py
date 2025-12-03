@@ -20,6 +20,7 @@ from app.routes import (
     profiles,
     rag,
     rfps,
+    saved_rfps,
     scraper,
     streaming,
     submissions,
@@ -135,6 +136,9 @@ app.include_router(
     documents.router, prefix=f"{settings.API_V1_STR}/documents", tags=["documents"]
 )
 app.include_router(compliance.router, prefix=settings.API_V1_STR)
+app.include_router(
+    saved_rfps.router, prefix=settings.API_V1_STR, tags=["saved-rfps"]
+)
 app.include_router(websocket_router.router, prefix="/ws", tags=["websocket"])
 app.include_router(
     websocket_channels.router, prefix="/ws/channels", tags=["websocket-channels"]
