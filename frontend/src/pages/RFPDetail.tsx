@@ -26,7 +26,6 @@ import {
   MoreVertical,
   Play,
   RefreshCw,
-  Send,
   Shield,
   Sparkles,
   Trash2,
@@ -39,6 +38,7 @@ import { useCallback, useEffect, useRef, useState } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
 import { toast } from 'sonner'
 
+import { ContractChatbot } from '@/components/ContractChatbot'
 import PricingTable from '@/components/PricingTable'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
@@ -58,9 +58,7 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu'
-import { Input } from '@/components/ui/input'
 import { Progress } from '@/components/ui/progress'
-import { ScrollArea } from '@/components/ui/scroll-area'
 import {
   Select,
   SelectContent,
@@ -139,13 +137,6 @@ interface ActivityEvent {
   automated: boolean
   notes: string | null
   event_metadata: Record<string, unknown>
-}
-
-interface ChatMessage {
-  id: string
-  role: 'user' | 'assistant'
-  content: string
-  timestamp: string
 }
 
 type GenerationMode = 'template' | 'claude_standard' | 'claude_enhanced' | 'claude_premium'
@@ -234,10 +225,7 @@ export default function RFPDetail() {
   const [generationMode, setGenerationMode] = useState<GenerationMode>('claude_enhanced')
 
   // Chat state
-  const [chatMessage, setChatMessage] = useState('')
-  const [chatMessages, setChatMessages] = useState<ChatMessage[]>([])
   const [isChatOpen, setIsChatOpen] = useState(false)
-  const chatScrollRef = useRef<HTMLDivElement>(null)
 
   // Dialog state
   const [showArchiveDialog, setShowArchiveDialog] = useState(false)
@@ -427,42 +415,6 @@ export default function RFPDetail() {
       toast.error('Failed to advance stage', { description: error.message })
     },
   })
-
-  // Chat mutation
-  const chatMutation = useMutation({
-    mutationFn: (message: string) => api.sendChatMessage(rfpId!, message),
-    onSuccess: (data, variables) => {
-      setChatMessages(prev => [
-        ...prev,
-        {
-          id: `user-${Date.now()}`,
-          role: 'user',
-          content: variables,
-          timestamp: new Date().toISOString(),
-        },
-        {
-          id: data.message_id || `assistant-${Date.now()}`,
-          role: 'assistant',
-          content: data.response,
-          timestamp: new Date().toISOString(),
-        },
-      ])
-      setChatMessage('')
-      // Scroll to bottom
-      setTimeout(() => {
-        chatScrollRef.current?.scrollTo({ top: chatScrollRef.current.scrollHeight, behavior: 'smooth' })
-      }, 100)
-    },
-    onError: (error: Error) => {
-      toast.error('Chat failed', { description: error.message })
-    },
-  })
-
-  // Handle sending chat message
-  const handleSendMessage = () => {
-    if (!chatMessage.trim()) return
-    chatMutation.mutate(chatMessage)
-  }
 
   // Handle file upload
   const handleFileUpload = useCallback((files: FileList | null) => {
@@ -1673,137 +1625,24 @@ export default function RFPDetail() {
         </TabsContent>
       </Tabs>
 
-      {/* Floating AI Chat Panel */}
-      <div className="fixed bottom-6 right-6 z-50">
-        {isChatOpen ? (
-          <Card className="w-96 shadow-xl border-2">
-            <CardHeader className="pb-2">
-              <div className="flex items-center justify-between">
-                <CardTitle className="text-lg flex items-center gap-2">
-                  <Bot className="h-5 w-5 text-purple-500" />
-                  RFP Assistant
-                </CardTitle>
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  onClick={() => setIsChatOpen(false)}
-                >
-                  <XCircle className="h-4 w-4" />
-                </Button>
-              </div>
-              <CardDescription className="text-xs">
-                Ask questions about this RFP
-              </CardDescription>
-            </CardHeader>
-            <CardContent className="p-0">
-              {/* Chat Messages */}
-              <ScrollArea className="h-64 px-4" ref={chatScrollRef}>
-                {chatMessages.length === 0 ? (
-                  <div className="text-center py-8 text-muted-foreground text-sm">
-                    <Bot className="h-8 w-8 mx-auto mb-2 opacity-50" />
-                    <p>How can I help with this RFP?</p>
-                    <div className="mt-3 space-y-1">
-                      <button
-                        type="button"
-                        className="block w-full text-xs text-left p-2 rounded hover:bg-muted"
-                        onClick={() => {
-                          setChatMessage("Summarize the key requirements")
-                          handleSendMessage()
-                        }}
-                      >
-                        Summarize key requirements
-                      </button>
-                      <button
-                        type="button"
-                        className="block w-full text-xs text-left p-2 rounded hover:bg-muted"
-                        onClick={() => {
-                          setChatMessage("What are the compliance risks?")
-                          handleSendMessage()
-                        }}
-                      >
-                        What are the compliance risks?
-                      </button>
-                      <button
-                        type="button"
-                        className="block w-full text-xs text-left p-2 rounded hover:bg-muted"
-                        onClick={() => {
-                          setChatMessage("Create a win theme strategy")
-                          handleSendMessage()
-                        }}
-                      >
-                        Create a win theme strategy
-                      </button>
-                    </div>
-                  </div>
-                ) : (
-                  <div className="space-y-3 py-2">
-                    {chatMessages.map((msg) => (
-                      <div
-                        key={msg.id}
-                        className={`flex gap-2 ${msg.role === 'user' ? 'justify-end' : 'justify-start'}`}
-                      >
-                        {msg.role === 'assistant' && (
-                          <Bot className="h-6 w-6 text-purple-500 shrink-0" />
-                        )}
-                        <div
-                          className={`max-w-[80%] p-2 rounded-lg text-sm ${msg.role === 'user'
-                            ? 'bg-purple-500 text-white'
-                            : 'bg-muted'
-                            }`}
-                        >
-                          {msg.content}
-                        </div>
-                        {msg.role === 'user' && (
-                          <User className="h-6 w-6 text-gray-400 shrink-0" />
-                        )}
-                      </div>
-                    ))}
-                    {chatMutation.isPending && (
-                      <div className="flex gap-2">
-                        <Bot className="h-6 w-6 text-purple-500 shrink-0" />
-                        <div className="bg-muted p-2 rounded-lg">
-                          <Loader2 className="h-4 w-4 animate-spin" />
-                        </div>
-                      </div>
-                    )}
-                  </div>
-                )}
-              </ScrollArea>
+      {/* Contract Chatbot */}
+      <ContractChatbot
+        rfpId={rfpId!}
+        rfpTitle={rfp.title}
+        isOpen={isChatOpen}
+        onClose={() => setIsChatOpen(false)}
+      />
 
-              {/* Chat Input */}
-              <div className="p-4 border-t flex gap-2">
-                <Input
-                  placeholder="Ask about this RFP..."
-                  value={chatMessage}
-                  onChange={(e) => setChatMessage(e.target.value)}
-                  onKeyDown={(e) => {
-                    if (e.key === 'Enter' && !e.shiftKey) {
-                      e.preventDefault()
-                      handleSendMessage()
-                    }
-                  }}
-                  disabled={chatMutation.isPending}
-                />
-                <Button
-                  size="sm"
-                  onClick={handleSendMessage}
-                  disabled={!chatMessage.trim() || chatMutation.isPending}
-                >
-                  <Send className="h-4 w-4" />
-                </Button>
-              </div>
-            </CardContent>
-          </Card>
-        ) : (
-          <Button
-            size="lg"
-            className="rounded-full h-14 w-14 shadow-lg bg-purple-500 hover:bg-purple-600"
-            onClick={() => setIsChatOpen(true)}
-          >
-            <Bot className="h-6 w-6" />
-          </Button>
-        )}
-      </div>
+      {/* Chat Toggle Button */}
+      {!isChatOpen && (
+        <Button
+          size="lg"
+          className="fixed bottom-6 right-6 z-50 rounded-full h-14 w-14 shadow-lg bg-purple-500 hover:bg-purple-600"
+          onClick={() => setIsChatOpen(true)}
+        >
+          <Bot className="h-6 w-6" />
+        </Button>
+      )}
     </div>
   )
 }
