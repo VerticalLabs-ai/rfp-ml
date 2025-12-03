@@ -136,6 +136,51 @@ export interface AIResponseResult {
   supporting_evidence: string[]
 }
 
+// Saved RFPs Types
+export interface SavedRfp {
+  id: number
+  rfp_id: number
+  user_id: string
+  notes: string | null
+  tags: string[]
+  folder: string | null
+  saved_at: string
+  updated_at: string
+}
+
+export interface SavedRfpWithRfp extends SavedRfp {
+  rfp_title: string
+  rfp_agency: string | null
+  rfp_deadline: string | null
+  rfp_stage: string | null
+  rfp_triage_score: number | null
+}
+
+export interface SavedRfpList {
+  saved_rfps: SavedRfpWithRfp[]
+  total: number
+  tags_summary: Record<string, number>
+  folders_summary: Record<string, number>
+}
+
+export interface SavedRfpCreate {
+  rfp_id: number
+  notes?: string
+  tags?: string[]
+  folder?: string
+}
+
+export interface SavedRfpUpdate {
+  notes?: string
+  tags?: string[]
+  folder?: string
+}
+
+export interface TagsList {
+  tags: string[]
+  counts: Record<string, number>
+}
+
 export const api = {
   // RFP endpoints
   getDiscoveredRFPs: (filters: any) =>
@@ -453,7 +498,40 @@ export const api = {
 
     generateAIResponse: (requirementId: number) =>
       apiClient.post<AIResponseResult>(`/compliance/requirements/${requirementId}/ai-response`).then(res => res.data),
-  }
+  },
+
+  // Saved RFPs endpoints
+  savedRfps: {
+    list: (params?: { tag?: string; folder?: string; search?: string; sort_by?: string; sort_order?: string; skip?: number; limit?: number }) =>
+      apiClient.get<SavedRfpList>('/saved-rfps', { params }).then(res => res.data),
+
+    save: (data: SavedRfpCreate) =>
+      apiClient.post<SavedRfp>('/saved-rfps', data).then(res => res.data),
+
+    checkIfSaved: (rfpId: number) =>
+      apiClient.get<{ is_saved: boolean; saved_rfp_id: number | null }>(`/saved-rfps/check/${rfpId}`).then(res => res.data),
+
+    getTags: () =>
+      apiClient.get<TagsList>('/saved-rfps/tags').then(res => res.data),
+
+    get: (savedId: number) =>
+      apiClient.get<SavedRfp>(`/saved-rfps/${savedId}`).then(res => res.data),
+
+    update: (savedId: number, data: SavedRfpUpdate) =>
+      apiClient.put<SavedRfp>(`/saved-rfps/${savedId}`, data).then(res => res.data),
+
+    unsave: (savedId: number) =>
+      apiClient.delete(`/saved-rfps/${savedId}`).then(res => res.data),
+
+    unsaveByRfpId: (rfpId: number) =>
+      apiClient.delete(`/saved-rfps/by-rfp/${rfpId}`).then(res => res.data),
+
+    bulkSave: (data: { rfp_ids: number[]; tags?: string[]; folder?: string }) =>
+      apiClient.post<{ saved_count: number; skipped_count: number }>('/saved-rfps/bulk', data).then(res => res.data),
+
+    bulkUnsave: (savedRfpIds: number[]) =>
+      apiClient.delete<{ deleted_count: number }>('/saved-rfps/bulk', { data: { saved_rfp_ids: savedRfpIds } }).then(res => res.data),
+  },
 }
 
 
