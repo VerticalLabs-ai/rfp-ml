@@ -2,7 +2,7 @@ import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent } from '@/components/ui/card'
 import { formatDistance } from 'date-fns'
-import { AlertTriangle, Check, ChevronRight, Trash2, X } from 'lucide-react'
+import { AlertTriangle, Check, ChevronRight, MessageSquare, Trash2, X } from 'lucide-react'
 import { useNavigate } from 'react-router-dom'
 import GenerateBidButton from './GenerateBidButton'
 import { HighlightedText } from '../hooks/useRfpSearch'
@@ -128,6 +128,17 @@ export default function RFPCard({ rfp, onTriageDecision, onDelete, searchTerm = 
 
           <div className="flex items-center space-x-2">
             <GenerateBidButton rfpId={rfp.rfp_id} rfpTitle={rfp.title} />
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={(e) => {
+                e.stopPropagation()
+                navigate(`/rfps/${rfp.rfp_id}?chat=open`)
+              }}
+              title="Chat with AI about this RFP"
+            >
+              <MessageSquare className="h-4 w-4" />
+            </Button>
             <Button
               onClick={() => onTriageDecision(rfp.rfp_id, 'approve')}
               size="sm"

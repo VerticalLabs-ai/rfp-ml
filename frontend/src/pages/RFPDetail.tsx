@@ -35,7 +35,7 @@ import {
   XCircle,
 } from 'lucide-react'
 import { useCallback, useEffect, useRef, useState } from 'react'
-import { useNavigate, useParams } from 'react-router-dom'
+import { useNavigate, useParams, useSearchParams } from 'react-router-dom'
 import { toast } from 'sonner'
 
 import { ContractChatbot } from '@/components/ContractChatbot'
@@ -217,6 +217,7 @@ export default function RFPDetail() {
   const { rfpId } = useParams<{ rfpId: string }>()
   const navigate = useNavigate()
   const queryClient = useQueryClient()
+  const [searchParams] = useSearchParams()
   const [selectedProfileId, setSelectedProfileId] = useState<string>('')
   const [qaFilter, setQaFilter] = useState<string>('all')
   const [generatedBid, setGeneratedBid] = useState<BidDocument | null>(null)
@@ -225,7 +226,7 @@ export default function RFPDetail() {
   const [generationMode, setGenerationMode] = useState<GenerationMode>('claude_enhanced')
 
   // Chat state
-  const [isChatOpen, setIsChatOpen] = useState(false)
+  const [isChatOpen, setIsChatOpen] = useState(() => searchParams.get('chat') === 'open')
 
   // Dialog state
   const [showArchiveDialog, setShowArchiveDialog] = useState(false)
