@@ -35,7 +35,7 @@ class PipelineRFPResponse(BaseModel):
     agency: str | None
     current_stage: str
     triage_score: float | None
-    created_at: datetime | None
+    discovered_at: datetime | None
     updated_at: datetime | None
 
     class Config:
@@ -76,7 +76,7 @@ def rfp_to_pipeline_dict(rfp: RFPOpportunity) -> dict:
         "agency": rfp.agency,
         "current_stage": rfp.current_stage.value if rfp.current_stage else "discovered",
         "triage_score": rfp.triage_score,
-        "created_at": rfp.created_at,
+        "discovered_at": rfp.discovered_at,
         "updated_at": rfp.updated_at,
     }
 
