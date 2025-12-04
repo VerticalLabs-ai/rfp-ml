@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { api } from '../services/api'
 import {
@@ -166,64 +166,6 @@ function PredictionSkeleton() {
   )
 }
 
-function ErrorFallback({
-  error,
-  onRetry,
-  isRetrying,
-  fallbackData,
-}: {
-  error: string
-  onRetry: () => void
-  isRetrying: boolean
-  fallbackData?: Prediction[]
-}) {
-  return (
-    <div className="space-y-6">
-      <Card className="border-amber-200 dark:border-amber-800 bg-amber-50 dark:bg-amber-900/20">
-        <CardContent className="py-6">
-          <div className="flex items-start gap-4">
-            <AlertCircle className="w-6 h-6 text-amber-600 flex-shrink-0 mt-0.5" />
-            <div className="flex-1">
-              <h3 className="font-semibold text-amber-800 dark:text-amber-300 mb-1">
-                {error.includes('timeout') ? 'Analysis Taking Longer Than Expected' : 'Unable to Generate Fresh Predictions'}
-              </h3>
-              <p className="text-sm text-amber-700 dark:text-amber-400 mb-4">
-                {error.includes('timeout')
-                  ? 'The AI analysis is taking longer than usual. You can view cached predictions while we continue processing in the background.'
-                  : error}
-              </p>
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={onRetry}
-                disabled={isRetrying}
-                className="border-amber-300 text-amber-700 hover:bg-amber-100 dark:border-amber-700 dark:text-amber-400"
-              >
-                {isRetrying ? (
-                  <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                ) : (
-                  <RefreshCw className="w-4 h-4 mr-2" />
-                )}
-                {isRetrying ? 'Retrying...' : 'Retry Analysis'}
-              </Button>
-            </div>
-          </div>
-        </CardContent>
-      </Card>
-
-      {fallbackData && fallbackData.length > 0 && (
-        <>
-          <div className="flex items-center gap-2 text-sm text-gray-500">
-            <Database className="w-4 h-4" />
-            Showing {fallbackData.length} cached predictions
-          </div>
-          <PredictionGrid predictions={fallbackData} />
-        </>
-      )}
-    </div>
-  )
-}
-
 function PredictionGrid({ predictions }: { predictions: Prediction[] }) {
   return (
     <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
@@ -341,80 +283,68 @@ export function FutureOpportunities() {
   const [loadingPhase, setLoadingPhase] = useState<LoadingPhase>('idle')
   const [loadingProgress, setLoadingProgress] = useState(0)
   const [elapsedSeconds, setElapsedSeconds] = useState(0)
-  const [fallbackPredictions, setFallbackPredictions] = useState<Prediction[] | null>(null)
 
-  // Main predictions query with 60s timeout
+  // Manual generation state
+  const [isGenerating, setIsGenerating] = useState(false)
+  const [generationError, setGenerationError] = useState<string | null>(null)
+
+  // Check for cached predictions on page load (fast, no generation)
   const {
-    data: predictions,
-    isLoading,
-    error,
-    isError,
-    refetch,
-    isFetching,
+    data: cachedData,
+    isLoading: isLoadingCache,
+    refetch: refetchCache,
   } = useQuery({
-    queryKey: ['predictions'],
-    queryFn: async () => {
-      setLoadingPhase('checking_cache')
-      setLoadingProgress(10)
-
-      // Simulate progress updates
-      const progressInterval = setInterval(() => {
-        setLoadingProgress((prev) => {
-          if (prev < 30) return prev + 5
-          if (prev < 60) return prev + 3
-          if (prev < 85) return prev + 2
-          return prev
-        })
-        setElapsedSeconds((prev) => prev + 1)
-      }, 1000)
-
-      try {
-        setLoadingPhase('loading_data')
-        const result = await api.getPredictions(0.3, { timeout: 55, use_ai: true })
-        setLoadingPhase('complete')
-        setLoadingProgress(100)
-        return result
-      } finally {
-        clearInterval(progressInterval)
-      }
-    },
-    retry: 1,
-    staleTime: 5 * 60 * 1000, // 5 minutes
-    gcTime: 30 * 60 * 1000, // 30 minutes
+    queryKey: ['predictions-cache'],
+    queryFn: () => api.getFallbackPredictions(0.3),
+    staleTime: 60 * 1000, // 1 minute
   })
 
-  // Fetch fallback predictions on error
-  useEffect(() => {
-    if (isError && !fallbackPredictions) {
-      api.getFallbackPredictions(0.3)
-        .then((result) => {
-          if (result.predictions && result.predictions.length > 0) {
-            setFallbackPredictions(result.predictions)
-          }
-        })
-        .catch(() => {
-          // Ignore fallback errors
-        })
-    }
-  }, [isError, fallbackPredictions])
+  // Use cached predictions if available
+  const predictions = cachedData?.predictions as Prediction[] | undefined
+  const hasCachedData = predictions && predictions.length > 0
 
-  // Reset loading state when starting fresh
-  useEffect(() => {
-    if (isLoading) {
-      setElapsedSeconds(0)
-      setLoadingProgress(0)
-      setLoadingPhase('idle')
-    }
-  }, [isLoading])
+  // Manual generation function
+  const handleGeneratePredictions = async () => {
+    setIsGenerating(true)
+    setGenerationError(null)
+    setLoadingPhase('checking_cache')
+    setLoadingProgress(10)
+    setElapsedSeconds(0)
 
-  const handleRefresh = async () => {
-    setFallbackPredictions(null)
-    await api.clearPredictionCache().catch(() => {})
-    refetch()
+    const progressInterval = setInterval(() => {
+      setLoadingProgress((prev) => {
+        if (prev < 30) return prev + 5
+        if (prev < 60) return prev + 3
+        if (prev < 85) return prev + 2
+        return prev
+      })
+      setElapsedSeconds((prev) => prev + 1)
+    }, 1000)
+
+    try {
+      setLoadingPhase('loading_data')
+      await api.clearPredictionCache()
+      await api.getPredictions(0.3, { timeout: 55, use_ai: true })
+      setLoadingPhase('complete')
+      setLoadingProgress(100)
+      // Refetch cache to update UI
+      await refetchCache()
+    } catch (err) {
+      const errorMessage = err instanceof Error ? err.message : String(err)
+      setGenerationError(errorMessage)
+      setLoadingPhase('error')
+    } finally {
+      clearInterval(progressInterval)
+      setIsGenerating(false)
+    }
   }
 
-  // Loading state
-  if (isLoading) {
+  const handleRefresh = async () => {
+    await handleGeneratePredictions()
+  }
+
+  // Initial cache loading (fast)
+  if (isLoadingCache) {
     return (
       <div className="space-y-6">
         <div className="flex items-center justify-between">
@@ -429,73 +359,12 @@ export function FutureOpportunities() {
           </div>
         </div>
 
-        <LoadingState
-          phase={loadingPhase}
-          progress={loadingProgress}
-          elapsedSeconds={elapsedSeconds}
-        />
-
-        {/* Skeleton grid */}
+        {/* Brief loading skeleton */}
         <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-          {[...Array(6)].map((_, i) => (
+          {[...Array(3)].map((_, i) => (
             <PredictionSkeleton key={i} />
           ))}
         </div>
-      </div>
-    )
-  }
-
-  // Error state with fallback
-  if (isError || error) {
-    const errorMessage = error instanceof Error ? error.message : String(error)
-    const isNoData = errorMessage.includes('404') || errorMessage.includes('not found')
-
-    if (isNoData) {
-      return (
-        <div className="space-y-6">
-          <div className="flex items-center justify-between">
-            <div>
-              <h1 className="text-2xl font-bold text-slate-900 dark:text-white flex items-center gap-2">
-                <TrendingUp className="h-6 w-6 text-blue-500" />
-                Future Opportunities
-              </h1>
-              <p className="text-slate-500 dark:text-slate-400 mt-1">
-                AI-powered forecasting of recurring government contracts
-              </p>
-            </div>
-          </div>
-
-          <div className="text-center py-16 bg-slate-50 dark:bg-slate-800/50 rounded-xl border border-dashed border-slate-300">
-            <BarChart3 className="mx-auto h-12 w-12 text-slate-400 mb-4" />
-            <h3 className="text-lg font-medium text-slate-700 dark:text-slate-300 mb-2">No Historical Data Available</h3>
-            <p className="text-slate-500 max-w-md mx-auto">
-              Upload historical RFP data (FY2023 or FY2025 archived opportunities) to enable AI-powered opportunity forecasting.
-            </p>
-          </div>
-        </div>
-      )
-    }
-
-    return (
-      <div className="space-y-6">
-        <div className="flex items-center justify-between">
-          <div>
-            <h1 className="text-2xl font-bold text-slate-900 dark:text-white flex items-center gap-2">
-              <TrendingUp className="h-6 w-6 text-blue-500" />
-              Future Opportunities
-            </h1>
-            <p className="text-slate-500 dark:text-slate-400 mt-1">
-              AI-powered forecasting of recurring government contracts
-            </p>
-          </div>
-        </div>
-
-        <ErrorFallback
-          error={errorMessage}
-          onRetry={handleRefresh}
-          isRetrying={isFetching}
-          fallbackData={fallbackPredictions || undefined}
-        />
       </div>
     )
   }
@@ -522,23 +391,66 @@ export function FutureOpportunities() {
             </Badge>
           )}
           <Button
-            variant="outline"
+            variant={hasCachedData ? "outline" : "default"}
             size="sm"
             onClick={handleRefresh}
-            disabled={isFetching}
+            disabled={isGenerating}
           >
-            {isFetching ? (
+            {isGenerating ? (
               <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-            ) : (
+            ) : hasCachedData ? (
               <RefreshCw className="h-4 w-4 mr-2" />
+            ) : (
+              <Sparkles className="h-4 w-4 mr-2" />
             )}
-            Refresh Analysis
+            {isGenerating ? 'Generating...' : hasCachedData ? 'Refresh Analysis' : 'Generate Predictions'}
           </Button>
         </div>
       </div>
 
+      {/* Show generate button when no cached data */}
+      {!hasCachedData && !isGenerating && (
+        <Card className="border-dashed">
+          <CardContent className="py-12 text-center">
+            <BarChart3 className="mx-auto h-12 w-12 text-slate-400 mb-4" />
+            <h3 className="text-lg font-medium text-slate-700 dark:text-slate-300 mb-2">
+              No Predictions Available
+            </h3>
+            <p className="text-slate-500 max-w-md mx-auto mb-6">
+              Generate AI-powered predictions based on historical government contract data.
+              This process may take 30-60 seconds.
+            </p>
+            <Button onClick={handleGeneratePredictions} size="lg">
+              <Sparkles className="h-4 w-4 mr-2" />
+              Generate Predictions
+            </Button>
+          </CardContent>
+        </Card>
+      )}
+
+      {/* Show loading state when generating */}
+      {isGenerating && (
+        <LoadingState
+          phase={loadingPhase}
+          progress={loadingProgress}
+          elapsedSeconds={elapsedSeconds}
+        />
+      )}
+
+      {/* Show generation error if any */}
+      {generationError && hasCachedData && (
+        <Card className="border-amber-200 dark:border-amber-800 bg-amber-50 dark:bg-amber-900/20">
+          <CardContent className="py-4">
+            <div className="flex items-center gap-2 text-amber-700 dark:text-amber-300">
+              <AlertCircle className="w-4 h-4" />
+              <span className="text-sm">Generation failed: {generationError}. Showing cached data.</span>
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
       {/* Stats summary */}
-      {predictions && predictions.length > 0 && (
+      {hasCachedData && (
         <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
           <div className="bg-white dark:bg-slate-800 rounded-lg border p-4">
             <div className="text-sm text-slate-500">Total Predictions</div>
@@ -563,16 +475,7 @@ export function FutureOpportunities() {
         </div>
       )}
 
-      <PredictionGrid predictions={predictions || []} />
-
-      {predictions?.length === 0 && (
-        <div className="text-center py-12 bg-slate-50 dark:bg-slate-800/50 rounded-xl border border-dashed border-slate-300">
-          <p className="text-slate-500">No recurring opportunities identified in historical data.</p>
-          <p className="text-xs text-slate-400 mt-2">
-            Try uploading more historical data or lowering the confidence threshold.
-          </p>
-        </div>
-      )}
+      {hasCachedData && <PredictionGrid predictions={predictions} />}
     </div>
   )
 }
