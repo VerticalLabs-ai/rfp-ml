@@ -107,9 +107,9 @@ export function CopilotChat({
     }
   }, [messages, currentResponse])
 
-  // Focus input on mount
+  // Focus input on mount (without scrolling the page)
   useEffect(() => {
-    inputRef.current?.focus()
+    inputRef.current?.focus({ preventScroll: true })
   }, [])
 
   // Handle send message
