@@ -268,11 +268,11 @@ export function ComplianceMatrix({ rfpId }: ComplianceMatrixProps) {
 
   const requirements = data?.requirements || []
   const summary = data ? {
-    total: data.total,
-    completed: data.completed,
-    inProgress: data.in_progress,
-    notStarted: data.not_started,
-    complianceRate: data.compliance_rate,
+    total: data.total ?? 0,
+    completed: data.completed ?? 0,
+    inProgress: data.in_progress ?? 0,
+    notStarted: data.not_started ?? 0,
+    complianceRate: data.compliance_rate ?? 0,
   } : { total: 0, completed: 0, inProgress: 0, notStarted: 0, complianceRate: 0 }
 
   return (

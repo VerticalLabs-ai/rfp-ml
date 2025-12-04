@@ -175,7 +175,7 @@ export function RAGStatus() {
                   <AlertCircle className="h-3 w-3 text-red-500" />
                 )}
                 <span>
-                  FAISS Index ({status.index_info.files.faiss_size_mb.toFixed(0)} MB)
+                  FAISS Index ({(status.index_info.files.faiss_size_mb ?? 0).toFixed(0)} MB)
                 </span>
               </div>
               <div className="flex items-center gap-2">

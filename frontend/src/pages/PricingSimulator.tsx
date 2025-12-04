@@ -161,8 +161,8 @@ export default function PricingSimulator() {
                 <div className="text-lg font-bold text-slate-900 dark:text-white">
                   ${val.total_price.toLocaleString(undefined, { maximumFractionDigits: 0 })}
                 </div>
-                <div className={`text-sm font-medium ${val.margin_percent < 15 ? 'text-red-500' : 'text-green-500'}`}>
-                  {val.margin_percent.toFixed(1)}% Margin
+                <div className={`text-sm font-medium ${(val.margin_percent ?? 0) < 15 ? 'text-red-500' : 'text-green-500'}`}>
+                  {(val.margin_percent ?? 0).toFixed(1)}% Margin
                 </div>
               </Card>
             ))}
