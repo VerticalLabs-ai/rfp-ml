@@ -661,6 +661,178 @@ async def delete_chat_session(
     return {"status": "deleted", "session_id": session_id}
 
 
+@router.post("/{rfp_id}/sessions/{session_id}/messages", response_model=ChatResponse)
+async def send_chat_message(
+    rfp_id: str,
+    session_id: str,
+    request: ChatRequest,
+    db: DBDep,
+):
+    """
+    Send a message and get AI response with RAG context.
+
+    This endpoint:
+    - Accepts a message from user
+    - Retrieves RAG context for the RFP
+    - Calls the LLM with the context
+    - Saves both user and assistant messages to database
+    - Returns response with citations
+    """
+    import time
+
+    from app.models.database import ChatMessage as DBChatMessage
+    from app.models.database import ChatSession, RFPOpportunity
+
+    start_time = time.time()
+
+    # Get session
+    session = (
+        db.query(ChatSession)
+        .join(RFPOpportunity)
+        .filter(
+            ChatSession.session_id == session_id,
+            RFPOpportunity.rfp_id == rfp_id,
+            ChatSession.is_active is True,
+        )
+        .first()
+    )
+
+    if not session:
+        raise HTTPException(status_code=404, detail="Session not found")
+
+    # Get RFP for context
+    rfp = db.query(RFPOpportunity).filter(RFPOpportunity.rfp_id == rfp_id).first()
+    if not rfp:
+        raise HTTPException(status_code=404, detail="RFP not found")
+
+    # Save user message
+    user_msg = DBChatMessage(session_id=session.id, role="user", content=request.message)
+    db.add(user_msg)
+
+    try:
+        # Get RAG context
+        from src.rag.chroma_rag_engine import get_rag_engine
+
+        rag_engine = get_rag_engine()
+        if not rag_engine:
+            raise HTTPException(status_code=503, detail="RAG engine not available")
+
+        if rag_engine.collection.count() == 0:
+            raise HTTPException(
+                status_code=503, detail="RAG index is empty. Please rebuild the index."
+            )
+
+        # Enhanced query with RFP context
+        enhanced_query = f"{rfp.title} {rfp.agency or ''} {request.message}"
+        rag_results = rag_engine.retrieve(enhanced_query, top_k=5)
+
+        # Build context from RAG results and RFP data
+        context_parts = [
+            f"RFP Title: {rfp.title}",
+            f"Agency: {rfp.agency or 'Unknown'}",
+            f"Description: {rfp.description or 'No description'}",
+        ]
+
+        if rfp.requirements:
+            context_parts.append(f"Requirements: {rfp.requirements[:2000]}")
+
+        # Add RAG retrieved content
+        citations = []
+        for i, result in enumerate(rag_results):
+            content = result.get("content", result.get("text", ""))
+            context_parts.append(f"\nRelevant Document {i+1}:\n{content[:1000]}")
+            citations.append(
+                Citation(
+                    document_id=result.get("metadata", {}).get("document_id", f"doc_{i}"),
+                    content_snippet=content[:200] + ("..." if len(content) > 200 else ""),
+                    source=result.get("metadata", {}).get("source", "RFP Document"),
+                    similarity_score=result.get("similarity", result.get("score", 0.0)),
+                )
+            )
+
+        context = "\n".join(context_parts)
+
+        # Build prompt
+        system_prompt = f"""You are an AI assistant helping users understand government RFP (Request for Proposal) documents.
+Answer questions based on the provided RFP context. Be specific and cite relevant parts of the RFP when possible.
+If you don't know the answer or it's not in the provided context, say so clearly.
+
+RFP Context:
+{context}"""
+
+        # Get message history for context
+        history_messages = (
+            db.query(DBChatMessage)
+            .filter(DBChatMessage.session_id == session.id)
+            .order_by(DBChatMessage.created_at)
+            .limit(10)
+            .all()
+        )
+
+        messages_for_llm = [{"role": "system", "content": system_prompt}]
+        for msg in history_messages:
+            messages_for_llm.append({"role": msg.role, "content": msg.content})
+        messages_for_llm.append({"role": "user", "content": request.message})
+
+        # Call LLM
+        from src.config.llm_adapter import create_llm_interface
+
+        llm = create_llm_interface()
+        llm_result = llm.generate_text(
+            "\n".join([m["content"] for m in messages_for_llm if m["role"] != "system"]),
+            use_case="chat",
+        )
+        response_text = llm_result.get("content", llm_result.get("text", ""))
+
+        processing_time = int((time.time() - start_time) * 1000)
+
+        # Calculate confidence
+        avg_score = (
+            sum(c.similarity_score for c in citations) / len(citations)
+            if citations
+            else 0.5
+        )
+        confidence = min(avg_score * 1.2, 1.0)
+
+        # Save assistant message
+        assistant_msg = DBChatMessage(
+            session_id=session.id,
+            role="assistant",
+            content=response_text,
+            citations=[c.model_dump() for c in citations],
+            processing_time_ms=processing_time,
+            model_used="default",
+            confidence=round(confidence, 2),
+        )
+        db.add(assistant_msg)
+
+        # Update session
+        session.message_count += 2
+        session.last_message_at = datetime.now(timezone.utc)
+        session.updated_at = datetime.now(timezone.utc)
+
+        db.commit()
+
+        return ChatResponse(
+            answer=response_text,
+            citations=citations,
+            confidence=round(confidence, 2),
+            rfp_id=rfp.rfp_id,
+            processing_time_ms=processing_time,
+            session_id=session.session_id,
+        )
+
+    except HTTPException:
+        db.rollback()
+        raise
+    except Exception as e:
+        db.rollback()
+        logger.error(f"Chat error for RFP {rfp_id}: {e}")
+        raise HTTPException(
+            status_code=500, detail=f"Failed to process chat request: {str(e)}"
+        )
+
+
 @router.get("/{rfp_id}/chat/status")
 async def get_chat_status(rfp: RFPDep):
     """
