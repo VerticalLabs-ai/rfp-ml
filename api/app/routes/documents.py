@@ -14,10 +14,13 @@ import uuid
 from datetime import datetime, timezone
 from pathlib import Path
 
+from app.core.database import get_db
 from app.dependencies import RFPDep
-from fastapi import APIRouter, BackgroundTasks, File, HTTPException, UploadFile
+from app.models.database import RFPDocument
+from fastapi import APIRouter, BackgroundTasks, Depends, File, HTTPException, UploadFile
 from fastapi.responses import FileResponse
 from pydantic import BaseModel
+from sqlalchemy.orm import Session
 
 # Add project root to path
 project_root = os.path.dirname(
@@ -70,7 +73,9 @@ _processing_status: dict[str, ProcessingStatus] = {}
 
 def get_document_upload_dir(rfp_id: str) -> Path:
     """Get the upload directory for an RFP's documents."""
-    upload_dir = Path("/app/data/uploads") / rfp_id
+    # Use environment variable or default to /tmp/uploads for local testing
+    base_upload_dir = os.getenv("UPLOAD_DIR", "/tmp/uploads")
+    upload_dir = Path(base_upload_dir) / rfp_id
     upload_dir.mkdir(parents=True, exist_ok=True)
     return upload_dir
 
@@ -252,6 +257,7 @@ async def upload_document(
     rfp: RFPDep,
     file: UploadFile = File(...),  # noqa: B008
     background_tasks: BackgroundTasks = None,
+    db: Session = Depends(get_db),
 ):
     """
     Upload a document for an RFP.
@@ -289,6 +295,20 @@ async def upload_document(
 
     filepath.write_bytes(content)
 
+    # Persist to database
+    db_document = RFPDocument(
+        rfp_id=rfp.id,
+        filename=filename,
+        file_path=str(filepath),
+        file_type=file_ext.lstrip("."),
+        file_size=file_size,
+        document_type="uploaded",
+        downloaded_at=datetime.now(timezone.utc),
+    )
+    db.add(db_document)
+    db.commit()
+    db.refresh(db_document)
+
     # Schedule background processing
     if background_tasks:
         background_tasks.add_task(
@@ -310,31 +330,28 @@ async def upload_document(
 
 
 @router.get("/{rfp_id}/uploads", response_model=DocumentListResponse)
-async def list_uploaded_documents(rfp: RFPDep):
+async def list_uploaded_documents(rfp: RFPDep, db: Session = Depends(get_db)):
     """List all uploaded documents for an RFP."""
-    upload_dir = get_document_upload_dir(rfp.rfp_id)
+    # Query from database
+    db_documents = db.query(RFPDocument).filter(RFPDocument.rfp_id == rfp.id).all()
     documents = []
 
-    if upload_dir.exists():
-        for filepath in upload_dir.iterdir():
-            if filepath.is_file():
-                doc_id = filepath.stem
-                status = _processing_status.get(doc_id)
+    for db_doc in db_documents:
+        doc_id = Path(db_doc.file_path).stem if db_doc.file_path else f"db-{db_doc.id}"
+        status = _processing_status.get(doc_id)
 
-                documents.append(
-                    UploadedDocument(
-                        id=doc_id,
-                        filename=filepath.name,
-                        file_type=filepath.suffix.lstrip("."),
-                        file_size=filepath.stat().st_size,
-                        uploaded_at=datetime.fromtimestamp(
-                            filepath.stat().st_mtime, tz=timezone.utc
-                        ).isoformat(),
-                        status=status.status if status else "completed",
-                        chunks_count=status.chunks_created if status else None,
-                        error=status.error if status else None,
-                    )
-                )
+        documents.append(
+            UploadedDocument(
+                id=doc_id,
+                filename=db_doc.filename,
+                file_type=db_doc.file_type or "unknown",
+                file_size=db_doc.file_size or 0,
+                uploaded_at=db_doc.downloaded_at.isoformat() if db_doc.downloaded_at else db_doc.created_at.isoformat(),
+                status=status.status if status else "completed",
+                chunks_count=status.chunks_created if status else None,
+                error=status.error if status else None,
+            )
+        )
 
     return DocumentListResponse(
         documents=sorted(documents, key=lambda d: d.uploaded_at, reverse=True),
@@ -363,16 +380,24 @@ async def get_processing_status(rfp: RFPDep, document_id: str):
 
 
 @router.delete("/{rfp_id}/uploads/{document_id}")
-async def delete_uploaded_document(rfp: RFPDep, document_id: str):
+async def delete_uploaded_document(rfp: RFPDep, document_id: str, db: Session = Depends(get_db)):
     """Delete an uploaded document."""
-    upload_dir = get_document_upload_dir(rfp.rfp_id)
-    matching = list(upload_dir.glob(f"{document_id}*"))
+    # Find document in database by matching file path
+    db_doc = db.query(RFPDocument).filter(
+        RFPDocument.rfp_id == rfp.id,
+        RFPDocument.file_path.like(f"%{document_id}%")
+    ).first()
 
-    if not matching:
+    if not db_doc:
         raise HTTPException(status_code=404, detail="Document not found")
 
-    for filepath in matching:
-        filepath.unlink()
+    # Delete file from filesystem
+    if db_doc.file_path and Path(db_doc.file_path).exists():
+        Path(db_doc.file_path).unlink()
+
+    # Delete from database
+    db.delete(db_doc)
+    db.commit()
 
     # Clean up processing status
     if document_id in _processing_status:
