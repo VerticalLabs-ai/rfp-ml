@@ -833,6 +833,207 @@ RFP Context:
         )
 
 
+@router.get("/{rfp_id}/sessions/{session_id}/stream")
+async def stream_chat_message(
+    rfp_id: str,
+    session_id: str,
+    message: str = Query(..., min_length=1, max_length=2000),
+    db: DBDep = None,
+):
+    """
+    Stream a chat response with RAG context using Server-Sent Events (SSE).
+
+    This endpoint:
+    - Accepts a message via query parameter (GET endpoint for SSE)
+    - Retrieves RAG context and sends citations first
+    - Streams LLM response chunks as text events
+    - Sends complete event when done
+    - Persists messages to the session
+
+    Returns SSE events with format:
+    - data: {"type": "citations", "citations": [...]}
+    - data: {"type": "text", "content": "chunk"}
+    - data: {"type": "complete"}
+    """
+    from app.models.database import ChatMessage as DBChatMessage
+    from app.models.database import ChatSession, RFPOpportunity
+
+    # Verify session and RFP exist
+    session = (
+        db.query(ChatSession)
+        .join(RFPOpportunity)
+        .filter(
+            ChatSession.session_id == session_id,
+            RFPOpportunity.rfp_id == rfp_id,
+            ChatSession.is_active is True,
+        )
+        .first()
+    )
+
+    if not session:
+        raise HTTPException(status_code=404, detail="Session not found")
+
+    rfp = db.query(RFPOpportunity).filter(RFPOpportunity.rfp_id == rfp_id).first()
+    if not rfp:
+        raise HTTPException(status_code=404, detail="RFP not found")
+
+    async def generate():
+        """Generate SSE events for streaming chat response."""
+        import time
+
+        start_time = time.time()
+        full_response = ""
+
+        try:
+            # Get RAG context
+            from src.rag.chroma_rag_engine import get_rag_engine
+
+            rag_engine = get_rag_engine()
+            if not rag_engine:
+                yield f"data: {json.dumps({'type': 'error', 'content': 'RAG engine not available'})}\n\n"
+                return
+
+            if rag_engine.collection.count() == 0:
+                yield f"data: {json.dumps({'type': 'error', 'content': 'RAG index is empty'})}\n\n"
+                return
+
+            # Enhanced query with RFP context
+            enhanced_query = f"{rfp.title} {rfp.agency or ''} {message}"
+            rag_results = rag_engine.retrieve(enhanced_query, top_k=5)
+
+            # Send citations first
+            citations = []
+            for result in rag_results:
+                content = result.get("content", result.get("text", ""))
+                citations.append({
+                    "text": content[:500],
+                    "source": result.get("metadata", {}).get("source", "RFP Document"),
+                    "similarity": result.get("similarity", result.get("score", 0.0)),
+                })
+
+            yield f"data: {json.dumps({'type': 'citations', 'citations': citations})}\n\n"
+
+            # Build context
+            context_parts = [
+                f"RFP Title: {rfp.title}",
+                f"Agency: {rfp.agency or 'Unknown'}",
+                f"Description: {rfp.description or 'No description'}",
+            ]
+
+            if rfp.requirements:
+                context_parts.append(f"Requirements: {rfp.requirements[:2000]}")
+
+            for i, result in enumerate(rag_results):
+                content = result.get("content", result.get("text", ""))
+                context_parts.append(f"\nRelevant Document {i+1}:\n{content[:1000]}")
+
+            context = "\n".join(context_parts)
+
+            # Build prompt
+            system_prompt = f"""You are an AI assistant helping users understand government RFP documents.
+Answer based on the provided context. Be specific and cite relevant parts.
+
+RFP Context:
+{context}"""
+
+            # Get message history for context
+            history_messages = (
+                db.query(DBChatMessage)
+                .filter(DBChatMessage.session_id == session.id)
+                .order_by(DBChatMessage.created_at)
+                .limit(10)
+                .all()
+            )
+
+            messages_for_llm = [{"role": "system", "content": system_prompt}]
+            for msg in history_messages:
+                messages_for_llm.append({"role": msg.role, "content": msg.content})
+            messages_for_llm.append({"role": "user", "content": message})
+
+            # Stream LLM response
+            from src.config.llm_adapter import create_llm_interface
+
+            llm = create_llm_interface()
+
+            # Check if LLM supports streaming
+            if hasattr(llm, "generate_streaming"):
+                # Stream from LLM
+                for chunk in llm.generate_streaming(
+                    "\n".join([m["content"] for m in messages_for_llm]),
+                    use_case="chat",
+                ):
+                    full_response += chunk
+                    yield f"data: {json.dumps({'type': 'text', 'content': chunk})}\n\n"
+            else:
+                # Fallback: non-streaming LLM, chunk the output
+                llm_result = llm.generate_text(
+                    "\n".join([m["content"] for m in messages_for_llm if m["role"] != "system"]),
+                    use_case="chat",
+                )
+                full_response = llm_result.get("content", llm_result.get("text", ""))
+
+                # Stream response in chunks for UI effect
+                chunk_size = 50
+                for i in range(0, len(full_response), chunk_size):
+                    chunk = full_response[i : i + chunk_size]
+                    yield f"data: {json.dumps({'type': 'text', 'content': chunk})}\n\n"
+                    await asyncio.sleep(0.02)
+
+            processing_time = int((time.time() - start_time) * 1000)
+
+            # Save messages to database
+            try:
+                user_msg = DBChatMessage(
+                    session_id=session.id, role="user", content=message
+                )
+                db.add(user_msg)
+
+                # Calculate confidence
+                avg_score = (
+                    sum(c["similarity"] for c in citations) / len(citations)
+                    if citations
+                    else 0.5
+                )
+                confidence = min(avg_score * 1.2, 1.0)
+
+                assistant_msg = DBChatMessage(
+                    session_id=session.id,
+                    role="assistant",
+                    content=full_response,
+                    citations=citations,
+                    processing_time_ms=processing_time,
+                    model_used="default",
+                    confidence=round(confidence, 2),
+                )
+                db.add(assistant_msg)
+
+                # Update session
+                session.message_count += 2
+                session.last_message_at = datetime.now(timezone.utc)
+                session.updated_at = datetime.now(timezone.utc)
+
+                db.commit()
+            except Exception as e:
+                logger.error(f"Failed to save messages: {e}")
+                db.rollback()
+
+            yield f"data: {json.dumps({'type': 'complete'})}\n\n"
+
+        except Exception as e:
+            logger.error(f"Streaming error: {e}")
+            yield f"data: {json.dumps({'type': 'error', 'content': str(e)})}\n\n"
+
+    return StreamingResponse(
+        generate(),
+        media_type="text/event-stream",
+        headers={
+            "Cache-Control": "no-cache",
+            "Connection": "keep-alive",
+            "X-Accel-Buffering": "no",
+        },
+    )
+
+
 @router.get("/{rfp_id}/chat/status")
 async def get_chat_status(rfp: RFPDep):
     """
