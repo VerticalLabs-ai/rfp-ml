@@ -203,7 +203,7 @@ export default function SavedContracts() {
               </SelectTrigger>
               <SelectContent>
                 <SelectItem value="__all__">All tags</SelectItem>
-                {tagsData?.tags.map(tag => (
+                {tagsData?.tags.filter(tag => tag && tag.trim() !== '').map(tag => (
                   <SelectItem key={tag} value={tag}>
                     {tag} ({tagsData.counts[tag]})
                   </SelectItem>
@@ -218,7 +218,7 @@ export default function SavedContracts() {
               </SelectTrigger>
               <SelectContent>
                 <SelectItem value="__all__">All folders</SelectItem>
-                {folders.map(folder => (
+                {folders.filter(folder => folder && folder.trim() !== '').map(folder => (
                   <SelectItem key={folder} value={folder}>
                     {folder} ({data?.folders_summary[folder]})
                   </SelectItem>
