@@ -868,6 +868,14 @@ export default function RFPDetail() {
                     <span className="text-sm font-medium">{format(new Date(rfp.award_date), 'PPP')}</span>
                   </div>
                 )}
+                {/* Empty state when no dates available */}
+                {!rfp.posted_date && !rfp.response_deadline && !rfp.award_date && !rfp.rfp_metadata?.qa_deadline && (
+                  <div className="text-center py-4 text-muted-foreground">
+                    <CalendarDays className="h-8 w-8 mx-auto mb-2 opacity-50" />
+                    <p className="text-sm">No dates available</p>
+                    <p className="text-xs mt-1">Key dates will appear here when extracted from the RFP</p>
+                  </div>
+                )}
               </CardContent>
             </Card>
 
