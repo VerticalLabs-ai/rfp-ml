@@ -36,6 +36,32 @@ _last_error: str | None = None
 REDIS_PREDICTIONS_KEY = "rfp:predictions:latest"
 REDIS_PREDICTIONS_META_KEY = "rfp:predictions:meta"
 
+# File-based cache (persists across container restarts)
+CACHE_FILE = PathConfig.DATA_DIR / "cache" / "predictions_cache.json"
+
+
+def get_cached_predictions_from_file() -> tuple[list[dict] | None, dict | None]:
+    """Get cached predictions from file."""
+    try:
+        if CACHE_FILE.exists():
+            with open(CACHE_FILE, 'r') as f:
+                data = json.load(f)
+                return data.get('predictions'), data.get('meta')
+    except Exception as e:
+        logger.warning(f"File cache read failed: {e}")
+    return None, None
+
+
+def cache_predictions_to_file(predictions: list[dict], meta: dict):
+    """Cache predictions to file."""
+    try:
+        CACHE_FILE.parent.mkdir(parents=True, exist_ok=True)
+        with open(CACHE_FILE, 'w') as f:
+            json.dump({'predictions': predictions, 'meta': meta}, f)
+        logger.info(f"Cached {len(predictions)} predictions to file")
+    except Exception as e:
+        logger.warning(f"File cache write failed: {e}")
+
 
 class PredictionStatus(BaseModel):
     """Status response for prediction generation."""
@@ -185,7 +211,7 @@ async def generate_predictions_with_timeout(
             except Exception as e:
                 logger.warning(f"AI insight generation failed: {e}")
 
-        # Update cache
+        # Update in-memory cache
         _cached_predictions = predictions
         _cache_timestamp = time.time()
 
@@ -196,7 +222,8 @@ async def generate_predictions_with_timeout(
             "elapsed_seconds": round(time.time() - start_time, 2),
         }
 
-        # Cache to Redis
+        # Cache to file (persistent) and Redis (if available)
+        cache_predictions_to_file(predictions, meta)
         cache_predictions_to_redis(predictions, meta)
 
         return predictions, meta
@@ -252,8 +279,18 @@ async def get_upcoming_predictions(
         logger.info(f"Returning {len(filtered)} cached predictions (age: {int(cache_age)}s)")
         return filtered
 
-    # Check Redis cache
+    # Check file cache first (most reliable), then Redis
     if not refresh:
+        # Try file cache first (persists across restarts)
+        file_predictions, file_meta = get_cached_predictions_from_file()
+        if file_predictions:
+            _cached_predictions = file_predictions
+            _cache_timestamp = time.time()
+            filtered = [p for p in file_predictions if p["confidence"] >= confidence]
+            logger.info(f"Returning {len(filtered)} file-cached predictions")
+            return filtered
+
+        # Fallback to Redis cache
         redis_predictions, redis_meta = get_cached_predictions_from_redis()
         if redis_predictions:
             _cached_predictions = redis_predictions
@@ -381,11 +418,19 @@ async def trigger_prediction_generation(
 
 @router.delete("/cache")
 async def clear_predictions_cache():
-    """Clear the predictions cache to force a refresh."""
+    """Clear all prediction caches to force a refresh."""
     global _cached_predictions, _cache_timestamp
 
     _cached_predictions = None
     _cache_timestamp = 0
+
+    # Clear file cache
+    try:
+        if CACHE_FILE.exists():
+            CACHE_FILE.unlink()
+            logger.info("File cache cleared")
+    except Exception as e:
+        logger.warning(f"Failed to clear file cache: {e}")
 
     # Clear Redis cache too
     client = get_redis_client()
@@ -416,6 +461,17 @@ async def get_fallback_predictions(
             "predictions": filtered,
             "count": len(filtered),
             "cache_age_seconds": int(time.time() - _cache_timestamp) if _cache_timestamp else None,
+        }
+
+    # Check file cache
+    file_predictions, file_meta = get_cached_predictions_from_file()
+    if file_predictions:
+        filtered = [p for p in file_predictions if p["confidence"] >= confidence]
+        return {
+            "status": "file_cached",
+            "predictions": filtered,
+            "count": len(filtered),
+            "generated_at": file_meta.get("generated_at") if file_meta else None,
         }
 
     # Check Redis
