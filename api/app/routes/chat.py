@@ -1034,6 +1034,68 @@ RFP Context:
     )
 
 
+@router.get("/{rfp_id}/sessions/{session_id}/messages")
+async def get_chat_history(
+    rfp_id: str,
+    session_id: str,
+    db: DBDep,
+    limit: int = Query(50, ge=1, le=500),
+):
+    """
+    Get chat history for a session.
+
+    Returns a list of messages for the session with:
+    - id: Message database ID
+    - role: 'user' or 'assistant'
+    - content: Message text
+    - citations: List of citations (for assistant messages)
+    - created_at: Timestamp when message was created
+
+    Messages are ordered by created_at ascending (oldest first).
+    """
+    from app.models.database import ChatMessage as DBChatMessage
+    from app.models.database import ChatSession, RFPOpportunity
+
+    # Get session and verify it belongs to the RFP
+    session = (
+        db.query(ChatSession)
+        .join(RFPOpportunity)
+        .filter(
+            ChatSession.session_id == session_id,
+            RFPOpportunity.rfp_id == rfp_id,
+        )
+        .first()
+    )
+
+    if not session:
+        raise HTTPException(status_code=404, detail="Session not found")
+
+    # Get messages ordered by created_at ascending
+    messages = (
+        db.query(DBChatMessage)
+        .filter(DBChatMessage.session_id == session.id)
+        .order_by(DBChatMessage.created_at.asc())
+        .limit(limit)
+        .all()
+    )
+
+    return {
+        "session_id": session_id,
+        "rfp_id": rfp_id,
+        "total_messages": len(messages),
+        "messages": [
+            {
+                "id": msg.id,
+                "role": msg.role,
+                "content": msg.content,
+                "citations": msg.citations or [],
+                "created_at": msg.created_at.isoformat() if msg.created_at else None,
+            }
+            for msg in messages
+        ],
+    }
+
+
 @router.get("/{rfp_id}/chat/status")
 async def get_chat_status(rfp: RFPDep):
     """
