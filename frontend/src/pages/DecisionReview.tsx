@@ -1,3 +1,4 @@
+import { useState } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { api } from '../services/api'
 import { toast } from 'sonner'
@@ -5,10 +6,27 @@ import DecisionCard from '../components/DecisionCard'
 
 export default function DecisionReview() {
   const queryClient = useQueryClient()
+  const [analyzingRfpId, setAnalyzingRfpId] = useState<string | null>(null)
 
   const { data: pendingDecisions, isLoading } = useQuery({
     queryKey: ['pending-decisions'],
     queryFn: () => api.getPendingDecisions()
+  })
+
+  const analyzeMutation = useMutation({
+    mutationFn: (rfpId: string) => {
+      setAnalyzingRfpId(rfpId)
+      return api.analyzeRfp(rfpId)
+    },
+    onSuccess: (data) => {
+      queryClient.invalidateQueries({ queryKey: ['pending-decisions'] })
+      toast.success(`Analysis complete: ${data.decision_recommendation?.toUpperCase() || 'Review'} recommendation`)
+      setAnalyzingRfpId(null)
+    },
+    onError: () => {
+      toast.error('Analysis failed. Please try again.')
+      setAnalyzingRfpId(null)
+    }
   })
 
   const approveMutation = useMutation({
@@ -27,13 +45,22 @@ export default function DecisionReview() {
     }
   })
 
+  const needsAnalysis = pendingDecisions?.filter((rfp: any) => rfp.overall_score == null).length || 0
+
   return (
     <div className="space-y-6">
-      <div>
-        <h2 className="text-2xl font-bold text-gray-900">Decision Review</h2>
-        <p className="mt-1 text-sm text-gray-500">
-          Review Go/No-Go recommendations and approve bids
-        </p>
+      <div className="flex items-center justify-between">
+        <div>
+          <h2 className="text-2xl font-bold text-gray-900 dark:text-white">Decision Review</h2>
+          <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">
+            Review Go/No-Go recommendations and approve bids
+          </p>
+        </div>
+        {needsAnalysis > 0 && (
+          <span className="px-3 py-1 bg-amber-100 text-amber-800 dark:bg-amber-900 dark:text-amber-200 rounded-full text-sm">
+            {needsAnalysis} need{needsAnalysis > 1 ? '' : 's'} analysis
+          </span>
+        )}
       </div>
 
       {isLoading ? (
@@ -46,6 +73,8 @@ export default function DecisionReview() {
               rfp={rfp}
               onApprove={() => approveMutation.mutate(rfp.rfp_id)}
               onReject={() => rejectMutation.mutate(rfp.rfp_id)}
+              onAnalyze={() => analyzeMutation.mutate(rfp.rfp_id)}
+              isAnalyzing={analyzingRfpId === rfp.rfp_id}
             />
           ))}
           {pendingDecisions?.length === 0 && (
