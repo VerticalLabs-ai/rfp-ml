@@ -131,74 +131,156 @@ class ComplianceMatrixGenerator:
                 "category": "performance"
             }
         ]
-    def extract_requirements_rule_based(self, rfp_text: str) -> list[dict[str, Any]]:
+    def extract_requirements_rule_based(self, rfp_text: str, document_sources: list[str] | None = None) -> list[dict[str, Any]]:
         """
         Extract requirements using rule-based pattern matching.
         Args:
             rfp_text: RFP description text
+            document_sources: List of document filenames that were included in the text
         Returns:
-            List of extracted requirements with metadata
+            List of extracted requirements with metadata including source tracking
         """
         requirements = []
         if not rfp_text or not isinstance(rfp_text, str):
             return requirements
-        # Clean text
-        clean_text = re.sub(r'\s+', ' ', rfp_text.strip())
-        for pattern_group in self.requirement_patterns:
-            for pattern in pattern_group["patterns"]:
-                matches = re.findall(pattern, clean_text, re.MULTILINE | re.DOTALL)
-                for match in matches:
-                    if len(match.strip()) > 20:  # Filter out very short matches
-                        requirement = {
-                            "id": f"req_{len(requirements) + 1}",
-                            "text": match.strip(),
-                            "category": pattern_group["category"],
-                            "extraction_method": "rule_based",
-                            "pattern_type": pattern_group["name"],
-                            "mandatory": pattern_group["category"] == "mandatory",
-                            "confidence": 0.7  # Rule-based confidence
-                        }
-                        requirements.append(requirement)
+
+        # Track which document/section we're in
+        current_source_doc = "RFP Description"
+        current_section = None
+        page_number = None
+
+        # Split into sections based on document markers
+        sections = re.split(r'===\s*Document:\s*([^=]+)\s*===', rfp_text)
+
+        for i in range(0, len(sections)):
+            section = sections[i].strip()
+
+            # Check if this is a document name
+            if i > 0 and i % 2 == 1:  # Odd indices are document names after split
+                current_source_doc = section.strip()
+                continue
+
+            if not section:
+                continue
+
+            # Extract section headers and page markers
+            lines = section.split('\n')
+            for line in lines:
+                line = line.strip()
+
+                # Detect section headers
+                if len(line) > 3 and (line.endswith(':') or (line.isupper() and len(line.split()) <= 10)):
+                    current_section = line.rstrip(':')
+
+                # Detect page markers [Page N]
+                page_match = re.search(r'\[Page\s+(\d+)\]', line, re.IGNORECASE)
+                if page_match:
+                    page_number = int(page_match.group(1))
+
+            # Clean text for pattern matching
+            clean_text = re.sub(r'\s+', ' ', section.strip())
+
+            # Apply patterns
+            for pattern_group in self.requirement_patterns:
+                for pattern in pattern_group["patterns"]:
+                    matches = re.findall(pattern, clean_text, re.MULTILINE | re.DOTALL)
+                    for match in matches:
+                        if len(match.strip()) > 20:  # Filter out very short matches
+                            requirement = {
+                                "id": f"req_{len(requirements) + 1}",
+                                "text": match.strip(),
+                                "category": pattern_group["category"],
+                                "extraction_method": "rule_based",
+                                "pattern_type": pattern_group["name"],
+                                "mandatory": pattern_group["category"] == "mandatory",
+                                "confidence": 0.7,  # Rule-based confidence
+                                "source_document": current_source_doc,
+                                "source_section": current_section,
+                                "source_page": page_number
+                            }
+                            requirements.append(requirement)
+
         # Remove duplicates and very similar requirements
         requirements = self._deduplicate_requirements(requirements)
         return requirements
-    def extract_requirements_llm(self, rfp_text: str) -> list[dict[str, Any]]:
+    def extract_requirements_llm(self, rfp_text: str, document_sources: list[str] | None = None) -> list[dict[str, Any]]:
         """
         Extract requirements using LLM-based analysis.
         Note: This is a placeholder for LLM integration.
         In production, this would use the configured LLM API.
         Args:
             rfp_text: RFP description text
+            document_sources: List of document filenames that were included in the text
         Returns:
-            List of extracted requirements with metadata
+            List of extracted requirements with metadata including source tracking
         """
         # Placeholder LLM-based extraction
         # In a real implementation, this would call an LLM API
         requirements = []
         # For now, use enhanced rule-based extraction with LLM-style analysis
-        sentences = re.split(r'[.!?]+', rfp_text)
-        for _i, sentence in enumerate(sentences):
-            sentence = sentence.strip()
-            if len(sentence) < 30:  # Skip very short sentences
+
+        # Track which section we're in by detecting document markers
+        current_source_doc = "RFP Description"
+        current_section = None
+        page_number = None
+
+        # Split into sections based on document markers
+        sections = re.split(r'===\s*Document:\s*([^=]+)\s*===', rfp_text)
+
+        for i in range(0, len(sections)):
+            section = sections[i].strip()
+
+            # Check if this is a document name
+            if i > 0 and i % 2 == 1:  # Odd indices are document names after split
+                current_source_doc = section.strip()
                 continue
-            # LLM-style requirement detection
-            requirement_indicators = [
-                'must', 'shall', 'required', 'mandatory', 'essential',
-                'minimum', 'maximum', 'specification', 'standard',
-                'provide', 'submit', 'include', 'demonstrate'
-            ]
-            if any(indicator in sentence.lower() for indicator in requirement_indicators):
-                # Determine category based on content
-                category = self._categorize_requirement(sentence)
-                requirement = {
-                    "id": f"llm_req_{len(requirements) + 1}",
-                    "text": sentence,
-                    "category": category,
-                    "extraction_method": "llm_based",
-                    "mandatory": any(word in sentence.lower() for word in ['must', 'shall', 'required', 'mandatory']),
-                    "confidence": 0.8  # Higher confidence for LLM-based
-                }
-                requirements.append(requirement)
+
+            if not section:
+                continue
+
+            # Extract section headers (lines that end with colon or are ALL CAPS)
+            lines = section.split('\n')
+            for line_idx, line in enumerate(lines):
+                line = line.strip()
+
+                # Detect section headers
+                if len(line) > 3 and (line.endswith(':') or (line.isupper() and len(line.split()) <= 10)):
+                    current_section = line.rstrip(':')
+
+                # Detect page markers [Page N]
+                page_match = re.search(r'\[Page\s+(\d+)\]', line, re.IGNORECASE)
+                if page_match:
+                    page_number = int(page_match.group(1))
+
+            # Now extract requirements from sentences
+            sentences = re.split(r'[.!?]+', section)
+            for _j, sentence in enumerate(sentences):
+                sentence = sentence.strip()
+                if len(sentence) < 30:  # Skip very short sentences
+                    continue
+
+                # LLM-style requirement detection
+                requirement_indicators = [
+                    'must', 'shall', 'required', 'mandatory', 'essential',
+                    'minimum', 'maximum', 'specification', 'standard',
+                    'provide', 'submit', 'include', 'demonstrate'
+                ]
+                if any(indicator in sentence.lower() for indicator in requirement_indicators):
+                    # Determine category based on content
+                    category = self._categorize_requirement(sentence)
+                    requirement = {
+                        "id": f"llm_req_{len(requirements) + 1}",
+                        "text": sentence,
+                        "category": category,
+                        "extraction_method": "llm_based",
+                        "mandatory": any(word in sentence.lower() for word in ['must', 'shall', 'required', 'mandatory']),
+                        "confidence": 0.8,  # Higher confidence for LLM-based
+                        "source_document": current_source_doc,
+                        "source_section": current_section,
+                        "source_page": page_number
+                    }
+                    requirements.append(requirement)
+
         return requirements
     def _categorize_requirement(self, text: str) -> str:
         """Categorize a requirement based on its content."""

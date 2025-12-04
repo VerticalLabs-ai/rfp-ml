@@ -365,11 +365,22 @@ async def extract_requirements(
             req_data.get("category", "").lower(), RequirementType.MANDATORY
         )
 
+        # Extract source tracking from requirement data
+        source_document = req_data.get("source_document")
+        if not source_document:
+            # Fallback to aggregated source list if not specified
+            source_document = ", ".join(source_docs) if source_docs else "RFP Description"
+
+        source_section = req_data.get("source_section")
+        source_page = req_data.get("source_page")
+
         db_req = ComplianceRequirement(
             rfp_id=rfp_id,
             requirement_id=req_data.get("requirement_id", f"EXT.{idx + 1}"),
             requirement_text=req_data.get("text", req_data.get("requirement_text", "")),
-            source_document=", ".join(source_docs),
+            source_document=source_document,
+            source_section=source_section,
+            source_page=source_page,
             requirement_type=req_type,
             is_mandatory=req_data.get("mandatory", True),
             status=RequirementStatus.NOT_STARTED,
@@ -396,7 +407,7 @@ async def extract_requirements(
 
 
 def _simple_requirement_extraction(text: str) -> list[dict]:
-    """Simple fallback extraction using pattern matching."""
+    """Simple fallback extraction using pattern matching with source tracking."""
     import re
 
     requirements = []
@@ -405,20 +416,57 @@ def _simple_requirement_extraction(text: str) -> list[dict]:
         r"(?:the contractor|the vendor|offeror)\s+(?:shall|must|will)\s+([^.]+\.)",
     ]
 
+    # Track which document/section we're in
+    current_source_doc = "RFP Description"
+    current_section = None
+    page_number = None
+
+    # Split into sections based on document markers
+    sections = re.split(r'===\s*Document:\s*([^=]+)\s*===', text)
+
     seen = set()
-    for pattern in patterns:
-        matches = re.findall(pattern, text, re.IGNORECASE)
-        for match in matches:
-            text_clean = match.strip()
-            if text_clean and text_clean not in seen and len(text_clean) > 20:
-                seen.add(text_clean)
-                requirements.append(
-                    {
-                        "text": text_clean,
-                        "category": "mandatory",
-                        "mandatory": True,
-                    }
-                )
+    for i in range(0, len(sections)):
+        section = sections[i].strip()
+
+        # Check if this is a document name
+        if i > 0 and i % 2 == 1:  # Odd indices are document names after split
+            current_source_doc = section.strip()
+            continue
+
+        if not section:
+            continue
+
+        # Extract section headers and page markers
+        lines = section.split('\n')
+        for line in lines:
+            line = line.strip()
+
+            # Detect section headers
+            if len(line) > 3 and (line.endswith(':') or (line.isupper() and len(line.split()) <= 10)):
+                current_section = line.rstrip(':')
+
+            # Detect page markers [Page N]
+            page_match = re.search(r'\[Page\s+(\d+)\]', line, re.IGNORECASE)
+            if page_match:
+                page_number = int(page_match.group(1))
+
+        # Apply patterns to this section
+        for pattern in patterns:
+            matches = re.findall(pattern, section, re.IGNORECASE)
+            for match in matches:
+                text_clean = match.strip()
+                if text_clean and text_clean not in seen and len(text_clean) > 20:
+                    seen.add(text_clean)
+                    requirements.append(
+                        {
+                            "text": text_clean,
+                            "category": "mandatory",
+                            "mandatory": True,
+                            "source_document": current_source_doc,
+                            "source_section": current_section,
+                            "source_page": page_number,
+                        }
+                    )
 
     return requirements[:50]  # Limit to 50 requirements
 
