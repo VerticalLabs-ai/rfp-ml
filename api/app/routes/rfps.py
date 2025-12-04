@@ -626,6 +626,66 @@ async def process_manual_rfp(rfp_data: ManualRFPSubmit, db: DBDep):
     return {**processed, "id": rfp.id, "rfp_id": rfp.rfp_id, "saved": True}
 
 
+@router.post("/{rfp_id}/analyze")
+async def analyze_rfp(rfp: RFPDep, db: DBDep):
+    """
+    Run Go/No-Go analysis on an RFP and persist scores.
+
+    This endpoint triggers the scoring engine to calculate:
+    - overall_score: Combined weighted score (0-100)
+    - triage_score: Initial opportunity assessment
+    - decision_recommendation: 'go', 'no-go', or 'review'
+    - confidence_level: Model confidence (0-1)
+    """
+    from app.websockets.websocket_router import broadcast_rfp_update
+
+    # Prepare RFP data for analysis
+    rfp_data = {
+        "title": rfp.title,
+        "description": rfp.description,
+        "agency": rfp.agency,
+        "naics_code": rfp.naics_code,
+        "category": rfp.category,
+        "award_amount": rfp.award_amount or rfp.estimated_value,
+        "response_deadline": rfp.response_deadline.isoformat() if rfp.response_deadline else None,
+    }
+
+    # Run analysis through processor
+    result = await processor.process_single_rfp(rfp_data)
+
+    # Update database with scores
+    rfp.triage_score = result.get("triage_score")
+    rfp.overall_score = result.get("triage_score")  # Use triage as overall for now
+    rfp.decision_recommendation = result.get("decision_recommendation")
+    rfp.confidence_level = result.get("confidence_level")
+    rfp.updated_at = datetime.now(timezone.utc)
+
+    db.commit()
+    db.refresh(rfp)
+
+    # Broadcast update via WebSocket
+    try:
+        await broadcast_rfp_update(rfp.rfp_id, {
+            "event": "rfp_analyzed",
+            "rfp_id": rfp.rfp_id,
+            "overall_score": rfp.overall_score,
+            "decision_recommendation": rfp.decision_recommendation,
+        })
+    except Exception:
+        pass  # WebSocket errors shouldn't fail the request
+
+    return {
+        "rfp_id": rfp.rfp_id,
+        "overall_score": rfp.overall_score,
+        "triage_score": rfp.triage_score,
+        "decision_recommendation": rfp.decision_recommendation,
+        "confidence_level": rfp.confidence_level,
+        "justification": result.get("justification"),
+        "risk_factors": result.get("risk_factors", []),
+        "strengths": result.get("strengths", []),
+    }
+
+
 @router.post("/{rfp_id}/generate-bid")
 async def generate_bid_document(
     rfp: RFPDep,
