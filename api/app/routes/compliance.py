@@ -1,5 +1,6 @@
 """Compliance matrix API routes."""
 import logging
+from pathlib import Path
 
 from app.core.database import get_db
 from app.models.database import (
@@ -8,6 +9,7 @@ from app.models.database import (
     RequirementType,
     RFPOpportunity,
 )
+from app.routes.documents import extract_text_from_file, get_document_upload_dir
 from app.schemas.compliance import (
     AIResponseRequest,
     AIResponseResult,
@@ -242,6 +244,58 @@ async def extract_requirements(
         )
         text_parts.append(f"[Q&A]\n{qa_text}")
 
+    # Get uploaded document content
+    uploaded_docs = []
+    try:
+        upload_dir = get_document_upload_dir(str(rfp.id))
+        if upload_dir.exists():
+            for doc_file in upload_dir.iterdir():
+                if doc_file.is_file():
+                    try:
+                        text = extract_text_from_file(doc_file)
+                        if text:
+                            # Limit per document to prevent token overflow
+                            uploaded_docs.append({
+                                "filename": doc_file.name,
+                                "content": text[:20000]
+                            })
+                    except Exception as e:
+                        logger.warning(f"Failed to extract text from {doc_file.name}: {e}")
+    except Exception as e:
+        logger.warning(f"Failed to read uploaded documents: {e}")
+
+    # Get scraped document content
+    scraped_docs = []
+    if hasattr(rfp, 'documents') and rfp.documents:
+        for doc in rfp.documents:
+            if doc.file_path and Path(doc.file_path).exists():
+                try:
+                    text = extract_text_from_file(Path(doc.file_path))
+                    if text:
+                        # Limit per document to prevent token overflow
+                        scraped_docs.append({
+                            "filename": doc.filename,
+                            "content": text[:20000]
+                        })
+                except Exception as e:
+                    logger.warning(f"Failed to extract text from {doc.filename}: {e}")
+
+    # Combine all document content
+    document_content = ""
+    total_chars = 0
+    for doc in uploaded_docs + scraped_docs:
+        # Limit total document content to prevent token overflow
+        if total_chars >= 50000:
+            break
+        remaining = 50000 - total_chars
+        content_slice = doc['content'][:remaining]
+        document_content += f"\n\n=== Document: {doc['filename']} ===\n{content_slice}"
+        total_chars += len(content_slice)
+
+    # Add document content to text parts if available
+    if document_content:
+        text_parts.append(f"[Attached Documents]{document_content}")
+
     combined_text = "\n\n".join(text_parts)
 
     if not combined_text.strip():
@@ -289,6 +343,11 @@ async def extract_requirements(
     source_docs = ["RFP Description"]
     if rfp.qa_items:
         source_docs.append("Q&A Responses")
+    # Add uploaded and scraped document names to source list
+    for doc in uploaded_docs:
+        source_docs.append(doc['filename'])
+    for doc in scraped_docs:
+        source_docs.append(doc['filename'])
 
     for idx, req_data in enumerate(extracted):
         # Map category to requirement type
