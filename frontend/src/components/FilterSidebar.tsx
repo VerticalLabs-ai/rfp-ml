@@ -1,10 +1,11 @@
 import { useState } from 'react'
-import { ChevronDown, ChevronRight, Filter, Save, RotateCcw } from 'lucide-react'
+import { ChevronDown, ChevronRight, Filter, Save, RotateCcw, Search } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { ScrollArea } from '@/components/ui/scroll-area'
 import { Checkbox } from '@/components/ui/checkbox'
 import { Label } from '@/components/ui/label'
+import { Input } from '@/components/ui/input'
 import {
   Collapsible,
   CollapsibleContent,
@@ -148,14 +149,20 @@ export function FilterSidebar({
             />
           </FilterSection>
 
-          {/* NAICS Section */}
+          {/* NAICS Code Section */}
           <FilterSection
             title="NAICS Code"
             isOpen={openSections.naics}
             onToggle={() => toggleSection('naics')}
             activeCount={filters.naicsCodes.length}
           >
-            <div className="text-sm text-muted-foreground">Loading...</div>
+            <SearchableCheckboxFilter
+              options={_facets?.naicsCodes?.map(n => ({ value: n.value, label: n.value })) || []}
+              selected={filters.naicsCodes}
+              onChange={(selected) => _onFilterChange({ ...filters, naicsCodes: selected })}
+              facets={_facets?.naicsCodes}
+              placeholder="Search NAICS..."
+            />
           </FilterSection>
 
           {/* Agency Section */}
@@ -165,7 +172,13 @@ export function FilterSidebar({
             onToggle={() => toggleSection('agency')}
             activeCount={filters.agencies.length}
           >
-            <div className="text-sm text-muted-foreground">Loading...</div>
+            <SearchableCheckboxFilter
+              options={_facets?.agencies?.map(a => ({ value: a.value, label: a.value })) || []}
+              selected={filters.agencies}
+              onChange={(selected) => _onFilterChange({ ...filters, agencies: selected })}
+              facets={_facets?.agencies}
+              placeholder="Search agencies..."
+            />
           </FilterSection>
 
           {/* Location Section */}
@@ -254,6 +267,92 @@ function CheckboxFilter({ options, selected, onChange, facets }: CheckboxFilterP
           </div>
         )
       })}
+    </div>
+  )
+}
+
+interface SearchableCheckboxFilterProps {
+  options: { value: string; label: string }[]
+  selected: string[]
+  onChange: (selected: string[]) => void
+  facets?: { value: string; count: number }[]
+  placeholder?: string
+  maxVisible?: number
+}
+
+function SearchableCheckboxFilter({
+  options,
+  selected,
+  onChange,
+  facets,
+  placeholder = 'Search...',
+  maxVisible = 10,
+}: SearchableCheckboxFilterProps) {
+  const [search, setSearch] = useState('')
+
+  const filteredOptions = options.filter(opt =>
+    opt.label.toLowerCase().includes(search.toLowerCase()) ||
+    opt.value.toLowerCase().includes(search.toLowerCase())
+  )
+
+  const visibleOptions = filteredOptions.slice(0, maxVisible)
+  const hasMore = filteredOptions.length > maxVisible
+
+  const toggle = (value: string) => {
+    if (selected.includes(value)) {
+      onChange(selected.filter(v => v !== value))
+    } else {
+      onChange([...selected, value])
+    }
+  }
+
+  const getCount = (value: string) => facets?.find(f => f.value === value)?.count
+
+  return (
+    <div className="space-y-2">
+      <div className="relative">
+        <Search className="absolute left-2 top-2.5 h-4 w-4 text-muted-foreground" />
+        <Input
+          placeholder={placeholder}
+          value={search}
+          onChange={(e) => setSearch(e.target.value)}
+          className="pl-8 h-9"
+        />
+      </div>
+      <div className="space-y-2 max-h-48 overflow-y-auto">
+        {visibleOptions.map(option => {
+          const count = getCount(option.value)
+          return (
+            <div key={option.value} className="flex items-center space-x-2">
+              <Checkbox
+                id={`search-${option.value}`}
+                checked={selected.includes(option.value)}
+                onCheckedChange={() => toggle(option.value)}
+              />
+              <Label
+                htmlFor={`search-${option.value}`}
+                className="text-sm font-normal cursor-pointer flex-1 truncate"
+                title={option.label}
+              >
+                {option.label}
+              </Label>
+              {count !== undefined && (
+                <span className="text-xs text-muted-foreground">{count}</span>
+              )}
+            </div>
+          )
+        })}
+        {hasMore && (
+          <p className="text-xs text-muted-foreground text-center pt-2">
+            {filteredOptions.length - maxVisible} more results...
+          </p>
+        )}
+        {filteredOptions.length === 0 && (
+          <p className="text-xs text-muted-foreground text-center pt-2">
+            No results found
+          </p>
+        )}
+      </div>
     </div>
   )
 }
