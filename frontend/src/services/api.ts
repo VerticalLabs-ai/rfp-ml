@@ -231,6 +231,9 @@ export const api = {
   rejectDecision: (rfpId: string) =>
     apiClient.put(`/rfps/${rfpId}`, { current_stage: 'rejected' }).then(res => res.data),
 
+  analyzeRfp: (rfpId: string) =>
+    apiClient.post(`/rfps/${rfpId}/analyze`).then(res => res.data),
+
   // Submission endpoints
   getSubmissionQueue: (status?: string) =>
     apiClient.get('/submissions/queue', { params: { status } }).then(res => res.data),
