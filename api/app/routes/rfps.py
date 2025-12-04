@@ -344,10 +344,40 @@ async def get_discovered_rfps(
     sort_by: str = Query(
         default="score", description="Sort by: score, deadline, or recent"
     ),
+    # Advanced filters
+    notice_types: list[str] | None = Query(default=None, description="Filter by notice types"),
+    set_asides: list[str] | None = Query(default=None, description="Filter by set-aside types"),
+    naics_codes: list[str] | None = Query(default=None, description="Filter by NAICS codes"),
+    agencies: list[str] | None = Query(default=None, description="Filter by agencies"),
+    locations: list[str] | None = Query(default=None, description="Filter by locations"),
+    value_min: float | None = Query(default=None, description="Minimum contract value"),
+    value_max: float | None = Query(default=None, description="Maximum contract value"),
+    posted_after: str | None = Query(default=None, description="Posted date after (YYYY-MM-DD)"),
+    posted_before: str | None = Query(default=None, description="Posted date before (YYYY-MM-DD)"),
+    deadline_after: str | None = Query(default=None, description="Deadline after (YYYY-MM-DD)"),
+    deadline_before: str | None = Query(default=None, description="Deadline before (YYYY-MM-DD)"),
+    status: list[str] | None = Query(default=None, description="Filter by pipeline stage/status"),
     db: DBDep = ...,
 ):
-    """Get list of discovered RFPs with search and filtering."""
+    """Get list of discovered RFPs with comprehensive filtering."""
     service = RFPService(db)
+
+    # Build filters dict
+    filters = {
+        'notice_types': notice_types,
+        'set_asides': set_asides,
+        'naics_codes': naics_codes,
+        'agencies': agencies,
+        'locations': locations,
+        'value_min': value_min,
+        'value_max': value_max,
+        'posted_after': posted_after,
+        'posted_before': posted_before,
+        'deadline_after': deadline_after,
+        'deadline_before': deadline_before,
+        'status': status,
+    }
+
     rfps = service.get_discovered_rfps(
         skip=skip,
         limit=limit,
@@ -355,6 +385,7 @@ async def get_discovered_rfps(
         min_score=min_score,
         search=search,
         sort_by=sort_by,
+        filters=filters,
     )
     return rfps
 

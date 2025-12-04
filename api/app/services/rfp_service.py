@@ -34,6 +34,7 @@ class RFPService:
         min_score: float | None = None,
         search: str | None = None,
         sort_by: str = "score",
+        filters: dict | None = None,
     ) -> list[RFPOpportunity]:
         """Get list of discovered RFPs with filtering and search.
 
@@ -44,8 +45,9 @@ class RFPService:
             min_score: Filter by minimum triage score
             search: Search term to match against title, description, agency, naics_code
             sort_by: Sort order - 'score', 'deadline', or 'recent'
+            filters: Advanced filters dict
         """
-        from sqlalchemy import or_
+        from sqlalchemy import or_, and_
 
         query = self.db.query(RFPOpportunity)
 
@@ -69,6 +71,82 @@ class RFPService:
 
         if min_score is not None:
             query = query.filter(RFPOpportunity.triage_score >= min_score)
+
+        # Apply advanced filters
+        if filters:
+            # Notice types (from rfp_metadata.notice_type)
+            if filters.get('notice_types'):
+                query = query.filter(
+                    RFPOpportunity.rfp_metadata['notice_type'].astext.in_(filters['notice_types'])
+                )
+
+            # Set-asides (from rfp_metadata.set_asides - JSON array)
+            if filters.get('set_asides'):
+                set_aside_conditions = []
+                for sa in filters['set_asides']:
+                    # Check if the JSON array contains the value
+                    set_aside_conditions.append(
+                        RFPOpportunity.rfp_metadata['set_asides'].astext.contains(sa)
+                    )
+                if set_aside_conditions:
+                    query = query.filter(or_(*set_aside_conditions))
+
+            # NAICS codes
+            if filters.get('naics_codes'):
+                query = query.filter(RFPOpportunity.naics_code.in_(filters['naics_codes']))
+
+            # Agencies
+            if filters.get('agencies'):
+                query = query.filter(RFPOpportunity.agency.in_(filters['agencies']))
+
+            # Locations (from rfp_metadata.place_of_performance or office)
+            if filters.get('locations'):
+                location_conditions = []
+                for loc in filters['locations']:
+                    location_conditions.append(
+                        or_(
+                            RFPOpportunity.office.ilike(f"%{loc}%"),
+                            RFPOpportunity.rfp_metadata['place_of_performance'].astext.ilike(f"%{loc}%"),
+                        )
+                    )
+                if location_conditions:
+                    query = query.filter(or_(*location_conditions))
+
+            # Value range
+            if filters.get('value_min') is not None:
+                query = query.filter(
+                    or_(
+                        RFPOpportunity.award_amount >= filters['value_min'],
+                        RFPOpportunity.estimated_value >= filters['value_min']
+                    )
+                )
+            if filters.get('value_max') is not None:
+                query = query.filter(
+                    or_(
+                        and_(
+                            RFPOpportunity.award_amount.isnot(None),
+                            RFPOpportunity.award_amount <= filters['value_max']
+                        ),
+                        and_(
+                            RFPOpportunity.estimated_value.isnot(None),
+                            RFPOpportunity.estimated_value <= filters['value_max']
+                        )
+                    )
+                )
+
+            # Date filters
+            if filters.get('posted_after'):
+                query = query.filter(RFPOpportunity.posted_date >= filters['posted_after'])
+            if filters.get('posted_before'):
+                query = query.filter(RFPOpportunity.posted_date <= filters['posted_before'])
+            if filters.get('deadline_after'):
+                query = query.filter(RFPOpportunity.response_deadline >= filters['deadline_after'])
+            if filters.get('deadline_before'):
+                query = query.filter(RFPOpportunity.response_deadline <= filters['deadline_before'])
+
+            # Status (pipeline stage)
+            if filters.get('status'):
+                query = query.filter(RFPOpportunity.current_stage.in_(filters['status']))
 
         # Apply sorting
         if sort_by == "deadline":
