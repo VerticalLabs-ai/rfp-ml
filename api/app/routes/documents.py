@@ -16,6 +16,7 @@ from pathlib import Path
 
 from app.dependencies import RFPDep
 from fastapi import APIRouter, BackgroundTasks, File, HTTPException, UploadFile
+from fastapi.responses import FileResponse
 from pydantic import BaseModel
 
 # Add project root to path
@@ -378,3 +379,56 @@ async def delete_uploaded_document(rfp: RFPDep, document_id: str):
         del _processing_status[document_id]
 
     return {"status": "deleted", "document_id": document_id}
+
+
+@router.get("/{rfp_id}/uploads/{document_id}/content")
+async def get_document_content(
+    rfp: RFPDep,
+    document_id: str,
+):
+    """Get extracted text content from an uploaded document."""
+    upload_dir = get_document_upload_dir(rfp.rfp_id)
+
+    # Find the document file
+    matching_files = list(upload_dir.glob(f"{document_id}.*"))
+    if not matching_files:
+        raise HTTPException(status_code=404, detail="Document not found")
+
+    filepath = matching_files[0]
+
+    try:
+        text = extract_text_from_file(filepath)
+        return {
+            "document_id": document_id,
+            "filename": filepath.name,
+            "content": text,
+            "char_count": len(text),
+            "word_count": len(text.split()),
+        }
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Failed to extract content: {e!s}")
+
+
+@router.get("/{rfp_id}/uploads/{document_id}/download")
+async def download_document(
+    rfp: RFPDep,
+    document_id: str,
+):
+    """Download an uploaded document."""
+    upload_dir = get_document_upload_dir(rfp.rfp_id)
+
+    # Find the document file
+    matching_files = list(upload_dir.glob(f"{document_id}.*"))
+    if not matching_files:
+        raise HTTPException(status_code=404, detail="Document not found")
+
+    filepath = matching_files[0]
+
+    # Use the actual filename (without the document_id prefix)
+    original_filename = filepath.name
+
+    return FileResponse(
+        path=str(filepath),
+        filename=original_filename,
+        media_type="application/octet-stream"
+    )
