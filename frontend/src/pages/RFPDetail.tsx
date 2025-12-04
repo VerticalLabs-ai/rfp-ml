@@ -1027,14 +1027,39 @@ export default function RFPDetail() {
                                 </div>
                               </div>
                             </div>
-                            <Button
-                              variant="ghost"
-                              size="sm"
-                              onClick={() => deleteUploadedMutation.mutate(doc.id)}
-                              disabled={deleteUploadedMutation.isPending}
-                            >
-                              <Trash2 className="h-4 w-4 text-red-500" />
-                            </Button>
+                            <div className="flex items-center gap-2">
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                onClick={async () => {
+                                  try {
+                                    const blob = await api.downloadUploadedDocument(rfpId!, doc.id)
+                                    const url = window.URL.createObjectURL(blob)
+                                    const a = document.createElement('a')
+                                    a.href = url
+                                    a.download = doc.filename
+                                    document.body.appendChild(a)
+                                    a.click()
+                                    window.URL.revokeObjectURL(url)
+                                    document.body.removeChild(a)
+                                    toast.success('Document downloaded successfully')
+                                  } catch (error) {
+                                    console.error('Download failed:', error)
+                                    toast.error('Failed to download document')
+                                  }
+                                }}
+                              >
+                                <Download className="h-4 w-4 text-blue-500" />
+                              </Button>
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                onClick={() => deleteUploadedMutation.mutate(doc.id)}
+                                disabled={deleteUploadedMutation.isPending}
+                              >
+                                <Trash2 className="h-4 w-4 text-red-500" />
+                              </Button>
+                            </div>
                           </div>
                         ))}
                       </div>

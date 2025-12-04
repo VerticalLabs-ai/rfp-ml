@@ -411,6 +411,12 @@ export const api = {
   deleteUploadedDocument: (rfpId: string, documentId: string) =>
     apiClient.delete(`/documents/${rfpId}/uploads/${documentId}`).then(res => res.data),
 
+  getDocumentContent: (rfpId: string, documentId: string) =>
+    apiClient.get(`/documents/${rfpId}/uploads/${documentId}/content`).then(res => res.data),
+
+  downloadUploadedDocument: (rfpId: string, documentId: string) =>
+    apiClient.get(`/documents/${rfpId}/uploads/${documentId}/download`, { responseType: 'blob' }).then(res => res.data),
+
   // Natural Language Search endpoints
   searchRFPs: (params: {
     query: string
