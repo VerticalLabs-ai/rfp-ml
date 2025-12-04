@@ -281,11 +281,16 @@ class BeaconBidScraper(BaseScraper):
                 - agency: The government agency or organization posting this RFP
                 - office: The specific office or department (if shown)
                 - description: A summary or description of what the RFP is for
-                - posted_date: When the RFP was posted/published
-                - response_deadline: The deadline for submitting proposals/bids
+                - posted_date: When the RFP was posted/published (look for "Posted", "Published", "Issue Date" labels)
+                - response_deadline: The deadline for submitting proposals/bids (look for "Due Date", "Deadline", "Closing Date", "Response Due" labels). Include the full date and time if available.
                 - award_amount: Any mentioned contract value or estimated amount
                 - naics_code: Any NAICS code mentioned
                 - category: The category or type of work (e.g., IT Services, Construction)
+
+                IMPORTANT: For dates, look for:
+                - Posted/Issue dates near the top of the page
+                - Due dates/deadlines often highlighted or in red
+                - Date formats like MM/DD/YYYY, Month DD, YYYY, or ISO format
                 """,
                     schema_definition=RFPMetadataSchema,
                 )
