@@ -18,6 +18,7 @@ import CompanyProfiles from './pages/CompanyProfiles'
 import RFPDetail from './pages/RFPDetail'
 import ProposalCopilot from './pages/ProposalCopilot'
 import SavedContracts from './pages/SavedContracts'
+import AlertsPage from './pages/Alerts'
 
 // Components
 import Layout from './components/Layout'
@@ -55,6 +56,7 @@ function App() {
             <Route path="/rfps/:rfpId/partners" element={<TeamingPartnersPage />} />
             <Route path="/profiles" element={<CompanyProfiles />} />
             <Route path="/saved" element={<SavedContracts />} />
+            <Route path="/alerts" element={<AlertsPage />} />
           </Routes>
         </Layout>
       </Router>
