@@ -75,7 +75,7 @@ def get_document_upload_dir(rfp_id: str) -> Path:
 
 
 def extract_text_from_file(filepath: Path) -> str:
-    """Extract text content from a file."""
+    """Extract text content from a file with OCR fallback for scanned PDFs."""
     text = ""
     suffix = filepath.suffix.lower()
 
@@ -104,6 +104,36 @@ def extract_text_from_file(filepath: Path) -> str:
                     raise HTTPException(
                         status_code=500, detail="PDF processing libraries not available"
                     ) from err
+
+            # If very little text extracted, try OCR (scanned PDF)
+            if len(text.strip()) < 100:
+                logger.info(f"PDF has little text ({len(text.strip())} chars), attempting OCR")
+                try:
+                    from pdf2image import convert_from_path
+                    import pytesseract
+
+                    # Convert PDF to images (limit to first 20 pages for performance)
+                    images = convert_from_path(
+                        str(filepath),
+                        dpi=200,
+                        first_page=1,
+                        last_page=20
+                    )
+
+                    ocr_text = ""
+                    for i, image in enumerate(images):
+                        page_text = pytesseract.image_to_string(image)
+                        ocr_text += f"\n[Page {i+1}]\n{page_text}"
+
+                    # Use OCR text if we got more content
+                    if len(ocr_text.strip()) > len(text.strip()):
+                        logger.info(f"OCR extracted {len(ocr_text.strip())} chars vs {len(text.strip())} from standard extraction")
+                        text = ocr_text
+
+                except ImportError:
+                    logger.warning("OCR libraries (pytesseract, pdf2image) not available for scanned PDF")
+                except Exception as e:
+                    logger.warning(f"OCR failed: {e}")
         elif suffix in {".docx", ".doc"}:
             try:
                 from docx import Document
