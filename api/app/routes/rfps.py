@@ -236,8 +236,19 @@ class RFPResponse(RFPBase):
     triage_score: float | None = None
     overall_score: float | None = None
     decision_recommendation: str | None = None
+    confidence_level: float | None = None
     discovered_at: datetime
     updated_at: datetime
+    # Additional fields needed by frontend
+    posted_date: datetime | None = None
+    award_date: datetime | None = None
+    award_amount: float | None = None
+    estimated_value: float | None = None
+    source_url: str | None = None
+    source_platform: str | None = None
+    last_scraped_at: datetime | None = None
+    rfp_metadata: dict | None = None
+    company_profile_id: int | None = None
 
     class Config:
         from_attributes = True
