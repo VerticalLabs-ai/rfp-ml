@@ -446,35 +446,46 @@ export const api = {
   archiveRFP: (rfpId: string) =>
     apiClient.post(`/rfps/${rfpId}/archive`).then(res => res.data),
 
-  // AI Chat endpoints
+  // AI Chat endpoints (legacy - uses non-session endpoints)
   sendChatMessage: (rfpId: string, message: string, conversationId?: string) =>
-    apiClient.post(`/rfps/${rfpId}/chat`, { message, conversation_id: conversationId }).then(res => res.data),
+    apiClient.post(`/chat/${rfpId}/chat`, { message, conversation_id: conversationId }).then(res => res.data),
 
   getChatHistory: (rfpId: string, conversationId?: string) =>
-    apiClient.get(`/rfps/${rfpId}/chat`, { params: { conversation_id: conversationId } }).then(res => res.data),
+    apiClient.get(`/chat/${rfpId}/chat`, { params: { conversation_id: conversationId } }).then(res => res.data),
 
   // Chat session management endpoints
   createChatSession: (rfpId: string, title?: string) =>
-    apiClient.post(`/rfps/${rfpId}/sessions`, null, { params: { title } }).then(res => res.data),
+    apiClient.post(`/chat/${rfpId}/sessions`, null, { params: { title } }).then(res => res.data),
 
   listChatSessions: (rfpId: string) =>
-    apiClient.get(`/rfps/${rfpId}/sessions`).then(res => res.data),
+    apiClient.get(`/chat/${rfpId}/sessions`).then(res => res.data),
 
   getChatSession: (rfpId: string, sessionId: string) =>
-    apiClient.get(`/rfps/${rfpId}/sessions/${sessionId}`).then(res => res.data),
+    apiClient.get(`/chat/${rfpId}/sessions/${sessionId}`).then(res => res.data),
 
   deleteChatSession: (rfpId: string, sessionId: string) =>
-    apiClient.delete(`/rfps/${rfpId}/sessions/${sessionId}`).then(res => res.data),
+    apiClient.delete(`/chat/${rfpId}/sessions/${sessionId}`).then(res => res.data),
+
+  // Chat message endpoints for sessions
+  sendChatMessageToSession: (rfpId: string, sessionId: string, message: string) =>
+    apiClient.post(`/chat/${rfpId}/sessions/${sessionId}/messages`, { message }).then(res => res.data),
+
+  getChatSessionHistory: (rfpId: string, sessionId: string) =>
+    apiClient.get(`/chat/${rfpId}/sessions/${sessionId}`).then(res => res.data),
+
+  // Streaming endpoint URL builder (for EventSource)
+  getChatStreamUrl: (rfpId: string, sessionId: string, message: string) =>
+    `${apiClient.defaults.baseURL}/chat/${rfpId}/sessions/${sessionId}/stream?message=${encodeURIComponent(message)}`,
 
   getChatSuggestions: (rfpId: string) =>
-    apiClient.get(`/rfps/${rfpId}/chat/suggestions`).then(res => res.data),
+    apiClient.get(`/chat/${rfpId}/chat/suggestions`).then(res => res.data),
 
   getChatStatus: (rfpId: string) =>
-    apiClient.get(`/rfps/${rfpId}/chat/status`).then(res => res.data),
+    apiClient.get(`/chat/${rfpId}/chat/status`).then(res => res.data),
 
-  // Streaming chat - returns EventSource URL
+  // Legacy streaming chat - returns EventSource URL
   getStreamingChatUrl: (rfpId: string) =>
-    `${apiClient.defaults.baseURL}/rfps/${rfpId}/chat/stream`,
+    `${apiClient.defaults.baseURL}/chat/${rfpId}/chat/stream`,
 
   // Compliance Requirements endpoints
   compliance: {
