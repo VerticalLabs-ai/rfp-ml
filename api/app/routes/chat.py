@@ -18,6 +18,7 @@ from datetime import datetime, timezone
 from typing import Any
 
 from app.dependencies import DBDep, RFPDep
+from app.models.database import RFPOpportunity
 from fastapi import APIRouter, HTTPException, Query
 from fastapi.responses import StreamingResponse
 from pydantic import BaseModel, Field
