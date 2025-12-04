@@ -25,5 +25,28 @@ def get_db():
 
 def init_db():
     """Initialize database tables."""
-    from app.models.database import Base
+    # Import all models to ensure relationships are configured
+    from app.models.database import (  # noqa: F401
+        Base,
+        RFPOpportunity,
+        RFPDocument,
+        RFPQandA,
+        CompanyProfile,
+        BidDocument,
+        BidDocumentVersion,
+        PipelineEvent,
+        PostAwardChecklist,
+        Submission,
+        SubmissionAuditLog,
+        AlertRule,
+        AlertNotification,
+        ChatSession,
+        ChatMessage,
+        ComplianceMatrix,
+        ComplianceRequirement,
+        PricingResult,
+        SavedRfp,
+    )
+    from sqlalchemy.orm import configure_mappers
+    configure_mappers()  # Ensure all relationships are resolved
     Base.metadata.create_all(bind=engine)
