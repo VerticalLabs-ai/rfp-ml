@@ -4,6 +4,7 @@ import {
   Bot,
   Check,
   Copy,
+  Download,
   History,
   Loader2,
   MessageSquare,
@@ -266,6 +267,26 @@ export function ContractChatbot({ rfpId, rfpTitle, isOpen, onClose }: ContractCh
     }
   }
 
+  // Export conversation to markdown
+  const exportConversation = () => {
+    if (messages.length === 0) return
+
+    const content = messages
+      .map(msg => `**${msg.role === 'user' ? 'You' : 'AI'}:** ${msg.content}`)
+      .join('\n\n---\n\n')
+
+    const header = `# Chat Export: ${rfpTitle}\n\nExported: ${new Date().toLocaleString()}\n\n---\n\n`
+
+    const blob = new Blob([header + content], { type: 'text/markdown' })
+    const url = URL.createObjectURL(blob)
+    const a = document.createElement('a')
+    a.href = url
+    a.download = `chat-${rfpId}-${Date.now()}.md`
+    a.click()
+    URL.revokeObjectURL(url)
+    toast.success('Conversation exported')
+  }
+
   // Handle suggestion click
   const handleSuggestionClick = (suggestion: string) => {
     setMessage(suggestion)
@@ -304,6 +325,15 @@ export function ContractChatbot({ rfpId, rfpTitle, isOpen, onClose }: ContractCh
             Contract Assistant
           </CardTitle>
           <div className="flex items-center gap-1">
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={exportConversation}
+              disabled={messages.length === 0}
+              title="Export conversation"
+            >
+              <Download className="h-4 w-4" />
+            </Button>
             <Button variant="ghost" size="sm" onClick={() => setShowSessions(!showSessions)}>
               <History className="h-4 w-4" />
             </Button>
