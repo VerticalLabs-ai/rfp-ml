@@ -3,6 +3,8 @@ import { ChevronDown, ChevronRight, Filter, Save, RotateCcw } from 'lucide-react
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { ScrollArea } from '@/components/ui/scroll-area'
+import { Checkbox } from '@/components/ui/checkbox'
+import { Label } from '@/components/ui/label'
 import {
   Collapsible,
   CollapsibleContent,
@@ -31,6 +33,26 @@ export interface FilterFacets {
   naicsCodes: { value: string; count: number }[]
   locations: { value: string; count: number }[]
 }
+
+const NOTICE_TYPES = [
+  { value: 'solicitation', label: 'Solicitation' },
+  { value: 'presolicitation', label: 'Pre-Solicitation' },
+  { value: 'sources_sought', label: 'Sources Sought' },
+  { value: 'award', label: 'Award Notice' },
+  { value: 'special_notice', label: 'Special Notice' },
+  { value: 'combined', label: 'Combined Synopsis/Solicitation' },
+]
+
+const SET_ASIDES = [
+  { value: 'small_business', label: 'Small Business' },
+  { value: '8a', label: '8(a)' },
+  { value: 'hubzone', label: 'HUBZone' },
+  { value: 'wosb', label: 'WOSB' },
+  { value: 'edwosb', label: 'EDWOSB' },
+  { value: 'sdvosb', label: 'Service-Disabled VOSB' },
+  { value: 'vosb', label: 'VOSB' },
+  { value: 'total_small_business', label: 'Total Small Business' },
+]
 
 interface FilterSidebarProps {
   filters: FilterState
@@ -103,8 +125,12 @@ export function FilterSidebar({
             onToggle={() => toggleSection('noticeType')}
             activeCount={filters.noticeTypes.length}
           >
-            {/* Content added in Task 2 */}
-            <div className="text-sm text-muted-foreground">Loading...</div>
+            <CheckboxFilter
+              options={NOTICE_TYPES}
+              selected={filters.noticeTypes}
+              onChange={(selected) => _onFilterChange({ ...filters, noticeTypes: selected })}
+              facets={_facets?.noticeTypes}
+            />
           </FilterSection>
 
           {/* Set-Aside Section */}
@@ -114,8 +140,12 @@ export function FilterSidebar({
             onToggle={() => toggleSection('setAside')}
             activeCount={filters.setAsides.length}
           >
-            {/* Content added in Task 2 */}
-            <div className="text-sm text-muted-foreground">Loading...</div>
+            <CheckboxFilter
+              options={SET_ASIDES}
+              selected={filters.setAsides}
+              onChange={(selected) => _onFilterChange({ ...filters, setAsides: selected })}
+              facets={_facets?.setAsides}
+            />
           </FilterSection>
 
           {/* NAICS Section */}
@@ -179,6 +209,51 @@ export function FilterSidebar({
           </FilterSection>
         </div>
       </ScrollArea>
+    </div>
+  )
+}
+
+interface CheckboxFilterProps {
+  options: { value: string; label: string }[]
+  selected: string[]
+  onChange: (selected: string[]) => void
+  facets?: { value: string; count: number }[]
+}
+
+function CheckboxFilter({ options, selected, onChange, facets }: CheckboxFilterProps) {
+  const toggle = (value: string) => {
+    if (selected.includes(value)) {
+      onChange(selected.filter(v => v !== value))
+    } else {
+      onChange([...selected, value])
+    }
+  }
+
+  const getCount = (value: string) => facets?.find(f => f.value === value)?.count
+
+  return (
+    <div className="space-y-2">
+      {options.map(option => {
+        const count = getCount(option.value)
+        return (
+          <div key={option.value} className="flex items-center space-x-2">
+            <Checkbox
+              id={option.value}
+              checked={selected.includes(option.value)}
+              onCheckedChange={() => toggle(option.value)}
+            />
+            <Label
+              htmlFor={option.value}
+              className="text-sm font-normal cursor-pointer flex-1"
+            >
+              {option.label}
+            </Label>
+            {count !== undefined && (
+              <span className="text-xs text-muted-foreground">{count}</span>
+            )}
+          </div>
+        )
+      })}
     </div>
   )
 }
