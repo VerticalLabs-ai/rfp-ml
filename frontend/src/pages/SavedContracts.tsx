@@ -33,8 +33,8 @@ export default function SavedContracts() {
 
   // Filters state
   const [searchTerm, setSearchTerm] = useState('')
-  const [selectedTag, setSelectedTag] = useState<string>('')
-  const [selectedFolder, setSelectedFolder] = useState<string>('')
+  const [selectedTag, setSelectedTag] = useState<string>('__all__')
+  const [selectedFolder, setSelectedFolder] = useState<string>('__all__')
   const [sortBy, setSortBy] = useState('saved_at')
   const [sortOrder, setSortOrder] = useState('desc')
 
@@ -52,8 +52,8 @@ export default function SavedContracts() {
     queryKey: ['saved-rfps', searchTerm, selectedTag, selectedFolder, sortBy, sortOrder],
     queryFn: () => api.savedRfps.list({
       search: searchTerm || undefined,
-      tag: selectedTag || undefined,
-      folder: selectedFolder || undefined,
+      tag: selectedTag !== '__all__' ? selectedTag : undefined,
+      folder: selectedFolder !== '__all__' ? selectedFolder : undefined,
       sort_by: sortBy,
       sort_order: sortOrder,
     }),
@@ -202,7 +202,7 @@ export default function SavedContracts() {
                 <SelectValue placeholder="Filter by tag" />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="">All tags</SelectItem>
+                <SelectItem value="__all__">All tags</SelectItem>
                 {tagsData?.tags.map(tag => (
                   <SelectItem key={tag} value={tag}>
                     {tag} ({tagsData.counts[tag]})
@@ -217,7 +217,7 @@ export default function SavedContracts() {
                 <SelectValue placeholder="Filter by folder" />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="">All folders</SelectItem>
+                <SelectItem value="__all__">All folders</SelectItem>
                 {folders.map(folder => (
                   <SelectItem key={folder} value={folder}>
                     {folder} ({data?.folders_summary[folder]})
@@ -258,7 +258,7 @@ export default function SavedContracts() {
               key={tag}
               variant={selectedTag === tag ? 'default' : 'secondary'}
               className="cursor-pointer"
-              onClick={() => setSelectedTag(selectedTag === tag ? '' : tag)}
+              onClick={() => setSelectedTag(selectedTag === tag ? '__all__' : tag)}
             >
               {tag} ({count})
               {selectedTag === tag && <X className="w-3 h-3 ml-1" />}
