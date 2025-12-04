@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { ChevronDown, ChevronRight, Filter, Save, RotateCcw, Search } from 'lucide-react'
+import { ChevronDown, ChevronRight, DollarSign, Filter, RotateCcw, Save, Search } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { ScrollArea } from '@/components/ui/scroll-area'
@@ -53,6 +53,16 @@ const SET_ASIDES = [
   { value: 'sdvosb', label: 'Service-Disabled VOSB' },
   { value: 'vosb', label: 'VOSB' },
   { value: 'total_small_business', label: 'Total Small Business' },
+]
+
+const STATUS_OPTIONS = [
+  { value: 'discovered', label: 'Discovered' },
+  { value: 'triage', label: 'Triage' },
+  { value: 'bid_decision', label: 'Bid Decision' },
+  { value: 'proposal', label: 'Proposal' },
+  { value: 'submitted', label: 'Submitted' },
+  { value: 'awarded', label: 'Awarded' },
+  { value: 'rejected', label: 'Rejected' },
 ]
 
 interface FilterSidebarProps {
@@ -188,27 +198,48 @@ export function FilterSidebar({
             onToggle={() => toggleSection('location')}
             activeCount={filters.locations.length}
           >
-            <div className="text-sm text-muted-foreground">Loading...</div>
+            <SearchableCheckboxFilter
+              options={_facets?.locations?.map(l => ({ value: l.value, label: l.value })) || []}
+              selected={filters.locations}
+              onChange={(selected) => _onFilterChange({ ...filters, locations: selected })}
+              facets={_facets?.locations}
+              placeholder="Search locations..."
+            />
           </FilterSection>
 
-          {/* Value Section */}
+          {/* Value Range Section */}
           <FilterSection
             title="Contract Value"
             isOpen={openSections.value}
             onToggle={() => toggleSection('value')}
             activeCount={(filters.valueMin !== null ? 1 : 0) + (filters.valueMax !== null ? 1 : 0)}
           >
-            <div className="text-sm text-muted-foreground">Loading...</div>
+            <ValueRangeFilter
+              min={filters.valueMin}
+              max={filters.valueMax}
+              onChange={(min, max) => _onFilterChange({ ...filters, valueMin: min, valueMax: max })}
+            />
           </FilterSection>
 
-          {/* Date Section */}
+          {/* Date Range Section */}
           <FilterSection
             title="Dates"
             isOpen={openSections.date}
             onToggle={() => toggleSection('date')}
             activeCount={[filters.postedAfter, filters.postedBefore, filters.deadlineAfter, filters.deadlineBefore].filter(Boolean).length}
           >
-            <div className="text-sm text-muted-foreground">Loading...</div>
+            <DateRangeFilter
+              label="Posted Date"
+              after={filters.postedAfter}
+              before={filters.postedBefore}
+              onChange={(after, before) => _onFilterChange({ ...filters, postedAfter: after, postedBefore: before })}
+            />
+            <DateRangeFilter
+              label="Response Deadline"
+              after={filters.deadlineAfter}
+              before={filters.deadlineBefore}
+              onChange={(after, before) => _onFilterChange({ ...filters, deadlineAfter: after, deadlineBefore: before })}
+            />
           </FilterSection>
 
           {/* Status Section */}
@@ -218,7 +249,11 @@ export function FilterSidebar({
             onToggle={() => toggleSection('status')}
             activeCount={filters.status.length}
           >
-            <div className="text-sm text-muted-foreground">Loading...</div>
+            <CheckboxFilter
+              options={STATUS_OPTIONS}
+              selected={filters.status}
+              onChange={(selected) => _onFilterChange({ ...filters, status: selected })}
+            />
           </FilterSection>
         </div>
       </ScrollArea>
@@ -352,6 +387,80 @@ function SearchableCheckboxFilter({
             No results found
           </p>
         )}
+      </div>
+    </div>
+  )
+}
+
+interface ValueRangeFilterProps {
+  min: number | null
+  max: number | null
+  onChange: (min: number | null, max: number | null) => void
+}
+
+function ValueRangeFilter({ min, max, onChange }: ValueRangeFilterProps) {
+  return (
+    <div className="space-y-2">
+      <div className="grid grid-cols-2 gap-2">
+        <div>
+          <Label className="text-xs text-muted-foreground">Min ($)</Label>
+          <div className="relative">
+            <DollarSign className="absolute left-2 top-2.5 h-4 w-4 text-muted-foreground" />
+            <Input
+              type="number"
+              placeholder="0"
+              value={min ?? ''}
+              onChange={(e) => onChange(e.target.value ? Number(e.target.value) : null, max)}
+              className="pl-7 h-9"
+            />
+          </div>
+        </div>
+        <div>
+          <Label className="text-xs text-muted-foreground">Max ($)</Label>
+          <div className="relative">
+            <DollarSign className="absolute left-2 top-2.5 h-4 w-4 text-muted-foreground" />
+            <Input
+              type="number"
+              placeholder="Any"
+              value={max ?? ''}
+              onChange={(e) => onChange(min, e.target.value ? Number(e.target.value) : null)}
+              className="pl-7 h-9"
+            />
+          </div>
+        </div>
+      </div>
+    </div>
+  )
+}
+
+interface DateRangeFilterProps {
+  label: string
+  after: string | null
+  before: string | null
+  onChange: (after: string | null, before: string | null) => void
+}
+
+function DateRangeFilter({ label, after, before, onChange }: DateRangeFilterProps) {
+  return (
+    <div className="space-y-2">
+      <Label className="text-xs text-muted-foreground">{label}</Label>
+      <div className="grid grid-cols-2 gap-2">
+        <div>
+          <Input
+            type="date"
+            value={after ?? ''}
+            onChange={(e) => onChange(e.target.value || null, before)}
+            className="h-9 text-xs"
+          />
+        </div>
+        <div>
+          <Input
+            type="date"
+            value={before ?? ''}
+            onChange={(e) => onChange(after, e.target.value || null)}
+            className="h-9 text-xs"
+          />
+        </div>
       </div>
     </div>
   )
