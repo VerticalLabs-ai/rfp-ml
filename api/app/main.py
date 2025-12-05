@@ -22,6 +22,7 @@ from app.routes import (
     profiles,
     rag,
     rfps,
+    sam_gov,
     saved_rfps,
     scraper,
     streaming,
@@ -150,6 +151,11 @@ app.include_router(
     pricing.router,
     prefix=f"{settings.API_V1_STR}/pricing",
     tags=["pricing"],
+)
+app.include_router(
+    sam_gov.router,
+    prefix=f"{settings.API_V1_STR}/sam-gov",
+    tags=["sam-gov"],
 )
 app.include_router(websocket_router.router, prefix="/ws", tags=["websocket"])
 app.include_router(
