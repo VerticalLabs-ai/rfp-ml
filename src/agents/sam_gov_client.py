@@ -17,6 +17,11 @@ class SAMGovClient:
         """Base URL for opportunities API."""
         return "https://api.sam.gov/opportunities/v2"
 
+    @property
+    def entity_base_url(self):
+        """Base URL for entity management API."""
+        return self.ENTITY_BASE_URL
+
     def __init__(self, api_key: str | None = None):
         """
         Initialize the SAM.gov client.
@@ -305,3 +310,200 @@ class SAMGovClient:
         except requests.exceptions.RequestException as e:
             logger.error(f"Failed to fetch opportunity {opportunity_id}: {e}")
             return None
+
+    def verify_entity_registration(
+        self,
+        uei: str | None = None,
+        cage_code: str | None = None,
+        legal_name: str | None = None
+    ) -> dict:
+        """
+        Verify if an entity is registered in SAM.gov.
+
+        Args:
+            uei: Unique Entity Identifier (12-character)
+            cage_code: CAGE/NCAGE code (5-character)
+            legal_name: Legal business name (partial match supported)
+
+        Returns:
+            Dict with registration status and basic info
+        """
+        if not any([uei, cage_code, legal_name]):
+            raise ValueError("At least one of uei, cage_code, or legal_name required")
+
+        params = {
+            "api_key": self.api_key,
+            "registrationStatus": "A",  # Active only
+            "includeSections": "entityRegistration",
+        }
+
+        if uei:
+            params["ueiSAM"] = uei
+        elif cage_code:
+            params["cageCode"] = cage_code
+        elif legal_name:
+            params["legalBusinessName"] = legal_name
+
+        try:
+            response = requests.get(
+                self.entity_base_url,
+                params=params,
+                timeout=30
+            )
+            response.raise_for_status()
+            data = response.json()
+
+            if data.get("totalRecords", 0) == 0:
+                return {
+                    "is_registered": False,
+                    "registration_status": None,
+                    "uei": uei,
+                    "legal_name": None,
+                    "expiration_date": None,
+                }
+
+            entity = data["entityData"][0]
+            reg = entity.get("entityRegistration", {})
+
+            return {
+                "is_registered": reg.get("samRegistered") == "Yes",
+                "registration_status": reg.get("registrationStatus"),
+                "uei": reg.get("ueiSAM"),
+                "cage_code": reg.get("cageCode"),
+                "legal_name": reg.get("legalBusinessName"),
+                "expiration_date": reg.get("registrationExpirationDate"),
+                "purpose": reg.get("purposeOfRegistrationDesc"),
+                "naics_codes": self._extract_naics_from_entity(entity),
+            }
+
+        except requests.exceptions.RequestException as e:
+            logger.error(f"Entity verification failed: {e}")
+            return {
+                "is_registered": False,
+                "error": str(e),
+            }
+
+    def get_entity_profile(self, uei: str) -> dict | None:
+        """
+        Fetch complete entity profile for auto-populating company data.
+
+        Args:
+            uei: Unique Entity Identifier
+
+        Returns:
+            Complete entity profile dict or None if not found
+        """
+        params = {
+            "api_key": self.api_key,
+            "ueiSAM": uei,
+            "includeSections": "entityRegistration,coreData,assertions",
+        }
+
+        try:
+            response = requests.get(
+                self.entity_base_url,
+                params=params,
+                timeout=30
+            )
+            response.raise_for_status()
+            data = response.json()
+
+            if data.get("totalRecords", 0) == 0:
+                return None
+
+            entity = data["entityData"][0]
+            reg = entity.get("entityRegistration", {})
+            core = entity.get("coreData", {})
+            assertions = entity.get("assertions", {})
+
+            # Extract address
+            phys_addr = core.get("physicalAddress", {})
+            address = {
+                "street": phys_addr.get("addressLine1", ""),
+                "street2": phys_addr.get("addressLine2", ""),
+                "city": phys_addr.get("city", ""),
+                "state": phys_addr.get("stateOrProvinceCode", ""),
+                "zip": phys_addr.get("zipCode", ""),
+                "country": phys_addr.get("countryCode", "USA"),
+            }
+
+            # Extract business types
+            business_types = []
+            bt_data = core.get("businessTypes", {})
+            for bt in bt_data.get("businessTypeList", []):
+                business_types.append({
+                    "code": bt.get("businessTypeCode"),
+                    "description": bt.get("businessTypeDesc"),
+                })
+
+            # Extract NAICS codes
+            naics_codes = []
+            goods = assertions.get("goodsAndServices", {})
+            for naics in goods.get("naicsList", []):
+                naics_codes.append({
+                    "code": naics.get("naicsCode"),
+                    "description": naics.get("naicsDescription"),
+                    "small_business": naics.get("sbaSmallBusiness") == "Y",
+                })
+
+            # Extract PSC codes
+            psc_codes = []
+            for psc in goods.get("pscList", []):
+                psc_codes.append({
+                    "code": psc.get("pscCode"),
+                    "description": psc.get("pscDescription"),
+                })
+
+            # Determine set-aside eligibility
+            sba_types = bt_data.get("sbaBusinessTypeList", [])
+            set_aside_eligibility = {
+                "small_business": any(
+                    n.get("small_business") for n in naics_codes
+                ),
+                "8a_certified": any(
+                    "8(a)" in t.get("sbaBusinessTypeDesc", "") for t in sba_types
+                ),
+                "hubzone": any(
+                    "HUBZone" in t.get("sbaBusinessTypeDesc", "") for t in sba_types
+                ),
+                "woman_owned": any(
+                    "Woman" in t.get("businessTypeDesc", "") for t in bt_data.get("businessTypeList", [])
+                ),
+                "veteran_owned": any(
+                    "Veteran" in t.get("businessTypeDesc", "") for t in bt_data.get("businessTypeList", [])
+                ),
+                "sdvosb": any(
+                    "Service-Disabled" in t.get("businessTypeDesc", "") for t in bt_data.get("businessTypeList", [])
+                ),
+            }
+
+            return {
+                "uei": reg.get("ueiSAM"),
+                "cage_code": reg.get("cageCode"),
+                "legal_name": reg.get("legalBusinessName"),
+                "dba_name": core.get("entityInformation", {}).get("entityDBAName"),
+                "registration_status": reg.get("registrationStatus"),
+                "registration_expiration": reg.get("registrationExpirationDate"),
+                "address": address,
+                "website": core.get("entityInformation", {}).get("entityURL"),
+                "business_types": business_types,
+                "naics_codes": naics_codes,
+                "primary_naics": goods.get("primaryNaics"),
+                "psc_codes": psc_codes,
+                "set_aside_eligibility": set_aside_eligibility,
+                "purpose": reg.get("purposeOfRegistrationDesc"),
+            }
+
+        except requests.exceptions.RequestException as e:
+            logger.error(f"Failed to fetch entity profile: {e}")
+            return None
+
+    def _extract_naics_from_entity(self, entity: dict) -> list[str]:
+        """Extract NAICS codes from entity data."""
+        naics = []
+        assertions = entity.get("assertions", {})
+        goods = assertions.get("goodsAndServices", {})
+        for n in goods.get("naicsList", []):
+            if n.get("naicsCode"):
+                naics.append(n["naicsCode"])
+        return naics

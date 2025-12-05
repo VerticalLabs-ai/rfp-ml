@@ -60,3 +60,103 @@ class TestSAMGovClientOpportunityDetails:
         result = client.get_opportunity_details("nonexistent")
 
         assert result is None
+
+
+class TestSAMGovClientEntityVerification:
+    """Test entity registration verification."""
+
+    @pytest.fixture
+    def client(self):
+        return SAMGovClient(api_key="test_api_key")
+
+    @pytest.fixture
+    def mock_entity_response(self):
+        return {
+            "totalRecords": 1,
+            "entityData": [{
+                "entityRegistration": {
+                    "ueiSAM": "ZQGGHJH74DW7",
+                    "cageCode": "1ABC2",
+                    "legalBusinessName": "ACME Corporation",
+                    "registrationStatus": "Active",
+                    "registrationExpirationDate": "2026-01-15",
+                    "samRegistered": "Yes",
+                    "purposeOfRegistrationDesc": "All Awards"
+                },
+                "coreData": {
+                    "entityInformation": {
+                        "entityURL": "https://acme.com",
+                        "entityDivisionName": "Main Division"
+                    },
+                    "physicalAddress": {
+                        "addressLine1": "123 Main St",
+                        "city": "Washington",
+                        "stateOrProvinceCode": "DC",
+                        "zipCode": "20001",
+                        "countryCode": "USA"
+                    },
+                    "businessTypes": {
+                        "businessTypeList": [
+                            {"businessTypeCode": "2X", "businessTypeDesc": "For Profit Organization"},
+                            {"businessTypeCode": "27", "businessTypeDesc": "Self Certified Small Disadvantaged Business"}
+                        ],
+                        "sbaBusinessTypeList": [
+                            {"sbaBusinessTypeCode": "XX", "sbaBusinessTypeDesc": "8(a) Certified"}
+                        ]
+                    }
+                },
+                "assertions": {
+                    "goodsAndServices": {
+                        "primaryNaics": "541512",
+                        "naicsList": [
+                            {"naicsCode": "541512", "naicsDescription": "Computer Systems Design Services", "sbaSmallBusiness": "Y"},
+                            {"naicsCode": "541511", "naicsDescription": "Custom Computer Programming", "sbaSmallBusiness": "Y"}
+                        ],
+                        "pscList": [
+                            {"pscCode": "D399", "pscDescription": "IT and Telecom"}
+                        ]
+                    }
+                }
+            }]
+        }
+
+    @patch("src.agents.sam_gov_client.requests.get")
+    def test_verify_entity_registration_active(self, mock_get, client, mock_entity_response):
+        """Test verifying an active SAM.gov registration by UEI."""
+        mock_get.return_value.status_code = 200
+        mock_get.return_value.json.return_value = mock_entity_response
+
+        result = client.verify_entity_registration(uei="ZQGGHJH74DW7")
+
+        assert result is not None
+        assert result["is_registered"] is True
+        assert result["registration_status"] == "Active"
+        assert result["uei"] == "ZQGGHJH74DW7"
+        assert result["legal_name"] == "ACME Corporation"
+        assert "541512" in result["naics_codes"]
+
+    @patch("src.agents.sam_gov_client.requests.get")
+    def test_verify_entity_registration_not_found(self, mock_get, client):
+        """Test handling of non-registered entity."""
+        mock_get.return_value.status_code = 200
+        mock_get.return_value.json.return_value = {"totalRecords": 0, "entityData": []}
+
+        result = client.verify_entity_registration(uei="NONEXISTENT123")
+
+        assert result is not None
+        assert result["is_registered"] is False
+
+    @patch("src.agents.sam_gov_client.requests.get")
+    def test_get_entity_profile_full(self, mock_get, client, mock_entity_response):
+        """Test fetching complete entity profile for auto-population."""
+        mock_get.return_value.status_code = 200
+        mock_get.return_value.json.return_value = mock_entity_response
+
+        result = client.get_entity_profile(uei="ZQGGHJH74DW7")
+
+        assert result["legal_name"] == "ACME Corporation"
+        assert result["cage_code"] == "1ABC2"
+        assert result["address"]["city"] == "Washington"
+        assert result["address"]["state"] == "DC"
+        assert len(result["business_types"]) >= 1
+        assert result["set_aside_eligibility"]["small_business"] is True
