@@ -1,5 +1,6 @@
 @import "tailwindcss";
 @import "tw-animate-css";
+@import './styles/editor.css';
 
 @theme {
   --color-primary-50: #eff6ff;
