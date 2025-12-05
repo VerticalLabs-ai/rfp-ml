@@ -30,6 +30,7 @@ celery_app = Celery(
         "api.app.worker.tasks.generation",
         "api.app.worker.tasks.alerts",
         "api.app.worker.tasks.predictions",
+        "api.app.worker.tasks.sam_gov",
     ]
 )
 
@@ -64,6 +65,7 @@ celery_app.conf.update(
         "api.app.worker.tasks.generation.*": {"queue": "generation"},
         "api.app.worker.tasks.alerts.*": {"queue": "alerts"},
         "api.app.worker.tasks.predictions.*": {"queue": "predictions"},
+        "api.app.worker.tasks.sam_gov.*": {"queue": "sam_gov"},
     },
 
     # Default queue
@@ -76,6 +78,17 @@ celery_app.conf.beat_schedule = {
     "evaluate-alerts-every-15-minutes": {
         "task": "api.app.worker.tasks.alerts.evaluate_alert_rules",
         "schedule": crontab(minute="*/15"),
+    },
+    # Sync SAM.gov opportunities every 15 minutes during business hours (6 AM - 10 PM)
+    "sync-sam-gov-every-15-minutes": {
+        "task": "api.app.worker.tasks.sam_gov.sync_sam_gov_opportunities",
+        "schedule": crontab(minute="*/15", hour="6-22"),
+        "args": (7, 100),  # days_back=7, limit=100
+    },
+    # Cleanup expired opportunities daily at 2 AM
+    "cleanup-expired-daily": {
+        "task": "api.app.worker.tasks.sam_gov.cleanup_expired_opportunities",
+        "schedule": crontab(hour=2, minute=0),
     },
 }
 
