@@ -1,7 +1,7 @@
 """SAM.gov synchronization service for real-time opportunity tracking."""
 import asyncio
 import logging
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from enum import Enum
 from typing import Any
 
@@ -110,7 +110,7 @@ class SAMGovSyncService:
                     db.commit()
 
                 self._status = SyncStatus.COMPLETED
-                self._last_sync = datetime.utcnow()
+                self._last_sync = datetime.now(timezone.utc)
                 self._opportunities_synced += len(opportunities)
                 self._last_error = None
 
@@ -254,7 +254,7 @@ class SAMGovSyncService:
                 existing.response_deadline = deadline
         if new_data.get("award_amount"):
             existing.award_amount = new_data["award_amount"]
-        existing.last_scraped_at = datetime.utcnow()
+        existing.last_scraped_at = datetime.now(timezone.utc)
 
     def _create_opportunity(self, db: Session, data: dict) -> RFPOpportunity:
         """Create new opportunity from SAM.gov data."""
@@ -298,7 +298,7 @@ class SAMGovSyncService:
             award_amount=data.get("award_amount"),
             source_url=data.get("url") or f"https://sam.gov/opp/{notice_id}/view",
             source_platform="SAM.gov",
-            last_scraped_at=datetime.utcnow(),
+            last_scraped_at=datetime.now(timezone.utc),
             rfp_metadata=metadata,
         )
         db.add(opp)
