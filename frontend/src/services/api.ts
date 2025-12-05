@@ -326,23 +326,39 @@ export const api = {
     apiClient.get(`/rfps/bids/${bidId}/download/${format}`, { responseType: 'blob' }).then(res => res.data),
 
   // Copilot endpoints
-  saveBidDraft: (rfpId: string, data: { sections: Record<string, string> }) =>
-    apiClient.post(`/copilot/${rfpId}/draft`, data).then(res => res.data),
+  copilot: {
+    saveBidDraft: (rfpId: string, data: { sections: Record<string, string> }) =>
+      apiClient.post(`/copilot/${rfpId}/draft`, data).then(res => res.data),
 
-  checkCompliance: (rfpId: string, sections: Record<string, { content: string }>) =>
-    apiClient.post(`/copilot/${rfpId}/compliance-check`, { sections }).then(res => res.data),
+    checkCompliance: (rfpId: string, sections: Record<string, { content: string }>) =>
+      apiClient.post(`/copilot/${rfpId}/compliance-check`, { sections }).then(res => res.data),
 
-  executeCommand: (rfpId: string, data: {
-    command: string
-    selected_text: string
-    context: string
-    section_id: string
-    custom_prompt?: string
-  }): Promise<{ result: string; command: string; tokens_used: number }> =>
-    apiClient.post(`/copilot/${rfpId}/command`, data).then(res => res.data),
+    executeCommand: (rfpId: string, data: {
+      command: string
+      selected_text: string
+      context: string
+      section_id: string
+      custom_prompt?: string
+    }): Promise<{ result: string; command: string; tokens_used: number }> =>
+      apiClient.post(`/copilot/${rfpId}/command`, data).then(res => res.data),
 
-  getCommandStreamUrl: (rfpId: string) =>
-    `/api/v1/copilot/${rfpId}/command/stream`,
+    getCommandStreamUrl: (rfpId: string) =>
+      `/api/v1/copilot/${rfpId}/command/stream`,
+
+    executeAIAction: async (
+      rfpId: number,
+      actionId: string,
+      selectedText: string,
+      fullContent: string
+    ): Promise<{ result: string; action: string }> => {
+      const response = await apiClient.post(`/copilot/${rfpId}/ai-action`, {
+        action_id: actionId,
+        selected_text: selectedText,
+        full_content: fullContent,
+      })
+      return response.data
+    },
+  },
 
   // Pricing Table endpoints
   generatePricingTable: (rfpId: string, options?: {

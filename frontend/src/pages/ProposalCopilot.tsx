@@ -185,7 +185,7 @@ export default function ProposalCopilot() {
 
   // Streaming for slash command generation (uses POST with JSON body)
   const commandStreaming = useCommandStreaming({
-    url: rfpId ? api.getCommandStreamUrl(rfpId) : '',
+    url: rfpId ? api.copilot.getCommandStreamUrl(rfpId) : '',
     onComplete: (result) => {
       // Insert result at appropriate position
       if (pendingCommandResult) {
@@ -228,7 +228,7 @@ export default function ProposalCopilot() {
         ...acc,
         [key]: val.content,
       }), {})
-      return api.saveBidDraft(rfpId!, { sections: sectionData })
+      return api.copilot.saveBidDraft(rfpId!, { sections: sectionData })
     },
     onSuccess: () => {
       setIsDirty(false)
@@ -242,7 +242,7 @@ export default function ProposalCopilot() {
 
   // Check compliance mutation
   const complianceMutation = useMutation({
-    mutationFn: () => api.checkCompliance(rfpId!, sections),
+    mutationFn: () => api.copilot.checkCompliance(rfpId!, sections),
     onSuccess: (data) => {
       setComplianceIssues(data.issues || [])
       setOverallScore(data.score || 0)

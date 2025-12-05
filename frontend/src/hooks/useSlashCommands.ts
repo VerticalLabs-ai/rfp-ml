@@ -146,7 +146,7 @@ export function useSlashCommands({
       selectedText: string
       context: string
     }) => {
-      return api.executeCommand(rfpId, {
+      return api.copilot.executeCommand(rfpId, {
         command,
         selected_text: selectedText,
         context,
