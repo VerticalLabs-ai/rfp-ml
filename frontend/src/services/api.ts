@@ -310,6 +310,18 @@ export const api = {
   checkCompliance: (rfpId: string, sections: Record<string, { content: string }>) =>
     apiClient.post(`/copilot/${rfpId}/compliance-check`, { sections }).then(res => res.data),
 
+  executeCommand: (rfpId: string, data: {
+    command: string
+    selected_text: string
+    context: string
+    section_id: string
+    custom_prompt?: string
+  }): Promise<{ result: string; command: string; tokens_used: number }> =>
+    apiClient.post(`/copilot/${rfpId}/command`, data).then(res => res.data),
+
+  getCommandStreamUrl: (rfpId: string) =>
+    `/api/v1/copilot/${rfpId}/command/stream`,
+
   // Pricing Table endpoints
   generatePricingTable: (rfpId: string, options?: {
     num_websites?: number
@@ -582,6 +594,49 @@ export const api = {
 
   deleteFilterPreset: (id: number): Promise<{ status: string; id: number }> =>
     apiClient.delete(`/rfps/filter-presets/${id}`).then(res => res.data),
+
+  // ============= Analytics =============
+
+  getAnalyticsOverview: (filters?: {
+    start_date?: string
+    end_date?: string
+    agency?: string
+    naics_code?: string
+  }) =>
+    apiClient.get('/analytics/overview', { params: filters }).then(res => res.data),
+
+  getBidOutcome: (outcomeId: number) =>
+    apiClient.get(`/analytics/outcomes/${outcomeId}`).then(res => res.data),
+
+  createBidOutcome: (data: {
+    rfp_id: number
+    status: string
+    award_amount?: number
+    our_bid_amount?: number
+    winning_bidder?: string
+    loss_reason?: string
+  }) =>
+    apiClient.post('/analytics/outcomes', data).then(res => res.data),
+
+  updateBidOutcome: (outcomeId: number, data: {
+    status?: string
+    award_amount?: number
+    winning_bidder?: string
+    loss_reason?: string
+    lessons_learned?: string
+  }) =>
+    apiClient.patch(`/analytics/outcomes/${outcomeId}`, data).then(res => res.data),
+
+  listBidOutcomes: (params?: {
+    page?: number
+    page_size?: number
+    status?: string
+    agency?: string
+  }) =>
+    apiClient.get('/analytics/outcomes', { params }).then(res => res.data),
+
+  exportAnalytics: (format: 'csv' | 'pdf' = 'csv') =>
+    apiClient.get(`/analytics/export/${format}`, { responseType: 'blob' }).then(res => res.data),
 }
 
 
