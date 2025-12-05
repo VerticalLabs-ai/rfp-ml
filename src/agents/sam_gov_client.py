@@ -12,6 +12,11 @@ class SAMGovClient:
     OPP_BASE_URL = "https://api.sam.gov/opportunities/v2/search"
     ENTITY_BASE_URL = "https://api.sam.gov/entity-information/v3/entities"
 
+    @property
+    def opportunities_base_url(self):
+        """Base URL for opportunities API."""
+        return "https://api.sam.gov/opportunities/v2"
+
     def __init__(self, api_key: str | None = None):
         """
         Initialize the SAM.gov client.
@@ -210,3 +215,93 @@ class SAMGovClient:
                 continue
 
         return mapped_results
+
+    def get_opportunity_details(self, opportunity_id: str) -> dict | None:
+        """
+        Fetch full details for a specific opportunity.
+
+        The search API returns limited data (no award amounts in many cases).
+        This method fetches the complete opportunity record including:
+        - Full description
+        - Award information
+        - All attachments/resource links
+        - Amendment history
+
+        Args:
+            opportunity_id: The SAM.gov opportunity ID (noticeId)
+
+        Returns:
+            Normalized opportunity dict or None if not found
+        """
+        url = f"{self.opportunities_base_url}/{opportunity_id}"
+        params = {"api_key": self.api_key}
+
+        try:
+            response = requests.get(url, params=params, timeout=30)
+
+            if response.status_code == 404:
+                logger.warning(f"Opportunity {opportunity_id} not found")
+                return None
+
+            response.raise_for_status()
+            data = response.json()
+
+            # Handle nested response structure
+            opp_data = data.get("data", data)
+
+            # Extract description from array format
+            description = ""
+            if isinstance(opp_data.get("description"), list):
+                description = " ".join(
+                    d.get("body", "") for d in opp_data["description"]
+                )
+            else:
+                description = opp_data.get("description", "")
+
+            # Extract attachments from resourceLinks
+            attachments = []
+            for link in opp_data.get("resourceLinks", []):
+                attachments.append({
+                    "url": link.get("url", ""),
+                    "name": link.get("name", ""),
+                    "type": link.get("type", "document"),
+                })
+
+            # Parse award info
+            award = opp_data.get("award", {})
+            award_amount = award.get("amount", 0) if award else 0
+            award_date = award.get("date") if award else None
+
+            return {
+                "opportunity_id": opportunity_id,
+                "title": opp_data.get("title", ""),
+                "solicitation_number": opp_data.get("solicitationNumber", ""),
+                "agency": opp_data.get("fullParentPathName", "").split(".")[0] if opp_data.get("fullParentPathName") else "",
+                "office": opp_data.get("fullParentPathName", ""),
+                "posted_date": opp_data.get("postedDate"),
+                "response_deadline": opp_data.get("responseDeadLine"),
+                "archive_date": opp_data.get("archiveDate"),
+                "type": opp_data.get("type", ""),
+                "base_type": opp_data.get("baseType", ""),
+                "naics_code": opp_data.get("naicsCode", ""),
+                "classification_code": opp_data.get("classificationCode", ""),
+                "set_aside": opp_data.get("typeOfSetAside", ""),
+                "set_aside_description": opp_data.get("typeOfSetAsideDescription", ""),
+                "description": description,
+                "award_amount": award_amount,
+                "award_date": award_date,
+                "attachments": attachments,
+                "place_of_performance": {
+                    "city": opp_data.get("placeOfPerformance", {}).get("city", ""),
+                    "state": opp_data.get("placeOfPerformance", {}).get("state", {}).get("code", ""),
+                    "zip": opp_data.get("placeOfPerformance", {}).get("zip", ""),
+                    "country": opp_data.get("placeOfPerformance", {}).get("country", {}).get("code", "USA"),
+                },
+                "point_of_contact": opp_data.get("pointOfContact", []),
+                "ui_link": opp_data.get("uiLink", f"https://sam.gov/opp/{opportunity_id}/view"),
+                "active": opp_data.get("active", "Yes") == "Yes",
+            }
+
+        except requests.exceptions.RequestException as e:
+            logger.error(f"Failed to fetch opportunity {opportunity_id}: {e}")
+            return None
