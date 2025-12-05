@@ -160,3 +160,52 @@ class TestSAMGovClientEntityVerification:
         assert result["address"]["state"] == "DC"
         assert len(result["business_types"]) >= 1
         assert result["set_aside_eligibility"]["small_business"] is True
+
+
+class TestSAMGovClientAmendments:
+    """Test amendment tracking functionality."""
+
+    @pytest.fixture
+    def client(self):
+        return SAMGovClient(api_key="test_api_key")
+
+    @pytest.fixture
+    def mock_amendments_response(self):
+        return {
+            "opportunitiesData": [
+                {
+                    "noticeId": "abc123-amd-003",
+                    "title": "Amendment 3 - Extended Deadline",
+                    "postedDate": "2025-01-20",
+                    "type": "Amendment",
+                    "parentNoticeId": "abc123",
+                },
+                {
+                    "noticeId": "abc123-amd-002",
+                    "title": "Amendment 2 - Revised SOW",
+                    "postedDate": "2025-01-15",
+                    "type": "Amendment",
+                    "parentNoticeId": "abc123",
+                },
+                {
+                    "noticeId": "abc123-amd-001",
+                    "title": "Amendment 1 - Q&A Response",
+                    "postedDate": "2025-01-10",
+                    "type": "Amendment",
+                    "parentNoticeId": "abc123",
+                },
+            ],
+            "totalRecords": 3
+        }
+
+    @patch("src.agents.sam_gov_client.requests.get")
+    def test_get_amendments_for_opportunity(self, mock_get, client, mock_amendments_response):
+        """Test fetching amendment history for an opportunity."""
+        mock_get.return_value.status_code = 200
+        mock_get.return_value.json.return_value = mock_amendments_response
+
+        result = client.get_amendments(solicitation_number="SOL-2025-001")
+
+        assert len(result) == 3
+        assert result[0]["type"] == "Amendment"
+        assert "abc123-amd-003" in result[0]["notice_id"]

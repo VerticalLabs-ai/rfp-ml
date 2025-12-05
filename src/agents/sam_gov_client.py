@@ -507,3 +507,67 @@ class SAMGovClient:
             if n.get("naicsCode"):
                 naics.append(n["naicsCode"])
         return naics
+
+    def get_amendments(
+        self,
+        solicitation_number: str | None = None,
+        parent_notice_id: str | None = None,
+        days_back: int = 365
+    ) -> list[dict]:
+        """
+        Fetch amendment history for a solicitation.
+
+        Args:
+            solicitation_number: The solicitation number to search
+            parent_notice_id: Parent opportunity ID
+            days_back: How far back to search
+
+        Returns:
+            List of amendments sorted by date (newest first)
+        """
+        from_date = (datetime.now() - timedelta(days=days_back)).strftime("%m/%d/%Y")
+        to_date = datetime.now().strftime("%m/%d/%Y")
+
+        params = {
+            "api_key": self.api_key,
+            "postedFrom": from_date,
+            "postedTo": to_date,
+            "ptype": "a",  # Amendments only
+            "limit": 100,
+        }
+
+        if solicitation_number:
+            params["solnum"] = solicitation_number
+
+        try:
+            response = requests.get(
+                f"{self.opportunities_base_url}/search",
+                params=params,
+                timeout=30
+            )
+            response.raise_for_status()
+            data = response.json()
+
+            amendments = []
+            for opp in data.get("opportunitiesData", []):
+                amendments.append({
+                    "notice_id": opp.get("noticeId"),
+                    "title": opp.get("title"),
+                    "posted_date": opp.get("postedDate"),
+                    "type": opp.get("type"),
+                    "parent_notice_id": opp.get("parentNoticeId"),
+                    "description": opp.get("description", {}).get("body", "") if isinstance(opp.get("description"), dict) else "",
+                    "ui_link": opp.get("uiLink"),
+                })
+
+            # Sort by posted date descending
+            amendments.sort(
+                key=lambda x: datetime.strptime(x["posted_date"], "%Y-%m-%d") if x.get("posted_date") else datetime.min,
+                reverse=True
+            )
+
+            return amendments
+
+        except requests.exceptions.RequestException as e:
+            logger.error(f"Failed to fetch amendments: {e}")
+            return []
