@@ -50,6 +50,11 @@ class Settings(BaseSettings):
     GSA_EBUY_USERNAME: str | None = None
     GSA_EBUY_PASSWORD: str | None = None
 
+    # SAM.gov Sync Settings
+    SAM_GOV_SYNC_INTERVAL_MINUTES: int = 15
+    SAM_GOV_SYNC_DAYS_BACK: int = 7
+    SAM_GOV_SYNC_LIMIT: int = 100
+
     # Notification Settings
     SMTP_HOST: str | None = None
     SMTP_PORT: int = 587
