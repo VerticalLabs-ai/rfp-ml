@@ -26,6 +26,7 @@ import { FilterSidebar, FilterState, FilterFacets } from '../components/FilterSi
 import { ImportRFPDialog } from '../components/ImportRFPDialog'
 import { NaturalLanguageSearch } from '../components/NaturalLanguageSearch'
 import RFPCard from '../components/RFPCard'
+import { SamGovSyncStatus } from '../components/sam-gov'
 import { useRfpSearch } from '../hooks/useRfpSearch'
 import { api } from '../services/api'
 
@@ -286,6 +287,9 @@ export default function RFPDiscovery() {
           <AddRFPDialog />
         </div>
       </div>
+
+      {/* SAM.gov Integration Status */}
+      <SamGovSyncStatus />
 
       {/* Search Tabs: AI Search vs Traditional Filters */}
       <Tabs value={searchMode} onValueChange={(v) => setSearchMode(v as 'ai' | 'filters')}>

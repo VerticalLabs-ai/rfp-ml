@@ -8,21 +8,36 @@ Frontend components for SAM.gov integration.
 
 A component that displays the SAM.gov sync status and allows manual synchronization.
 
+### EntityVerification
+
+A component that verifies entities registered in SAM.gov by UEI, CAGE code, or legal business name.
+
+### AmendmentHistory
+
+A component that displays the amendment history for a specific SAM.gov opportunity notice.
+
 **Usage:**
 
 ```tsx
-import { SamGovSyncStatus } from '@/components/sam-gov';
+import { SamGovSyncStatus, EntityVerification, AmendmentHistory } from '@/components/sam-gov';
 
 function MyPage() {
   return (
     <div>
+      {/* Display sync status */}
       <SamGovSyncStatus />
+
+      {/* Verify entity registration */}
+      <EntityVerification />
+
+      {/* Show amendment history for a specific opportunity */}
+      <AmendmentHistory noticeId="abc123" daysBack={365} />
     </div>
   );
 }
 ```
 
-**Features:**
+**SyncStatus Features:**
 - Real-time sync status display
 - Auto-refresh every 30 seconds
 - Manual sync trigger with configurable parameters
@@ -30,6 +45,25 @@ function MyPage() {
 - Error message display
 - Last sync timestamp (relative time)
 - Opportunities synced counter
+
+**EntityVerification Features:**
+- Verify entities by UEI (Unique Entity Identifier)
+- Verify entities by CAGE code
+- Verify entities by legal business name
+- Real-time registration status
+- Display entity details (UEI, CAGE, legal name, expiration date)
+- Show NAICS codes associated with the entity
+- Visual feedback for verified vs. not found entities
+
+**AmendmentHistory Features:**
+- Display all amendments for a specific opportunity
+- Configurable lookback period (default: 365 days)
+- Amendment count badge
+- Scrollable list of amendments
+- Posted date with relative time display
+- Amendment type badges
+- Loading states with skeletons
+- Error handling
 
 **Backend Requirements:**
 
