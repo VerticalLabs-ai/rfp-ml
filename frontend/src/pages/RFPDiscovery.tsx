@@ -15,7 +15,7 @@ import { Button } from '@/components/ui/button'
 import { Card, CardContent } from '@/components/ui/card'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { Activity, Link2, List, Search, SearchX, Sparkles } from 'lucide-react'
+import { Activity, Download, Link2, List, Search, SearchX, Sparkles } from 'lucide-react'
 import { useCallback, useEffect, useState } from 'react'
 import toast from 'react-hot-toast'
 import { useNavigate, useSearchParams } from 'react-router-dom'
@@ -216,6 +216,42 @@ export default function RFPDiscovery() {
     })
   }, [])
 
+  // Export filtered RFPs to CSV
+  const exportToCSV = useCallback(() => {
+    if (!rfps || rfps.length === 0) {
+      toast.error('No RFPs to export')
+      return
+    }
+
+    const headers = ['Title', 'Agency', 'NAICS Code', 'Deadline', 'Value', 'Score', 'Status', 'Solicitation #']
+    const rows = rfps.map((rfp: any) => [
+      rfp.title || '',
+      rfp.agency || '',
+      rfp.naics_code || '',
+      rfp.response_deadline ? new Date(rfp.response_deadline).toLocaleDateString() : '',
+      rfp.award_amount || rfp.estimated_value || '',
+      rfp.triage_score?.toFixed(1) || '',
+      rfp.current_stage || '',
+      rfp.solicitation_number || '',
+    ])
+
+    const csv = [headers, ...rows]
+      .map(row => row.map((cell: any) => `"${String(cell).replace(/"/g, '""')}"`).join(','))
+      .join('\n')
+
+    const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' })
+    const url = URL.createObjectURL(blob)
+    const link = document.createElement('a')
+    link.href = url
+    link.download = `rfp-discovery-${new Date().toISOString().split('T')[0]}.csv`
+    document.body.appendChild(link)
+    link.click()
+    document.body.removeChild(link)
+    URL.revokeObjectURL(url)
+
+    toast.success(`Exported ${rfps.length} RFPs to CSV`)
+  }, [rfps])
+
   // Determine if we're showing search results
   const hasSearchTerm = debouncedSearchTerm.length > 0
   const hasResults = rfps && rfps.length > 0
@@ -290,13 +326,27 @@ export default function RFPDiscovery() {
 
             {/* Main Content */}
             <div className="flex-1 min-w-0">
-              <FilterBar
-                filters={{ ...filters, search: searchTerm }}
-                onFilterChange={handleFilterChange}
-                searchInputRef={inputRef}
-                onClearSearch={handleClearSearch}
-                isSearching={isSearching}
-              />
+              {/* Search bar with export button */}
+              <div className="flex items-center gap-4 mb-4">
+                <div className="flex-1">
+                  <FilterBar
+                    filters={{ ...filters, search: searchTerm }}
+                    onFilterChange={handleFilterChange}
+                    searchInputRef={inputRef}
+                    onClearSearch={handleClearSearch}
+                    isSearching={isSearching}
+                  />
+                </div>
+                <Button
+                  variant="outline"
+                  onClick={exportToCSV}
+                  disabled={!rfps || rfps.length === 0}
+                  className="shrink-0"
+                >
+                  <Download className="h-4 w-4 mr-2" />
+                  Export CSV
+                </Button>
+              </div>
 
               {/* Search results info */}
               {hasSearchTerm && hasResults && (
