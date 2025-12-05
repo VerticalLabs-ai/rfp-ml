@@ -371,7 +371,46 @@ export const api = {
     
   getPriceToWin: (rfpId: string, targetProb: number = 0.7) =>
     apiClient.get(`/rfps/${rfpId}/pricing/ptw`, { params: { target_prob: targetProb } }).then(res => res.data),
-    
+
+  // Enhanced Pricing Workspace endpoints
+  getPricingResult: (rfpId: string) =>
+    apiClient.get(`/pricing/${rfpId}/result`).then(res => res.data),
+
+  saveCostBreakdown: (rfpId: string, breakdown: any) =>
+    apiClient.post(`/pricing/${rfpId}/cost-breakdown`, breakdown).then(res => res.data),
+
+  getMarketIntelligence: (rfpId: string) =>
+    apiClient.get(`/pricing/${rfpId}/market-intelligence`).then(res => res.data),
+
+  getPricingTrends: (naicsCode: string) =>
+    apiClient.get(`/pricing/trends/${naicsCode}`).then(res => res.data),
+
+  getAIRecommendation: (rfpId: string, currentPrice?: number, targetWinProb: number = 0.7) =>
+    apiClient.post(`/pricing/${rfpId}/ai-recommendation`, {
+      current_price: currentPrice,
+      target_win_probability: targetWinProb,
+    }).then(res => res.data),
+
+  getPTWAnalysis: (rfpId: string, currentPrice?: number) =>
+    apiClient.get(`/pricing/${rfpId}/ptw-analysis`, {
+      params: currentPrice ? { current_price: currentPrice } : {},
+    }).then(res => res.data),
+
+  generatePricingNarrative: (rfpId: string) =>
+    apiClient.post(`/pricing/${rfpId}/narrative`).then(res => res.data),
+
+  generateBasisOfEstimate: (rfpId: string) =>
+    apiClient.post(`/pricing/${rfpId}/basis-of-estimate`).then(res => res.data),
+
+  trainPricingModel: () =>
+    apiClient.post('/pricing/train-model').then(res => res.data),
+
+  getMLPricePrediction: (rfpId: string) =>
+    apiClient.post(`/pricing/${rfpId}/ml-prediction`).then(res => res.data),
+
+  optimizePrice: (rfpId: string, params: { min_margin?: number; max_margin?: number; target_win_prob?: number }) =>
+    apiClient.post(`/pricing/${rfpId}/optimize`, params).then(res => res.data),
+
   // Competitor endpoints
   getCompetitors: (rfpId: string) =>
     apiClient.get(`/rfps/${rfpId}/competitors`).then(res => res.data),

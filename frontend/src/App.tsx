@@ -11,6 +11,7 @@ import RFPDiscovery from './pages/RFPDiscovery'
 import SubmissionQueue from './pages/SubmissionQueue'
 import { FutureOpportunities } from './pages/FutureOpportunities'
 import PricingSimulator from './pages/PricingSimulator'
+import PricingWorkspace from './pages/PricingWorkspace'
 import SettingsPage from './pages/Settings'
 import ProjectKickoffPage from './pages/ProjectKickoff'
 import TeamingPartnersPage from './pages/TeamingPartners'
@@ -48,7 +49,8 @@ function App() {
             <Route path="/rfps/:rfpId/copilot" element={<ProposalCopilot />} />
             <Route path="/discovery/live" element={<LiveDiscovery />} />
             <Route path="/forecasts" element={<FutureOpportunities />} />
-            <Route path="/rfps/:rfpId/pricing" element={<PricingSimulator />} />
+            <Route path="/rfps/:rfpId/pricing" element={<PricingWorkspace />} />
+            <Route path="/rfps/:rfpId/pricing/simulator" element={<PricingSimulator />} />
             <Route path="/pipeline" element={<PipelineMonitor />} />
             <Route path="/decisions" element={<DecisionReview />} />
             <Route path="/submissions" element={<SubmissionQueue />} />

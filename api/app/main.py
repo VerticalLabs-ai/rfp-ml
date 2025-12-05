@@ -18,6 +18,7 @@ from app.routes import (
     jobs,
     pipeline,
     predictions,
+    pricing,
     profiles,
     rag,
     rfps,
@@ -144,6 +145,11 @@ app.include_router(
     analytics.router,
     prefix=f"{settings.API_V1_STR}/analytics",
     tags=["analytics"],
+)
+app.include_router(
+    pricing.router,
+    prefix=f"{settings.API_V1_STR}/pricing",
+    tags=["pricing"],
 )
 app.include_router(websocket_router.router, prefix="/ws", tags=["websocket"])
 app.include_router(
