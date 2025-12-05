@@ -1,18 +1,23 @@
 """SAM.gov integration API routes."""
+import asyncio
 import logging
+import re
 from typing import Any
 
-from fastapi import APIRouter, Depends, HTTPException, Query, BackgroundTasks
+from fastapi import APIRouter, Depends, HTTPException, Query, BackgroundTasks, Path
 from pydantic import BaseModel, Field
 from sqlalchemy.orm import Session
 
-from api.app.core.database import get_db
+from api.app.core.database import get_db, SessionLocal
 from api.app.services.sam_gov_sync import get_sync_service, SAMGovSyncService, SyncStatus
 from api.app.websockets.websocket_router import manager
 
 logger = logging.getLogger(__name__)
 
 router = APIRouter()
+
+# UEI validation pattern (12 alphanumeric characters)
+UEI_PATTERN = re.compile(r"^[A-Z0-9]{12}$")
 
 
 # Request/Response Models
@@ -21,9 +26,6 @@ class SyncRequest(BaseModel):
     """Request to trigger sync."""
     days_back: int = Field(default=7, ge=1, le=365)
     limit: int = Field(default=100, ge=1, le=1000)
-    keywords: list[str] | None = None
-    agencies: list[str] | None = None
-    naics_codes: list[str] | None = None
 
 
 class SyncStatusResponse(BaseModel):
@@ -72,7 +74,6 @@ async def get_sync_status(
 async def trigger_sync(
     request: SyncRequest,
     background_tasks: BackgroundTasks,
-    db: Session = Depends(get_db),
     sync_service: SAMGovSyncService = Depends(get_sync_service)
 ) -> dict[str, Any]:
     """
@@ -88,18 +89,28 @@ async def trigger_sync(
             detail="Sync already in progress"
         )
 
-    # Run sync in background
+    # Run sync in background with its own database session
     async def run_sync():
-        result = await sync_service.sync_opportunities(
-            days_back=request.days_back,
-            limit=request.limit,
-            db=db
-        )
-        # Broadcast update via WebSocket
-        await manager.broadcast({
-            "type": "sam_gov_sync_complete",
-            "data": result
-        })
+        db_session = SessionLocal()
+        try:
+            result = await sync_service.sync_opportunities(
+                days_back=request.days_back,
+                limit=request.limit,
+                db=db_session
+            )
+            # Broadcast update via WebSocket
+            await manager.broadcast({
+                "type": "sam_gov_sync_complete",
+                "data": result
+            })
+        except Exception as e:
+            logger.error(f"Background sync failed: {e}")
+            await manager.broadcast({
+                "type": "sam_gov_sync_error",
+                "data": {"error": str(e)}
+            })
+        finally:
+            db_session.close()
 
     background_tasks.add_task(run_sync)
 
@@ -145,17 +156,25 @@ async def verify_entity_registration(
             detail="At least one of uei, cage_code, or legal_name is required"
         )
 
-    result = await sync_service.verify_entity(uei=uei) if uei else \
-             sync_service.client.verify_entity_registration(
-                 cage_code=cage_code, legal_name=legal_name
-             ) if sync_service.client else {"is_registered": False, "error": "API not configured"}
+    if uei:
+        result = await sync_service.verify_entity(uei=uei)
+    elif sync_service.client:
+        # Run synchronous client method in thread pool to avoid blocking
+        result = await asyncio.get_event_loop().run_in_executor(
+            None,
+            lambda: sync_service.client.verify_entity_registration(
+                cage_code=cage_code, legal_name=legal_name
+            )
+        )
+    else:
+        result = {"is_registered": False, "error": "SAM.gov API not configured"}
 
     return EntityVerificationResponse(**result)
 
 
 @router.get("/entity/{uei}/profile")
 async def get_entity_profile(
-    uei: str,
+    uei: str = Path(..., min_length=12, max_length=12, pattern=r"^[A-Z0-9]{12}$"),
     sync_service: SAMGovSyncService = Depends(get_sync_service)
 ) -> dict[str, Any]:
     """
@@ -180,7 +199,7 @@ async def get_entity_profile(
 
 @router.get("/opportunity/{notice_id}")
 async def get_opportunity_details(
-    notice_id: str,
+    notice_id: str = Path(..., min_length=1, max_length=100),
     sync_service: SAMGovSyncService = Depends(get_sync_service)
 ) -> dict[str, Any]:
     """
@@ -207,7 +226,7 @@ async def get_opportunity_details(
 
 @router.get("/opportunity/{notice_id}/amendments")
 async def get_opportunity_amendments(
-    notice_id: str,
+    notice_id: str = Path(..., min_length=1, max_length=100),
     days_back: int = Query(default=365, ge=1, le=365),
     sync_service: SAMGovSyncService = Depends(get_sync_service)
 ) -> dict[str, Any]:
