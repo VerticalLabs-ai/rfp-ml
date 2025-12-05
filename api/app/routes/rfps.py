@@ -20,6 +20,7 @@ from app.services.rfp_processor import processing_jobs, processor
 from app.services.rfp_service import RFPService
 from fastapi import APIRouter, BackgroundTasks, HTTPException, Query
 from pydantic import BaseModel, Field, field_validator
+from sqlalchemy import func, or_
 from sqlalchemy.orm import Session
 
 from src.agents.competitor_analytics import CompetitorAnalyticsService
@@ -388,6 +389,108 @@ async def get_discovered_rfps(
         filters=filters,
     )
     return rfps
+
+
+@router.get("/discovered/facets")
+async def get_discovered_facets(
+    search: str | None = Query(default=None, description="Search term to narrow facets"),
+    db: DBDep = ...,
+):
+    """Get facet counts for filter options."""
+
+    base_query = db.query(RFPOpportunity)
+
+    # Apply search filter if provided
+    if search and search.strip():
+        search_term = f"%{search.strip().lower()}%"
+        base_query = base_query.filter(
+            or_(
+                RFPOpportunity.title.ilike(search_term),
+                RFPOpportunity.description.ilike(search_term),
+                RFPOpportunity.agency.ilike(search_term),
+            )
+        )
+
+    # Agency facets
+    agency_facets = (
+        db.query(RFPOpportunity.agency, func.count(RFPOpportunity.id))
+        .filter(RFPOpportunity.agency.isnot(None))
+        .filter(RFPOpportunity.agency != '')
+        .group_by(RFPOpportunity.agency)
+        .order_by(func.count(RFPOpportunity.id).desc())
+        .limit(50)
+        .all()
+    )
+
+    # NAICS facets
+    naics_facets = (
+        db.query(RFPOpportunity.naics_code, func.count(RFPOpportunity.id))
+        .filter(RFPOpportunity.naics_code.isnot(None))
+        .filter(RFPOpportunity.naics_code != '')
+        .group_by(RFPOpportunity.naics_code)
+        .order_by(func.count(RFPOpportunity.id).desc())
+        .limit(50)
+        .all()
+    )
+
+    # Status/Stage facets
+    status_facets = (
+        db.query(RFPOpportunity.current_stage, func.count(RFPOpportunity.id))
+        .filter(RFPOpportunity.current_stage.isnot(None))
+        .group_by(RFPOpportunity.current_stage)
+        .order_by(func.count(RFPOpportunity.id).desc())
+        .all()
+    )
+
+    # Location facets (using office field)
+    location_facets = (
+        db.query(RFPOpportunity.office, func.count(RFPOpportunity.id))
+        .filter(RFPOpportunity.office.isnot(None))
+        .filter(RFPOpportunity.office != '')
+        .group_by(RFPOpportunity.office)
+        .order_by(func.count(RFPOpportunity.id).desc())
+        .limit(50)
+        .all()
+    )
+
+    # Notice type facets from rfp_metadata (attempt extraction if JSON field exists)
+    # This is a best-effort - may need adjustment based on actual data structure
+    notice_type_facets = []
+    set_aside_facets = []
+
+    try:
+        # Try to extract notice_type from rfp_metadata JSON
+        notice_results = (
+            db.query(
+                RFPOpportunity.rfp_metadata['notice_type'].astext,
+                func.count(RFPOpportunity.id)
+            )
+            .filter(RFPOpportunity.rfp_metadata['notice_type'].isnot(None))
+            .group_by(RFPOpportunity.rfp_metadata['notice_type'].astext)
+            .order_by(func.count(RFPOpportunity.id).desc())
+            .limit(20)
+            .all()
+        )
+        notice_type_facets = [
+            {"value": r[0], "count": r[1]}
+            for r in notice_results
+            if r[0] and r[0].strip()
+        ]
+    except Exception:
+        # JSON extraction not supported or field doesn't exist
+        pass
+
+    return {
+        "agencies": [{"value": a[0], "count": a[1]} for a in agency_facets if a[0]],
+        "naicsCodes": [{"value": n[0], "count": n[1]} for n in naics_facets if n[0]],
+        "locations": [{"value": l[0], "count": l[1]} for l in location_facets if l[0]],
+        "noticeTypes": notice_type_facets,
+        "setAsides": set_aside_facets,  # Empty for now, would need JSON array parsing
+        "statuses": [
+            {"value": s[0].value if hasattr(s[0], 'value') else str(s[0]), "count": s[1]}
+            for s in status_facets if s[0]
+        ],
+    }
 
 
 @router.get("/recent", response_model=list[RFPResponse])
