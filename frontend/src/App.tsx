@@ -19,6 +19,7 @@ import RFPDetail from './pages/RFPDetail'
 import ProposalCopilot from './pages/ProposalCopilot'
 import SavedContracts from './pages/SavedContracts'
 import AlertsPage from './pages/Alerts'
+import WinLossAnalytics from './pages/WinLossAnalytics'
 
 // Components
 import Layout from './components/Layout'
@@ -57,6 +58,7 @@ function App() {
             <Route path="/profiles" element={<CompanyProfiles />} />
             <Route path="/saved" element={<SavedContracts />} />
             <Route path="/alerts" element={<AlertsPage />} />
+            <Route path="/analytics" element={<WinLossAnalytics />} />
           </Routes>
         </Layout>
       </Router>

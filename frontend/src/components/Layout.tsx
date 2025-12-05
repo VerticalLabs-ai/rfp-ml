@@ -1,5 +1,5 @@
 import { Link, useLocation } from 'react-router-dom'
-import { Bell, Bookmark, LayoutDashboard, Search, GitBranch, CheckSquare, Send, Zap, TrendingUp, Settings, Building2 } from 'lucide-react'
+import { Bell, Bookmark, LayoutDashboard, Search, GitBranch, CheckSquare, Send, Zap, TrendingUp, Settings, Building2, BarChart3 } from 'lucide-react'
 import { useQuery } from '@tanstack/react-query'
 import { api } from '@/services/api'
 import { WebSocketStatus } from '@/components/WebSocketStatus'
@@ -19,6 +19,7 @@ const navigation = [
   { name: 'Pipeline', path: '/pipeline', icon: GitBranch },
   { name: 'Decisions', path: '/decisions', icon: CheckSquare },
   { name: 'Submissions', path: '/submissions', icon: Send },
+  { name: 'Win/Loss', path: '/analytics', icon: BarChart3 },
   { name: 'Profiles', path: '/profiles', icon: Building2 },
   { name: 'Settings', path: '/settings', icon: Settings }
 ]

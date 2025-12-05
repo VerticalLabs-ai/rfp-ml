@@ -1,5 +1,6 @@
 import axios, { AxiosError, InternalAxiosRequestConfig } from 'axios'
 import { toast } from 'sonner'
+import type { BidOutcomeCreate, AnalyticsFilters } from '@/types/analytics'
 
 export const apiClient = axios.create({
   baseURL: '/api/v1',
@@ -597,25 +598,13 @@ export const api = {
 
   // ============= Analytics =============
 
-  getAnalyticsOverview: (filters?: {
-    start_date?: string
-    end_date?: string
-    agency?: string
-    naics_code?: string
-  }) =>
+  getAnalyticsOverview: (filters?: AnalyticsFilters) =>
     apiClient.get('/analytics/overview', { params: filters }).then(res => res.data),
 
   getBidOutcome: (outcomeId: number) =>
     apiClient.get(`/analytics/outcomes/${outcomeId}`).then(res => res.data),
 
-  createBidOutcome: (data: {
-    rfp_id: number
-    status: string
-    award_amount?: number
-    our_bid_amount?: number
-    winning_bidder?: string
-    loss_reason?: string
-  }) =>
+  createBidOutcome: (data: BidOutcomeCreate) =>
     apiClient.post('/analytics/outcomes', data).then(res => res.data),
 
   updateBidOutcome: (outcomeId: number, data: {

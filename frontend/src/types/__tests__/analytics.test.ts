@@ -2,8 +2,6 @@ import { describe, it, expect } from 'vitest'
 import type {
   BidOutcome,
   WinLossStats,
-  AnalyticsDashboard,
-  CompetitorStats,
 } from '../analytics'
 
 describe('Analytics Types', () => {
