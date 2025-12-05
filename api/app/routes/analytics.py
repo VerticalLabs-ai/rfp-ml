@@ -1,8 +1,9 @@
 """Win/Loss Analytics API routes."""
-from fastapi import APIRouter, Query, HTTPException
+from fastapi import APIRouter, Query, HTTPException, status
 from sqlalchemy import func
 from datetime import datetime, timedelta
-from typing import Optional
+from typing import Optional, List
+from pydantic import BaseModel
 
 from app.dependencies import DBDep
 from app.models.database import BidOutcome, RFPOpportunity, CompetitorProfile
@@ -176,3 +177,164 @@ def _win_rate_by_field(db, outcomes: list[BidOutcome], field: str) -> dict[str, 
         k: round(v["wins"] / v["total"], 3) if v["total"] > 0 else 0.0
         for k, v in grouped.items()
     }
+
+
+# =============================================================================
+# CRUD Endpoints for Bid Outcomes
+# =============================================================================
+
+
+class PaginatedOutcomes(BaseModel):
+    """Paginated list of bid outcomes."""
+    items: List[BidOutcomeResponse]
+    total: int
+    page: int
+    page_size: int
+
+
+@router.post("/outcomes", response_model=BidOutcomeResponse, status_code=status.HTTP_201_CREATED)
+async def create_bid_outcome(
+    data: BidOutcomeCreate,
+    db: DBDep,
+):
+    """Create a new bid outcome record."""
+    # Verify RFP exists
+    rfp = db.query(RFPOpportunity).filter(RFPOpportunity.id == data.rfp_id).first()
+    if not rfp:
+        raise HTTPException(status_code=404, detail="RFP not found")
+
+    # Check if outcome already exists
+    existing = db.query(BidOutcome).filter(BidOutcome.rfp_id == data.rfp_id).first()
+    if existing:
+        raise HTTPException(status_code=400, detail="Outcome already exists for this RFP")
+
+    # Calculate price delta if we have both amounts
+    price_delta = None
+    if data.our_bid_amount and data.winning_bid_amount and data.winning_bid_amount != 0:
+        price_delta = ((data.our_bid_amount - data.winning_bid_amount) / data.winning_bid_amount) * 100
+
+    outcome = BidOutcome(
+        rfp_id=data.rfp_id,
+        status=data.status,
+        award_amount=data.award_amount,
+        our_bid_amount=data.our_bid_amount,
+        winning_bidder=data.winning_bidder,
+        winning_bid_amount=data.winning_bid_amount,
+        loss_reason=data.loss_reason,
+        debrief_notes=data.debrief_notes,
+        award_date=data.award_date,
+        price_delta_percentage=price_delta,
+    )
+
+    db.add(outcome)
+    db.commit()
+    db.refresh(outcome)
+
+    # Update competitor profile if lost
+    if data.status == "lost" and data.winning_bidder:
+        _update_competitor_profile(db, data.winning_bidder, won=True, rfp=rfp)
+
+    return outcome.to_dict()
+
+
+@router.get("/outcomes/{outcome_id}", response_model=BidOutcomeResponse)
+async def get_bid_outcome(
+    outcome_id: int,
+    db: DBDep,
+):
+    """Get a specific bid outcome by ID."""
+    outcome = db.query(BidOutcome).filter(BidOutcome.id == outcome_id).first()
+    if not outcome:
+        raise HTTPException(status_code=404, detail="Outcome not found")
+
+    return outcome.to_dict()
+
+
+@router.patch("/outcomes/{outcome_id}", response_model=BidOutcomeResponse)
+async def update_bid_outcome(
+    outcome_id: int,
+    data: BidOutcomeUpdate,
+    db: DBDep,
+):
+    """Update a bid outcome record."""
+    outcome = db.query(BidOutcome).filter(BidOutcome.id == outcome_id).first()
+    if not outcome:
+        raise HTTPException(status_code=404, detail="Outcome not found")
+
+    # Update fields that are provided
+    update_data = data.model_dump(exclude_unset=True)
+    for field, value in update_data.items():
+        setattr(outcome, field, value)
+
+    # Recalculate price delta if relevant fields changed
+    if outcome.our_bid_amount and outcome.winning_bid_amount and outcome.winning_bid_amount != 0:
+        outcome.price_delta_percentage = (
+            (outcome.our_bid_amount - outcome.winning_bid_amount) / outcome.winning_bid_amount
+        ) * 100
+
+    db.commit()
+    db.refresh(outcome)
+
+    return outcome.to_dict()
+
+
+@router.get("/outcomes", response_model=PaginatedOutcomes)
+async def list_bid_outcomes(
+    db: DBDep,
+    page: int = Query(1, ge=1),
+    page_size: int = Query(20, ge=1, le=100),
+    status: Optional[str] = None,
+    agency: Optional[str] = None,
+):
+    """List bid outcomes with pagination and filters."""
+    query = db.query(BidOutcome).join(RFPOpportunity)
+
+    if status:
+        query = query.filter(BidOutcome.status == status)
+    if agency:
+        query = query.filter(RFPOpportunity.agency == agency)
+
+    total = query.count()
+
+    outcomes = (
+        query
+        .order_by(BidOutcome.created_at.desc())
+        .offset((page - 1) * page_size)
+        .limit(page_size)
+        .all()
+    )
+
+    return PaginatedOutcomes(
+        items=[o.to_dict() for o in outcomes],
+        total=total,
+        page=page,
+        page_size=page_size,
+    )
+
+
+def _update_competitor_profile(db, competitor_name: str, won: bool, rfp: RFPOpportunity):
+    """Update or create competitor profile."""
+    profile = db.query(CompetitorProfile).filter(
+        CompetitorProfile.name == competitor_name
+    ).first()
+
+    if not profile:
+        profile = CompetitorProfile(name=competitor_name)
+        db.add(profile)
+
+    profile.total_encounters += 1
+    if won:
+        profile.wins_against_us += 1
+    else:
+        profile.losses_against_us += 1
+
+    # Update categories
+    if rfp.naics_code and rfp.naics_code not in (profile.categories or []):
+        profile.categories = (profile.categories or []) + [rfp.naics_code]
+
+    # Update agencies
+    if rfp.agency and rfp.agency not in (profile.agencies_won or []):
+        profile.agencies_won = (profile.agencies_won or []) + [rfp.agency]
+
+    profile.last_seen = datetime.utcnow()
+    db.commit()
