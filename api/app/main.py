@@ -8,6 +8,7 @@ from app.core.config import settings
 from app.core.database import init_db
 from app.routes import (
     alerts,
+    analytics,
     chat,
     compliance,
     copilot,
@@ -138,6 +139,11 @@ app.include_router(
 app.include_router(compliance.router, prefix=settings.API_V1_STR)
 app.include_router(
     saved_rfps.router, prefix=settings.API_V1_STR, tags=["saved-rfps"]
+)
+app.include_router(
+    analytics.router,
+    prefix=f"{settings.API_V1_STR}/analytics",
+    tags=["analytics"],
 )
 app.include_router(websocket_router.router, prefix="/ws", tags=["websocket"])
 app.include_router(
