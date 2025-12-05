@@ -309,6 +309,24 @@ class BidGenerationOptions(BaseModel):
         return v
 
 
+class FilterPresetCreate(BaseModel):
+    """Schema for creating a filter preset."""
+    name: str = Field(..., min_length=1, max_length=100)
+    filters: dict
+
+
+class FilterPresetResponse(BaseModel):
+    """Schema for filter preset response."""
+    id: int
+    name: str
+    filters: dict
+    is_default: bool
+    created_at: datetime
+
+    class Config:
+        from_attributes = True
+
+
 class ChecklistItemResponse(BaseModel):
     id: str
     description: str
@@ -1462,3 +1480,57 @@ async def get_chat_history(conversation_id: str | None = None):
         "messages": [],
         "conversation_id": conversation_id,
     }
+
+
+# ============================================================================
+# Filter Preset Endpoints
+# ============================================================================
+
+
+@router.post("/filter-presets", response_model=FilterPresetResponse)
+async def create_filter_preset(preset: FilterPresetCreate, db: DBDep):
+    """Save a filter preset."""
+    from app.models.database import FilterPreset
+
+    db_preset = FilterPreset(
+        name=preset.name,
+        filters=preset.filters,
+    )
+    db.add(db_preset)
+    db.commit()
+    db.refresh(db_preset)
+    return db_preset
+
+
+@router.get("/filter-presets", response_model=list[FilterPresetResponse])
+async def list_filter_presets(db: DBDep):
+    """List all filter presets."""
+    from app.models.database import FilterPreset
+
+    presets = db.query(FilterPreset).order_by(FilterPreset.name).all()
+    return presets
+
+
+@router.get("/filter-presets/{preset_id}", response_model=FilterPresetResponse)
+async def get_filter_preset(preset_id: int, db: DBDep):
+    """Get a filter preset by ID."""
+    from app.models.database import FilterPreset
+
+    preset = db.query(FilterPreset).filter(FilterPreset.id == preset_id).first()
+    if not preset:
+        raise HTTPException(status_code=404, detail="Preset not found")
+    return preset
+
+
+@router.delete("/filter-presets/{preset_id}")
+async def delete_filter_preset(preset_id: int, db: DBDep):
+    """Delete a filter preset."""
+    from app.models.database import FilterPreset
+
+    preset = db.query(FilterPreset).filter(FilterPreset.id == preset_id).first()
+    if not preset:
+        raise HTTPException(status_code=404, detail="Preset not found")
+
+    db.delete(preset)
+    db.commit()
+    return {"status": "deleted", "id": preset_id}

@@ -1035,3 +1035,16 @@ class SavedRfp(Base):
             "saved_at": self.saved_at.isoformat() if self.saved_at else None,
             "updated_at": self.updated_at.isoformat() if self.updated_at else None,
         }
+
+
+class FilterPreset(Base):
+    """Saved filter preset for RFP discovery."""
+
+    __tablename__ = "filter_presets"
+
+    id = Column(Integer, primary_key=True, index=True)
+    name = Column(String(100), nullable=False)
+    filters = Column(JSON, nullable=False)
+    is_default = Column(Boolean, default=False)
+    created_at = Column(DateTime, default=datetime.utcnow)
+    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
