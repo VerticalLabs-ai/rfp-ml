@@ -22,6 +22,7 @@ import { useNavigate, useSearchParams } from 'react-router-dom'
 import AddRFPDialog from '../components/AddRFPDialog'
 import DiscoveryButton from '../components/DiscoveryButton'
 import FilterBar from '../components/FilterBar'
+import { FilterSidebar, FilterState, FilterFacets } from '../components/FilterSidebar'
 import { ImportRFPDialog } from '../components/ImportRFPDialog'
 import { NaturalLanguageSearch } from '../components/NaturalLanguageSearch'
 import RFPCard from '../components/RFPCard'
@@ -44,6 +45,22 @@ export default function RFPDiscovery() {
     search: searchParams.get('q') || '',
     sortBy: searchParams.get('sort') || 'score'
   }))
+
+  // Advanced filter state
+  const [advancedFilters, setAdvancedFilters] = useState<FilterState>({
+    noticeTypes: [],
+    setAsides: [],
+    naicsCodes: [],
+    agencies: [],
+    locations: [],
+    valueMin: null,
+    valueMax: null,
+    postedAfter: null,
+    postedBefore: null,
+    deadlineAfter: null,
+    deadlineBefore: null,
+    status: [],
+  })
 
   // Use search hook for debouncing and keyboard shortcuts
   const {
@@ -111,17 +128,38 @@ export default function RFPDiscovery() {
     setFilters(prev => ({ ...prev, search: '' }))
   }, [clearSearch])
 
-  // Query for RFPs with debounced search
+  // Query for RFPs with debounced search and advanced filters
   const { data: rfps, isLoading, isError } = useQuery({
     queryKey: ['discovered-rfps', {
       ...filters,
-      search: debouncedSearchTerm // Use debounced value for query
+      search: debouncedSearchTerm,
+      ...advancedFilters,
     }],
     queryFn: () => api.getDiscoveredRFPs({
       ...filters,
-      search: debouncedSearchTerm
+      search: debouncedSearchTerm,
+      // Map advanced filters to API params
+      notice_types: advancedFilters.noticeTypes.length > 0 ? advancedFilters.noticeTypes : undefined,
+      set_asides: advancedFilters.setAsides.length > 0 ? advancedFilters.setAsides : undefined,
+      naics_codes: advancedFilters.naicsCodes.length > 0 ? advancedFilters.naicsCodes : undefined,
+      agencies: advancedFilters.agencies.length > 0 ? advancedFilters.agencies : undefined,
+      locations: advancedFilters.locations.length > 0 ? advancedFilters.locations : undefined,
+      value_min: advancedFilters.valueMin ?? undefined,
+      value_max: advancedFilters.valueMax ?? undefined,
+      posted_after: advancedFilters.postedAfter ?? undefined,
+      posted_before: advancedFilters.postedBefore ?? undefined,
+      deadline_after: advancedFilters.deadlineAfter ?? undefined,
+      deadline_before: advancedFilters.deadlineBefore ?? undefined,
+      status: advancedFilters.status.length > 0 ? advancedFilters.status : undefined,
     }),
-    staleTime: 30000, // 30 seconds
+    staleTime: 30000,
+  })
+
+  // Fetch facets for filter counts
+  const { data: facets } = useQuery<FilterFacets>({
+    queryKey: ['rfp-facets', debouncedSearchTerm],
+    queryFn: () => api.getDiscoveredFacets(debouncedSearchTerm || undefined),
+    staleTime: 60000, // 1 minute
   })
 
   const triageMutation = useMutation({
@@ -159,6 +197,24 @@ export default function RFPDiscovery() {
   const handleAiResultSelect = useCallback((result: any) => {
     navigate(`/rfp/${result.rfp_id}`)
   }, [navigate])
+
+  // Clear all advanced filters
+  const handleClearAllFilters = useCallback(() => {
+    setAdvancedFilters({
+      noticeTypes: [],
+      setAsides: [],
+      naicsCodes: [],
+      agencies: [],
+      locations: [],
+      valueMin: null,
+      valueMax: null,
+      postedAfter: null,
+      postedBefore: null,
+      deadlineAfter: null,
+      deadlineBefore: null,
+      status: [],
+    })
+  }, [])
 
   // Determine if we're showing search results
   const hasSearchTerm = debouncedSearchTerm.length > 0
@@ -223,75 +279,88 @@ export default function RFPDiscovery() {
 
         {/* Traditional Browse & Filter Tab */}
         <TabsContent value="filters" className="mt-4">
-          <FilterBar
-            filters={{ ...filters, search: searchTerm }}
-            onFilterChange={handleFilterChange}
-            searchInputRef={inputRef}
-            onClearSearch={handleClearSearch}
-            isSearching={isSearching}
-          />
+          <div className="flex gap-6">
+            {/* Filter Sidebar */}
+            <FilterSidebar
+              filters={advancedFilters}
+              onFilterChange={setAdvancedFilters}
+              facets={facets}
+              onClearAll={handleClearAllFilters}
+            />
 
-          {/* Search results info */}
-          {hasSearchTerm && hasResults && (
-            <div className="flex items-center gap-2 text-sm text-gray-600 mt-4">
-              <Search className="h-4 w-4" />
-              <span>
-                Found <strong>{rfps.length}</strong> result{rfps.length !== 1 ? 's' : ''} for "<strong>{debouncedSearchTerm}</strong>"
-              </span>
-              <button
-                type="button"
-                onClick={handleClearSearch}
-                className="text-primary-600 hover:underline ml-2"
-              >
-                Clear search
-              </button>
-            </div>
-          )}
+            {/* Main Content */}
+            <div className="flex-1 min-w-0">
+              <FilterBar
+                filters={{ ...filters, search: searchTerm }}
+                onFilterChange={handleFilterChange}
+                searchInputRef={inputRef}
+                onClearSearch={handleClearSearch}
+                isSearching={isSearching}
+              />
 
-          {isLoading ? (
-            <div className="text-center py-12">
-              <div className="animate-pulse space-y-4">
-                <div className="h-32 bg-gray-200 rounded-lg" />
-                <div className="h-32 bg-gray-200 rounded-lg" />
-                <div className="h-32 bg-gray-200 rounded-lg" />
-              </div>
-              <p className="mt-4 text-gray-500">Loading RFPs...</p>
-            </div>
-          ) : isError ? (
-            <div className="text-center py-12 text-red-500">
-              Failed to load RFPs. Please try again.
-            </div>
-          ) : showNoResults ? (
-            <div className="text-center py-12">
-              <SearchX className="h-12 w-12 text-gray-400 mx-auto mb-4" />
-              <h3 className="text-lg font-medium text-gray-900 mb-2">
-                No results found for "{debouncedSearchTerm}"
-              </h3>
-              <p className="text-sm text-gray-500 mb-4">
-                Try adjusting your search terms or filters
-              </p>
-              <Button variant="outline" onClick={handleClearSearch}>
-                Clear search
-              </Button>
-            </div>
-          ) : (
-            <div className="grid grid-cols-1 gap-6 mt-4">
-              {rfps?.map((rfp: any) => (
-                <RFPCard
-                  key={rfp.id}
-                  rfp={rfp}
-                  onTriageDecision={handleTriageDecision}
-                  onDelete={handleDelete}
-                  searchTerm={debouncedSearchTerm}
-                />
-              ))}
-              {!hasSearchTerm && rfps?.length === 0 && (
-                <div className="text-center py-12 text-gray-500">
-                  No RFPs found. Start by discovering or importing RFPs.
+              {/* Search results info */}
+              {hasSearchTerm && hasResults && (
+                <div className="flex items-center gap-2 text-sm text-gray-600 mt-4">
+                  <Search className="h-4 w-4" />
+                  <span>
+                    Found <strong>{rfps.length}</strong> result{rfps.length !== 1 ? 's' : ''} for "<strong>{debouncedSearchTerm}</strong>"
+                  </span>
+                  <button
+                    type="button"
+                    onClick={handleClearSearch}
+                    className="text-primary-600 hover:underline ml-2"
+                  >
+                    Clear search
+                  </button>
+                </div>
+              )}
+
+              {isLoading ? (
+                <div className="text-center py-12">
+                  <div className="animate-pulse space-y-4">
+                    <div className="h-32 bg-gray-200 rounded-lg" />
+                    <div className="h-32 bg-gray-200 rounded-lg" />
+                    <div className="h-32 bg-gray-200 rounded-lg" />
+                  </div>
+                  <p className="mt-4 text-gray-500">Loading RFPs...</p>
+                </div>
+              ) : isError ? (
+                <div className="text-center py-12 text-red-500">
+                  Failed to load RFPs. Please try again.
+                </div>
+              ) : showNoResults ? (
+                <div className="text-center py-12">
+                  <SearchX className="h-12 w-12 text-gray-400 mx-auto mb-4" />
+                  <h3 className="text-lg font-medium text-gray-900 mb-2">
+                    No results found for "{debouncedSearchTerm}"
+                  </h3>
+                  <p className="text-sm text-gray-500 mb-4">
+                    Try adjusting your search terms or filters
+                  </p>
+                  <Button variant="outline" onClick={handleClearSearch}>
+                    Clear search
+                  </Button>
+                </div>
+              ) : (
+                <div className="grid grid-cols-1 gap-6 mt-4">
+                  {rfps?.map((rfp: any) => (
+                    <RFPCard
+                      key={rfp.id}
+                      rfp={rfp}
+                      onTriageDecision={handleTriageDecision}
+                      onDelete={handleDelete}
+                      searchTerm={debouncedSearchTerm}
+                    />
+                  ))}
+                  {!hasSearchTerm && rfps?.length === 0 && (
+                    <div className="text-center py-12 text-gray-500">
+                      No RFPs found. Start by discovering or importing RFPs.
+                    </div>
+                  )}
                 </div>
               )}
             </div>
-          )}
+          </div>
         </TabsContent>
       </Tabs>
     </div>

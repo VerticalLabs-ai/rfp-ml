@@ -186,6 +186,9 @@ export const api = {
   getDiscoveredRFPs: (filters: any) =>
     apiClient.get('/rfps/discovered', { params: filters }).then(res => res.data),
 
+  getDiscoveredFacets: (search?: string) =>
+    apiClient.get('/rfps/discovered/facets', { params: search ? { search } : {} }).then(res => res.data),
+
   getRFP: (rfpId: string) =>
     apiClient.get(`/rfps/${rfpId}`).then(res => res.data),
 
