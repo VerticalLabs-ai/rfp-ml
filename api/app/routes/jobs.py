@@ -6,9 +6,10 @@ Provides endpoints for:
 - Checking job status
 - Cancelling jobs
 """
+
 import logging
 from datetime import datetime, timezone
-from typing import Annotated, Optional
+from typing import Annotated
 
 from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel, Field
@@ -17,22 +18,38 @@ logger = logging.getLogger(__name__)
 router = APIRouter()
 
 
-def require_celery_jobs():
-    """Dependency that ensures Celery jobs are enabled."""
+def require_celery():
+    """
+    Dependency that ensures Celery is available and enabled.
+
+    Checks feature flag and imports celery_app, returning it for use in endpoints.
+    """
     from api.app.core.feature_flags import FeatureFlag, feature_flags
 
     if not feature_flags.is_enabled(FeatureFlag.CELERY_JOBS):
         raise HTTPException(
             status_code=501,
-            detail="Background jobs not enabled. Configure REDIS_URL to enable."
+            detail="Background jobs not enabled. Configure REDIS_URL to enable.",
         )
 
+    try:
+        from api.app.worker.celery_app import celery_app
 
-CeleryDep = Annotated[None, Depends(require_celery_jobs)]
+        return celery_app
+    except ImportError:
+        raise HTTPException(
+            status_code=501,
+            detail="Celery not available. Install celery and redis.",
+        ) from None
+
+
+# Type alias for endpoints that need celery_app
+CeleryAppDep = Annotated[object, Depends(require_celery)]
 
 
 class JobResponse(BaseModel):
     """Response for job creation."""
+
     job_id: str
     status: str
     created_at: datetime
@@ -40,18 +57,24 @@ class JobResponse(BaseModel):
 
 class JobStatus(BaseModel):
     """Job status response."""
+
     job_id: str
     status: str
     progress: int = 0
-    result: Optional[dict] = None
-    error: Optional[str] = None
+    result: dict | None = None
+    error: str | None = None
 
 
 class GenerationJobRequest(BaseModel):
     """Request for generation job."""
+
     rfp_id: str = Field(..., description="RFP ID to generate for")
-    section_type: Optional[str] = Field(None, description="Section type (if generating single section)")
-    generation_mode: str = Field(default="claude_enhanced", description="Generation mode")
+    section_type: str | None = Field(
+        None, description="Section type (if generating single section)"
+    )
+    generation_mode: str = Field(
+        default="claude_enhanced", description="Generation mode"
+    )
     use_thinking: bool = Field(default=True, description="Enable thinking mode")
     thinking_budget: int = Field(default=10000, ge=1000, le=50000)
 
@@ -59,7 +82,7 @@ class GenerationJobRequest(BaseModel):
 @router.post("/generate")
 async def start_generation_job(
     request: GenerationJobRequest,
-    _: CeleryDep,
+    _: CeleryAppDep,
 ) -> JobResponse:
     """
     Start an async proposal generation job.
@@ -82,27 +105,25 @@ async def start_generation_job(
             task = generate_proposal_section.delay(
                 rfp_id=request.rfp_id,
                 section_type=request.section_type,
-                options=options
+                options=options,
             )
         else:
             # Generate full bid
             task = generate_full_bid.delay(
                 rfp_id=request.rfp_id,
                 generation_mode=request.generation_mode,
-                options=options
+                options=options,
             )
 
         return JobResponse(
-            job_id=task.id,
-            status="pending",
-            created_at=datetime.now(timezone.utc)
+            job_id=task.id, status="pending", created_at=datetime.now(timezone.utc)
         )
 
     except ImportError:
         raise HTTPException(
             status_code=501,
-            detail="Celery not available. Install celery and redis."
-        )
+            detail="Celery tasks not available. Install celery and redis.",
+        ) from None
     except Exception as e:
         logger.error(f"Failed to start generation job: {e}")
         raise HTTPException(status_code=500, detail=str(e)) from e
@@ -111,7 +132,7 @@ async def start_generation_job(
 @router.get("/{job_id}")
 async def get_job_status(
     job_id: str,
-    _: CeleryDep,
+    celery_app: CeleryAppDep,
 ) -> JobStatus:
     """
     Get the status of a background job.
@@ -119,8 +140,6 @@ async def get_job_status(
     Returns current progress and result if complete.
     """
     try:
-        from api.app.worker.celery_app import celery_app
-
         result = celery_app.AsyncResult(job_id)
 
         # Map Celery states to our states
@@ -157,14 +176,9 @@ async def get_job_status(
             status=status,
             progress=progress,
             result=job_result,
-            error=error
+            error=error,
         )
 
-    except ImportError:
-        raise HTTPException(
-            status_code=501,
-            detail="Celery not available."
-        )
     except Exception as e:
         logger.error(f"Failed to get job status: {e}")
         raise HTTPException(status_code=500, detail=str(e)) from e
@@ -173,7 +187,7 @@ async def get_job_status(
 @router.delete("/{job_id}")
 async def cancel_job(
     job_id: str,
-    _: CeleryDep,
+    celery_app: CeleryAppDep,
 ) -> dict:
     """
     Cancel a running job.
@@ -181,21 +195,14 @@ async def cancel_job(
     Note: May not immediately stop in-progress tasks.
     """
     try:
-        from api.app.worker.celery_app import celery_app
-
         celery_app.control.revoke(job_id, terminate=True)
 
         return {
             "status": "cancelled",
             "job_id": job_id,
-            "message": "Job cancellation requested"
+            "message": "Job cancellation requested",
         }
 
-    except ImportError:
-        raise HTTPException(
-            status_code=501,
-            detail="Celery not available."
-        )
     except Exception as e:
         logger.error(f"Failed to cancel job: {e}")
         raise HTTPException(status_code=500, detail=str(e)) from e
@@ -203,8 +210,8 @@ async def cancel_job(
 
 @router.post("/alerts/evaluate")
 async def trigger_alert_evaluation(
-    rfp_id: Optional[str] = None,
-    _: CeleryDep = None,
+    rfp_id: str | None = None,
+    _: CeleryAppDep = None,
 ) -> JobResponse:
     """
     Manually trigger alert rule evaluation.
@@ -217,16 +224,14 @@ async def trigger_alert_evaluation(
         task = evaluate_alert_rules.delay(rfp_id=rfp_id)
 
         return JobResponse(
-            job_id=task.id,
-            status="pending",
-            created_at=datetime.now(timezone.utc)
+            job_id=task.id, status="pending", created_at=datetime.now(timezone.utc)
         )
 
     except ImportError:
         raise HTTPException(
             status_code=501,
-            detail="Celery not available."
-        )
+            detail="Celery tasks not available. Install celery and redis.",
+        ) from None
     except Exception as e:
         logger.error(f"Failed to trigger alert evaluation: {e}")
         raise HTTPException(status_code=500, detail=str(e)) from e

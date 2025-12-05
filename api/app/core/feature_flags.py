@@ -4,6 +4,7 @@ Feature Flags System for progressive feature enablement.
 Auto-detects configuration availability and provides feature toggle support
 for streaming, job queues, email alerts, and other optional features.
 """
+
 import os
 from enum import Enum
 from typing import Any
@@ -93,25 +94,20 @@ class FeatureFlags:
             FeatureFlag.STREAMING_ENABLED.value: anthropic_available,
             FeatureFlag.CELERY_JOBS.value: redis_available,
             FeatureFlag.WEBSOCKET_CHANNELS.value: True,  # Always available
-
             # Alerts
             FeatureFlag.EMAIL_ALERTS.value: email_available,
             FeatureFlag.SLACK_ALERTS.value: slack_available,
             FeatureFlag.WEBHOOK_ALERTS.value: True,  # Always available
-
             # Chat
             FeatureFlag.CHAT_PERSISTENCE.value: True,  # Database always available
             FeatureFlag.CHAT_STREAMING.value: anthropic_available,
-
             # Search
             FeatureFlag.NL_SEARCH.value: True,  # Always available
             FeatureFlag.RAG_SEARCH.value: self._check_rag_available(),
-
             # Copilot
             FeatureFlag.COPILOT_SIDEBAR.value: True,  # Always available
             FeatureFlag.REALTIME_SCORING.value: True,  # Always available
             FeatureFlag.COMPLIANCE_VIEWER.value: True,  # Always available
-
             # Premium
             FeatureFlag.CLAUDE_THINKING.value: anthropic_available,
             FeatureFlag.CLAUDE_OPUS.value: anthropic_available,
@@ -121,6 +117,7 @@ class FeatureFlags:
         """Check if RAG index is built and available."""
         try:
             from pathlib import Path
+
             embeddings_dir = Path("data/embeddings")
             if embeddings_dir.exists():
                 return (embeddings_dir / "faiss_index.bin").exists()
@@ -206,13 +203,22 @@ def require_feature(flag: FeatureFlag | str):
     """
     Decorator to require a feature flag for an endpoint.
 
+    Supports both sync and async endpoint functions.
+
     Usage:
         @router.get("/stream")
         @require_feature(FeatureFlag.STREAMING_ENABLED)
         async def stream_endpoint():
             ...
+
+        @router.get("/status")
+        @require_feature(FeatureFlag.STREAMING_ENABLED)
+        def sync_endpoint():
+            ...
     """
+    import inspect
     from functools import wraps
+
     from fastapi import HTTPException
 
     def decorator(func):
@@ -222,10 +228,14 @@ def require_feature(flag: FeatureFlag | str):
                 flag_name = flag.value if isinstance(flag, FeatureFlag) else flag
                 raise HTTPException(
                     status_code=501,
-                    detail=f"Feature '{flag_name}' is not enabled. Check your configuration."
+                    detail=f"Feature '{flag_name}' is not enabled. Check your configuration.",
                 )
-            return await func(*args, **kwargs)
+            if inspect.iscoroutinefunction(func):
+                return await func(*args, **kwargs)
+            return func(*args, **kwargs)
+
         return wrapper
+
     return decorator
 
 
