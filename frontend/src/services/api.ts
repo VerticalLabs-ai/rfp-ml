@@ -181,6 +181,20 @@ export interface TagsList {
   counts: Record<string, number>
 }
 
+// Filter Preset Types
+export interface FilterPreset {
+  id: number
+  name: string
+  filters: Record<string, any>
+  is_default: boolean
+  created_at: string
+}
+
+export interface FilterPresetCreate {
+  name: string
+  filters: Record<string, any>
+}
+
 export const api = {
   // RFP endpoints
   getDiscoveredRFPs: (filters: any) =>
@@ -555,6 +569,19 @@ export const api = {
     bulkUnsave: (savedRfpIds: number[]) =>
       apiClient.delete<{ deleted_count: number }>('/saved-rfps/bulk', { data: { saved_rfp_ids: savedRfpIds } }).then(res => res.data),
   },
+
+  // Filter Presets
+  createFilterPreset: (data: FilterPresetCreate): Promise<FilterPreset> =>
+    apiClient.post('/rfps/filter-presets', data).then(res => res.data),
+
+  listFilterPresets: (): Promise<FilterPreset[]> =>
+    apiClient.get('/rfps/filter-presets').then(res => res.data),
+
+  getFilterPreset: (id: number): Promise<FilterPreset> =>
+    apiClient.get(`/rfps/filter-presets/${id}`).then(res => res.data),
+
+  deleteFilterPreset: (id: number): Promise<{ status: string; id: number }> =>
+    apiClient.delete(`/rfps/filter-presets/${id}`).then(res => res.data),
 }
 
 
