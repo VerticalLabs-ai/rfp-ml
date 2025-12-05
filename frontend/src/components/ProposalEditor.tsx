@@ -1,12 +1,8 @@
 import { useEffect, useRef } from 'react'
 import { useEditor, EditorContent } from '@tiptap/react'
-import StarterKit from '@tiptap/starter-kit'
-import Placeholder from '@tiptap/extension-placeholder'
-import {
-  Bold, Italic, List, ListOrdered, Heading1, Heading2,
-  Quote, Redo, Undo
-} from 'lucide-react'
-// No more api or toast imports as they are not used.
+import { getEditorExtensions } from './editor/editorConfig'
+import { FormattingToolbar } from './editor/FormattingToolbar'
+import { TableControls } from './editor/TableControls'
 
 interface ProposalEditorProps {
   initialContent?: string
@@ -19,12 +15,7 @@ export default function ProposalEditor({ initialContent = '', onSave, readOnly =
   const ws = useRef<WebSocket | null>(null)
 
   const editor = useEditor({
-    extensions: [
-      StarterKit,
-      Placeholder.configure({
-        placeholder: 'Start writing your proposal...',
-      }),
-    ],
+    extensions: getEditorExtensions('Start writing your proposal...'),
     content: initialContent,
     editable: !readOnly,
     onUpdate: ({ editor }) => {
@@ -94,71 +85,13 @@ export default function ProposalEditor({ initialContent = '', onSave, readOnly =
 
   return (
     <div className="border border-slate-200 dark:border-slate-700 rounded-lg overflow-hidden bg-white dark:bg-slate-800">
-      {/* Toolbar */}
+      {/* Enhanced Formatting Toolbar */}
       {!readOnly && (
-        <div className="border-b border-slate-200 dark:border-slate-700 p-2 flex flex-wrap gap-1 bg-slate-50 dark:bg-slate-800/50">
-          <ToolbarButton
-            onClick={() => editor.chain().focus().toggleBold().run()}
-            isActive={editor.isActive('bold')}
-            icon={<Bold className="w-4 h-4" />}
-            title="Bold"
-          />
-          <ToolbarButton
-            onClick={() => editor.chain().focus().toggleItalic().run()}
-            isActive={editor.isActive('italic')}
-            icon={<Italic className="w-4 h-4" />}
-            title="Italic"
-          />
-          <div className="w-px h-6 bg-slate-300 dark:bg-slate-600 mx-1 self-center" />
-          <ToolbarButton
-            onClick={() => editor.chain().focus().toggleHeading({ level: 1 }).run()}
-            isActive={editor.isActive('heading', { level: 1 })}
-            icon={<Heading1 className="w-4 h-4" />}
-            title="Heading 1"
-          />
-          <ToolbarButton
-            onClick={() => editor.chain().focus().toggleHeading({ level: 2 }).run()}
-            isActive={editor.isActive('heading', { level: 2 })}
-            icon={<Heading2 className="w-4 h-4" />}
-            title="Heading 2"
-          />
-          <div className="w-px h-6 bg-slate-300 dark:bg-slate-600 mx-1 self-center" />
-          <ToolbarButton
-            onClick={() => editor.chain().focus().toggleBulletList().run()}
-            isActive={editor.isActive('bulletList')}
-            icon={<List className="w-4 h-4" />}
-            title="Bullet List"
-          />
-          <ToolbarButton
-            onClick={() => editor.chain().focus().toggleOrderedList().run()}
-            isActive={editor.isActive('orderedList')}
-            icon={<ListOrdered className="w-4 h-4" />}
-            title="Ordered List"
-          />
-          <ToolbarButton
-            onClick={() => editor.chain().focus().toggleBlockquote().run()}
-            isActive={editor.isActive('blockquote')}
-            icon={<Quote className="w-4 h-4" />}
-            title="Quote"
-          />
-          <div className="w-px h-6 bg-slate-300 dark:bg-slate-600 mx-1 self-center" />
-          <ToolbarButton
-            onClick={() => editor.chain().focus().undo().run()}
-            disabled={!editor.can().undo()}
-            icon={<Undo className="w-4 h-4" />}
-            title="Undo"
-          />
-          <ToolbarButton
-            onClick={() => editor.chain().focus().redo().run()}
-            disabled={!editor.can().redo()}
-            icon={<Redo className="w-4 h-4" />}
-            title="Redo"
-          />
+        <div className="sticky top-0 z-10 bg-background pb-2">
+          <FormattingToolbar editor={editor} />
+          {editor?.isActive('table') && <TableControls editor={editor} />}
         </div>
       )}
-
-      {/* Magic Bubble Menu - Temporarily removed for build */}
-      {/* The AI refinement functionality will be unavailable */}
 
       {/* Editor Content */}
       <EditorContent
@@ -166,25 +99,5 @@ export default function ProposalEditor({ initialContent = '', onSave, readOnly =
         className="prose prose-slate dark:prose-invert max-w-none p-4 min-h-[300px] focus:outline-none"
       />
     </div>
-  )
-}
-
-function ToolbarButton({ onClick, isActive = false, disabled = false, icon, title }: any) {
-  return (
-    <button
-      onClick={onClick}
-      disabled={disabled}
-      title={title}
-      className={`
-        p-2 rounded-md transition-colors
-        ${isActive
-          ? 'bg-blue-100 text-blue-700 dark:bg-blue-900/50 dark:text-blue-300'
-          : 'text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-700'
-        }
-        ${disabled ? 'opacity-50 cursor-not-allowed' : ''}
-      `}
-    >
-      {icon}
-    </button>
   )
 }

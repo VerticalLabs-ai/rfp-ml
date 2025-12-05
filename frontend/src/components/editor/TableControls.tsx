@@ -1,6 +1,5 @@
 import { Editor } from '@tiptap/react'
 import {
-  Plus,
   Minus,
   Trash2,
   ArrowUp,
