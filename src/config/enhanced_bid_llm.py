@@ -209,7 +209,7 @@ Refined Text:
         if style_examples:
             style_context = "\nSTYLE REFERENCE (Mimic this tone and structure):\n"
             for i, ex in enumerate(style_examples):
-                style_context += f"--- Example {i+1} ---\n{ex.text[:500]}...\n"
+                style_context += f"--- Example {i + 1} ---\n{ex.text[:500]}...\n"
 
         base_context = f"""
 Company: {self.config.company_name}
