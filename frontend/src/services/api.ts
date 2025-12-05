@@ -196,6 +196,27 @@ export interface FilterPresetCreate {
   filters: Record<string, any>
 }
 
+// SAM.gov Types
+export interface SamGovStatus {
+  status: 'idle' | 'syncing' | 'error'
+  last_sync: string | null
+  last_error: string | null
+  opportunities_synced: number
+  is_connected: boolean
+  api_key_configured: boolean
+}
+
+export interface SamGovEntityVerification {
+  is_registered: boolean
+  registration_status: string | null
+  uei: string | null
+  cage_code: string | null
+  legal_name: string | null
+  expiration_date: string | null
+  naics_codes: string[]
+  error: string | null
+}
+
 export const api = {
   // RFP endpoints
   getDiscoveredRFPs: (filters: any) =>
@@ -665,6 +686,54 @@ export const api = {
 
   exportAnalytics: (format: 'csv' | 'pdf' = 'csv') =>
     apiClient.get(`/analytics/export/${format}`, { responseType: 'blob' }).then(res => res.data),
+
+  // ============= SAM.gov Integration =============
+
+  getSamGovStatus: async (): Promise<SamGovStatus> => {
+    const response = await apiClient.get('/sam-gov/status');
+    return response.data;
+  },
+
+  triggerSamGovSync: async (params?: { days_back?: number; limit?: number }) => {
+    const response = await apiClient.post('/sam-gov/sync', params || {});
+    return response.data;
+  },
+
+  checkSamGovUpdates: async (opportunityIds: string[]) => {
+    const response = await apiClient.post('/sam-gov/check-updates', {
+      opportunity_ids: opportunityIds,
+    });
+    return response.data;
+  },
+
+  verifySamGovEntity: async (params: { uei?: string; cage_code?: string; legal_name?: string }) => {
+    const response = await apiClient.get('/sam-gov/entity/verify', { params });
+    return response.data;
+  },
+
+  getSamGovEntityProfile: async (uei: string) => {
+    const response = await apiClient.get(`/sam-gov/entity/${uei}/profile`);
+    return response.data;
+  },
+
+  getSamGovOpportunityDetails: async (noticeId: string) => {
+    const response = await apiClient.get(`/sam-gov/opportunity/${noticeId}`);
+    return response.data;
+  },
+
+  getSamGovAmendments: async (noticeId: string, daysBack?: number) => {
+    const response = await apiClient.get(`/sam-gov/opportunity/${noticeId}/amendments`, {
+      params: { days_back: daysBack },
+    });
+    return response.data;
+  },
+
+  syncCompanyFromSamGov: async (uei: string) => {
+    const response = await apiClient.post('/sam-gov/company-profile/sync', null, {
+      params: { uei },
+    });
+    return response.data;
+  },
 }
 
 
