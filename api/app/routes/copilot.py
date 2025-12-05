@@ -531,6 +531,121 @@ async def execute_command(rfp: RFPDep, request: CommandRequest):
         raise HTTPException(status_code=500, detail=str(e)) from e
 
 
+@router.post("/{rfp_id}/ai-action")
+async def execute_ai_action(
+    rfp_id: int,
+    request: dict,
+    db: DBDep,
+):
+    """Execute an AI-powered text transformation or analysis action."""
+    action_id = request.get("action_id")
+    selected_text = request.get("selected_text", "")
+    full_content = request.get("full_content", "")
+
+    # Validate action
+    valid_actions = [
+        "improve", "expand", "simplify", "formalize",
+        "grammar", "readability", "passive", "jargon"
+    ]
+    if action_id not in valid_actions:
+        raise HTTPException(status_code=400, detail=f"Invalid action: {action_id}")
+
+    # Get RFP context
+    from app.models.database import RFPOpportunity
+    rfp = db.query(RFPOpportunity).filter(RFPOpportunity.id == rfp_id).first()
+    if not rfp:
+        raise HTTPException(status_code=404, detail="RFP not found")
+
+    # Build prompts based on action
+    prompts = {
+        "improve": f"""Improve the following text for clarity, impact, and professionalism.
+Keep the same meaning but make it more compelling for a government proposal:
+
+Text to improve:
+{selected_text}
+
+Return only the improved text, no explanations.""",
+
+        "expand": f"""Expand the following text with more detail and supporting information.
+Add relevant technical details and professional language suitable for a government proposal:
+
+Text to expand:
+{selected_text}
+
+Return only the expanded text, no explanations.""",
+
+        "simplify": f"""Simplify the following text to make it easier to understand.
+Use clearer language while maintaining professionalism:
+
+Text to simplify:
+{selected_text}
+
+Return only the simplified text, no explanations.""",
+
+        "formalize": f"""Rewrite the following text in formal government proposal language.
+Use professional, official tone appropriate for federal contracts:
+
+Text to formalize:
+{selected_text}
+
+Return only the formalized text, no explanations.""",
+
+        "grammar": f"""Analyze the following text for grammar and spelling errors.
+Return a JSON array of issues with this structure:
+[{{"offset": number, "length": number, "message": "description", "replacements": ["suggestion1"], "severity": "error|warning|info"}}]
+
+Text to analyze:
+{full_content}""",
+
+        "readability": f"""Analyze the readability of the following text.
+Return a JSON object with this structure:
+{{"score": 0-100, "grade": "Grade level", "avgSentenceLength": number, "avgWordLength": number, "suggestions": ["suggestion1", "suggestion2"]}}
+
+Text to analyze:
+{full_content}""",
+
+        "passive": f"""Find all passive voice constructions in the following text.
+Return a JSON array with this structure:
+[{{"offset": number, "length": number, "text": "passive phrase", "suggestion": "active alternative"}}]
+
+Text to analyze:
+{full_content}""",
+
+        "jargon": f"""Identify and simplify jargon and complex terms in the following text.
+Replace technical jargon with clearer alternatives while maintaining accuracy:
+
+Text to simplify:
+{selected_text}
+
+Return only the simplified text, no explanations.""",
+    }
+
+    prompt = prompts.get(action_id, "")
+
+    try:
+        api_key = os.getenv("ANTHROPIC_API_KEY")
+        if not api_key:
+            raise HTTPException(status_code=500, detail="Anthropic API key not configured")
+
+        client = anthropic.Anthropic(api_key=api_key)
+
+        response = client.messages.create(
+            model="claude-sonnet-4-20250514",
+            max_tokens=2000,
+            messages=[{"role": "user", "content": prompt}]
+        )
+
+        result = response.content[0].text
+        return {"result": result, "action": action_id}
+
+    except anthropic.APIError as e:
+        logger.exception(f"Anthropic API error for AI action {action_id}")
+        raise HTTPException(status_code=502, detail=f"AI service error: {str(e)}") from e
+    except Exception as e:
+        logger.exception(f"AI action execution failed: {action_id}")
+        raise HTTPException(status_code=500, detail=str(e)) from e
+
+
 def _build_streaming_prompt(command: SlashCommand, rfp, request: CommandRequest) -> str:
     """Build the prompt for streaming slash commands."""
     rfp_context = f"""RFP: {rfp.title}
