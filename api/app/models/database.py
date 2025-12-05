@@ -151,6 +151,7 @@ class RFPOpportunity(Base):
         order_by="ComplianceRequirement.order_index",
     )
     saved_by_users = relationship("SavedRfp", back_populates="rfp", cascade="all, delete-orphan")
+    bid_outcome = relationship("BidOutcome", back_populates="rfp", uselist=False)
 
     def to_dict(self):
         return {
@@ -786,6 +787,54 @@ class AlertNotification(Base):
             "dismissed_at": (
                 self.dismissed_at.isoformat() if self.dismissed_at else None
             ),
+        }
+
+
+class BidOutcome(Base):
+    """Tracks win/loss outcomes for submitted proposals."""
+    __tablename__ = "bid_outcomes"
+
+    id = Column(Integer, primary_key=True, index=True)
+    rfp_id = Column(Integer, ForeignKey("rfp_opportunities.id"), nullable=False)
+
+    # Outcome details
+    status = Column(String(20), nullable=False)  # won, lost, pending, no_bid, withdrawn
+    award_amount = Column(Float, nullable=True)
+    our_bid_amount = Column(Float, nullable=True)
+    winning_bidder = Column(String(255), nullable=True)
+    winning_bid_amount = Column(Float, nullable=True)
+
+    # Analysis fields
+    loss_reason = Column(Text, nullable=True)
+    debrief_notes = Column(Text, nullable=True)
+    lessons_learned = Column(Text, nullable=True)
+    price_delta_percentage = Column(Float, nullable=True)  # How far off we were
+
+    # Dates
+    award_date = Column(DateTime, nullable=True)
+    created_at = Column(DateTime, default=datetime.utcnow)
+    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+
+    # Relationship
+    rfp = relationship("RFPOpportunity", back_populates="bid_outcome")
+
+    def to_dict(self):
+        """Convert to dictionary for API responses."""
+        return {
+            "id": self.id,
+            "rfp_id": self.rfp_id,
+            "status": self.status,
+            "award_amount": self.award_amount,
+            "our_bid_amount": self.our_bid_amount,
+            "winning_bidder": self.winning_bidder,
+            "winning_bid_amount": self.winning_bid_amount,
+            "loss_reason": self.loss_reason,
+            "debrief_notes": self.debrief_notes,
+            "lessons_learned": self.lessons_learned,
+            "price_delta_percentage": self.price_delta_percentage,
+            "award_date": self.award_date.isoformat() if self.award_date else None,
+            "created_at": self.created_at.isoformat() if self.created_at else None,
+            "updated_at": self.updated_at.isoformat() if self.updated_at else None,
         }
 
 
