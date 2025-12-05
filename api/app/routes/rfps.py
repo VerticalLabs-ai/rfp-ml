@@ -311,12 +311,14 @@ class BidGenerationOptions(BaseModel):
 
 class FilterPresetCreate(BaseModel):
     """Schema for creating a filter preset."""
+
     name: str = Field(..., min_length=1, max_length=100)
     filters: dict
 
 
 class FilterPresetResponse(BaseModel):
     """Schema for filter preset response."""
+
     id: int
     name: str
     filters: dict
@@ -364,18 +366,36 @@ async def get_discovered_rfps(
         default="score", description="Sort by: score, deadline, or recent"
     ),
     # Advanced filters
-    notice_types: list[str] | None = Query(default=None, description="Filter by notice types"),
-    set_asides: list[str] | None = Query(default=None, description="Filter by set-aside types"),
-    naics_codes: list[str] | None = Query(default=None, description="Filter by NAICS codes"),
+    notice_types: list[str] | None = Query(
+        default=None, description="Filter by notice types"
+    ),
+    set_asides: list[str] | None = Query(
+        default=None, description="Filter by set-aside types"
+    ),
+    naics_codes: list[str] | None = Query(
+        default=None, description="Filter by NAICS codes"
+    ),
     agencies: list[str] | None = Query(default=None, description="Filter by agencies"),
-    locations: list[str] | None = Query(default=None, description="Filter by locations"),
+    locations: list[str] | None = Query(
+        default=None, description="Filter by locations"
+    ),
     value_min: float | None = Query(default=None, description="Minimum contract value"),
     value_max: float | None = Query(default=None, description="Maximum contract value"),
-    posted_after: str | None = Query(default=None, description="Posted date after (YYYY-MM-DD)"),
-    posted_before: str | None = Query(default=None, description="Posted date before (YYYY-MM-DD)"),
-    deadline_after: str | None = Query(default=None, description="Deadline after (YYYY-MM-DD)"),
-    deadline_before: str | None = Query(default=None, description="Deadline before (YYYY-MM-DD)"),
-    status: list[str] | None = Query(default=None, description="Filter by pipeline stage/status"),
+    posted_after: str | None = Query(
+        default=None, description="Posted date after (YYYY-MM-DD)"
+    ),
+    posted_before: str | None = Query(
+        default=None, description="Posted date before (YYYY-MM-DD)"
+    ),
+    deadline_after: str | None = Query(
+        default=None, description="Deadline after (YYYY-MM-DD)"
+    ),
+    deadline_before: str | None = Query(
+        default=None, description="Deadline before (YYYY-MM-DD)"
+    ),
+    status: list[str] | None = Query(
+        default=None, description="Filter by pipeline stage/status"
+    ),
     db: DBDep = ...,
 ):
     """Get list of discovered RFPs with comprehensive filtering."""
@@ -383,18 +403,18 @@ async def get_discovered_rfps(
 
     # Build filters dict
     filters = {
-        'notice_types': notice_types,
-        'set_asides': set_asides,
-        'naics_codes': naics_codes,
-        'agencies': agencies,
-        'locations': locations,
-        'value_min': value_min,
-        'value_max': value_max,
-        'posted_after': posted_after,
-        'posted_before': posted_before,
-        'deadline_after': deadline_after,
-        'deadline_before': deadline_before,
-        'status': status,
+        "notice_types": notice_types,
+        "set_asides": set_asides,
+        "naics_codes": naics_codes,
+        "agencies": agencies,
+        "locations": locations,
+        "value_min": value_min,
+        "value_max": value_max,
+        "posted_after": posted_after,
+        "posted_before": posted_before,
+        "deadline_after": deadline_after,
+        "deadline_before": deadline_before,
+        "status": status,
     }
 
     rfps = service.get_discovered_rfps(
@@ -411,7 +431,9 @@ async def get_discovered_rfps(
 
 @router.get("/discovered/facets")
 async def get_discovered_facets(
-    search: str | None = Query(default=None, description="Search term to narrow facets"),
+    search: str | None = Query(
+        default=None, description="Search term to narrow facets"
+    ),
     db: DBDep = ...,
 ):
     """Get facet counts for filter options."""
@@ -433,7 +455,7 @@ async def get_discovered_facets(
     agency_facets = (
         db.query(RFPOpportunity.agency, func.count(RFPOpportunity.id))
         .filter(RFPOpportunity.agency.isnot(None))
-        .filter(RFPOpportunity.agency != '')
+        .filter(RFPOpportunity.agency != "")
         .group_by(RFPOpportunity.agency)
         .order_by(func.count(RFPOpportunity.id).desc())
         .limit(50)
@@ -444,7 +466,7 @@ async def get_discovered_facets(
     naics_facets = (
         db.query(RFPOpportunity.naics_code, func.count(RFPOpportunity.id))
         .filter(RFPOpportunity.naics_code.isnot(None))
-        .filter(RFPOpportunity.naics_code != '')
+        .filter(RFPOpportunity.naics_code != "")
         .group_by(RFPOpportunity.naics_code)
         .order_by(func.count(RFPOpportunity.id).desc())
         .limit(50)
@@ -464,7 +486,7 @@ async def get_discovered_facets(
     location_facets = (
         db.query(RFPOpportunity.office, func.count(RFPOpportunity.id))
         .filter(RFPOpportunity.office.isnot(None))
-        .filter(RFPOpportunity.office != '')
+        .filter(RFPOpportunity.office != "")
         .group_by(RFPOpportunity.office)
         .order_by(func.count(RFPOpportunity.id).desc())
         .limit(50)
@@ -480,11 +502,11 @@ async def get_discovered_facets(
         # Try to extract notice_type from rfp_metadata JSON
         notice_results = (
             db.query(
-                RFPOpportunity.rfp_metadata['notice_type'].astext,
-                func.count(RFPOpportunity.id)
+                RFPOpportunity.rfp_metadata["notice_type"].astext,
+                func.count(RFPOpportunity.id),
             )
-            .filter(RFPOpportunity.rfp_metadata['notice_type'].isnot(None))
-            .group_by(RFPOpportunity.rfp_metadata['notice_type'].astext)
+            .filter(RFPOpportunity.rfp_metadata["notice_type"].isnot(None))
+            .group_by(RFPOpportunity.rfp_metadata["notice_type"].astext)
             .order_by(func.count(RFPOpportunity.id).desc())
             .limit(20)
             .all()
@@ -505,8 +527,12 @@ async def get_discovered_facets(
         "noticeTypes": notice_type_facets,
         "setAsides": set_aside_facets,  # Empty for now, would need JSON array parsing
         "statuses": [
-            {"value": s[0].value if hasattr(s[0], 'value') else str(s[0]), "count": s[1]}
-            for s in status_facets if s[0]
+            {
+                "value": s[0].value if hasattr(s[0], "value") else str(s[0]),
+                "count": s[1],
+            }
+            for s in status_facets
+            if s[0]
         ],
     }
 
@@ -810,7 +836,9 @@ async def analyze_rfp(rfp: RFPDep, db: DBDep):
         "naics_code": rfp.naics_code,
         "category": rfp.category,
         "award_amount": rfp.award_amount or rfp.estimated_value,
-        "response_deadline": rfp.response_deadline.isoformat() if rfp.response_deadline else None,
+        "response_deadline": (
+            rfp.response_deadline.isoformat() if rfp.response_deadline else None
+        ),
     }
 
     # Run analysis through processor
@@ -828,12 +856,15 @@ async def analyze_rfp(rfp: RFPDep, db: DBDep):
 
     # Broadcast update via WebSocket
     try:
-        await broadcast_rfp_update(rfp.rfp_id, {
-            "event": "rfp_analyzed",
-            "rfp_id": rfp.rfp_id,
-            "overall_score": rfp.overall_score,
-            "decision_recommendation": rfp.decision_recommendation,
-        })
+        await broadcast_rfp_update(
+            rfp.rfp_id,
+            {
+                "event": "rfp_analyzed",
+                "rfp_id": rfp.rfp_id,
+                "overall_score": rfp.overall_score,
+                "decision_recommendation": rfp.decision_recommendation,
+            },
+        )
     except Exception:
         pass  # WebSocket errors shouldn't fail the request
 

@@ -113,31 +113,34 @@ def extract_text_from_file(filepath: Path) -> str:
 
             # If very little text extracted, try OCR (scanned PDF)
             if len(text.strip()) < 100:
-                logger.info(f"PDF has little text ({len(text.strip())} chars), attempting OCR")
+                logger.info(
+                    f"PDF has little text ({len(text.strip())} chars), attempting OCR"
+                )
                 try:
-                    from pdf2image import convert_from_path
                     import pytesseract
+                    from pdf2image import convert_from_path
 
                     # Convert PDF to images (limit to first 20 pages for performance)
                     images = convert_from_path(
-                        str(filepath),
-                        dpi=200,
-                        first_page=1,
-                        last_page=20
+                        str(filepath), dpi=200, first_page=1, last_page=20
                     )
 
                     ocr_text = ""
                     for i, image in enumerate(images):
                         page_text = pytesseract.image_to_string(image)
-                        ocr_text += f"\n[Page {i+1}]\n{page_text}"
+                        ocr_text += f"\n[Page {i + 1}]\n{page_text}"
 
                     # Use OCR text if we got more content
                     if len(ocr_text.strip()) > len(text.strip()):
-                        logger.info(f"OCR extracted {len(ocr_text.strip())} chars vs {len(text.strip())} from standard extraction")
+                        logger.info(
+                            f"OCR extracted {len(ocr_text.strip())} chars vs {len(text.strip())} from standard extraction"
+                        )
                         text = ocr_text
 
                 except ImportError:
-                    logger.warning("OCR libraries (pytesseract, pdf2image) not available for scanned PDF")
+                    logger.warning(
+                        "OCR libraries (pytesseract, pdf2image) not available for scanned PDF"
+                    )
                 except Exception as e:
                     logger.warning(f"OCR failed: {e}")
         elif suffix in {".docx", ".doc"}:
@@ -346,7 +349,11 @@ async def list_uploaded_documents(rfp: RFPDep, db: Session = Depends(get_db)):
                 filename=db_doc.filename,
                 file_type=db_doc.file_type or "unknown",
                 file_size=db_doc.file_size or 0,
-                uploaded_at=db_doc.downloaded_at.isoformat() if db_doc.downloaded_at else db_doc.created_at.isoformat(),
+                uploaded_at=(
+                    db_doc.downloaded_at.isoformat()
+                    if db_doc.downloaded_at
+                    else db_doc.created_at.isoformat()
+                ),
                 status=status.status if status else "completed",
                 chunks_count=status.chunks_created if status else None,
                 error=status.error if status else None,
@@ -380,13 +387,18 @@ async def get_processing_status(rfp: RFPDep, document_id: str):
 
 
 @router.delete("/{rfp_id}/uploads/{document_id}")
-async def delete_uploaded_document(rfp: RFPDep, document_id: str, db: Session = Depends(get_db)):
+async def delete_uploaded_document(
+    rfp: RFPDep, document_id: str, db: Session = Depends(get_db)
+):
     """Delete an uploaded document."""
     # Find document in database by matching file path
-    db_doc = db.query(RFPDocument).filter(
-        RFPDocument.rfp_id == rfp.id,
-        RFPDocument.file_path.like(f"%{document_id}%")
-    ).first()
+    db_doc = (
+        db.query(RFPDocument)
+        .filter(
+            RFPDocument.rfp_id == rfp.id, RFPDocument.file_path.like(f"%{document_id}%")
+        )
+        .first()
+    )
 
     if not db_doc:
         raise HTTPException(status_code=404, detail="Document not found")
@@ -455,5 +467,5 @@ async def download_document(
     return FileResponse(
         path=str(filepath),
         filename=original_filename,
-        media_type="application/octet-stream"
+        media_type="application/octet-stream",
     )

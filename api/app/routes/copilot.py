@@ -2,15 +2,19 @@
 Proposal Copilot API endpoints.
 
 Provides AI-assisted proposal writing with section-by-section generation,
-compliance checking, and draft management.
+compliance checking, draft management, and slash command functionality.
 """
+import json
 import logging
+import os
 from datetime import datetime, timezone
-from typing import Optional
+from enum import Enum
 from typing import Any
 
+import anthropic
 from app.dependencies import DBDep, RFPDep
 from fastapi import APIRouter, HTTPException
+from fastapi.responses import StreamingResponse
 from pydantic import BaseModel, Field
 
 logger = logging.getLogger(__name__)
@@ -53,6 +57,39 @@ class DraftResponse(BaseModel):
     saved_at: str
     sections: dict[str, str]
     status: str
+
+
+class SlashCommand(str, Enum):
+    """Available slash commands for the editor."""
+    WRITE = "write"           # Generate new content
+    EXPAND = "expand"         # Expand selected text
+    SUMMARIZE = "summarize"   # Summarize selected text
+    BULLETS = "bullets"       # Convert to bullet points
+    PARAGRAPH = "paragraph"   # Convert bullets to paragraph
+    FORMAL = "formal"         # Make tone more formal
+    SIMPLIFY = "simplify"     # Simplify language
+    REQUIREMENTS = "requirements"  # Extract requirements
+    COMPLIANCE = "compliance" # Add compliance language
+    SIMILAR = "similar"       # Find similar past performance
+    CITE = "cite"             # Add citation format
+    TABLE = "table"           # Convert to table format
+    HEADING = "heading"       # Add section heading
+
+
+class CommandRequest(BaseModel):
+    """Request to execute a slash command."""
+    command: SlashCommand
+    selected_text: str = ""  # Text selected in editor (for transform commands)
+    context: str = ""        # Surrounding content for context
+    section_id: str = ""     # Current proposal section
+    custom_prompt: str = ""  # For custom commands
+
+
+class CommandResponse(BaseModel):
+    """Non-streaming command response."""
+    result: str
+    command: str
+    tokens_used: int = 0
 
 
 @router.post("/{rfp_id}/draft", response_model=DraftResponse)
@@ -437,3 +474,208 @@ Format as a clear, actionable outline."""
     except Exception as e:
         logger.exception(f"Failed to generate outline for RFP {rfp.rfp_id}")
         raise HTTPException(status_code=500, detail="Outline generation failed") from e
+
+
+# Slash command prompts for non-streaming commands
+NON_STREAMING_PROMPTS = {
+    SlashCommand.BULLETS: "Convert the following text into clear, concise bullet points. Only output the bullet points, no other text:\n\n{text}",
+    SlashCommand.PARAGRAPH: "Convert these bullet points into a well-written, cohesive paragraph. Only output the paragraph, no other text:\n\n{text}",
+    SlashCommand.FORMAL: "Rewrite this text in a more formal, professional tone suitable for a government proposal. Only output the rewritten text, no other text:\n\n{text}",
+    SlashCommand.SIMPLIFY: "Simplify this text to make it clearer and easier to understand while preserving the key information. Only output the simplified text, no other text:\n\n{text}",
+    SlashCommand.HEADING: "Generate an appropriate section heading for this content. Only output the heading, no other text:\n\n{text}",
+}
+
+
+@router.post("/{rfp_id}/command", response_model=CommandResponse)
+async def execute_command(rfp: RFPDep, request: CommandRequest):
+    """
+    Execute a slash command on selected text.
+
+    For non-streaming quick commands like formatting.
+    """
+    prompt_template = NON_STREAMING_PROMPTS.get(request.command)
+    if not prompt_template:
+        raise HTTPException(
+            status_code=400,
+            detail=f"Command '{request.command}' requires streaming. Use /command/stream endpoint."
+        )
+
+    text = request.selected_text or request.context
+    if not text:
+        raise HTTPException(status_code=400, detail="No text provided for command")
+
+    prompt = prompt_template.format(text=text)
+
+    try:
+        api_key = os.getenv("ANTHROPIC_API_KEY")
+        if not api_key:
+            raise HTTPException(status_code=500, detail="Anthropic API key not configured")
+
+        client = anthropic.Anthropic(api_key=api_key)
+        response = client.messages.create(
+            model="claude-sonnet-4-20250514",
+            max_tokens=1000,
+            messages=[{"role": "user", "content": prompt}]
+        )
+
+        return CommandResponse(
+            result=response.content[0].text,
+            command=request.command.value,
+            tokens_used=response.usage.input_tokens + response.usage.output_tokens,
+        )
+    except anthropic.APIError as e:
+        logger.exception(f"Anthropic API error for command {request.command}")
+        raise HTTPException(status_code=502, detail=f"AI service error: {str(e)}") from e
+    except Exception as e:
+        logger.exception(f"Command execution failed: {request.command}")
+        raise HTTPException(status_code=500, detail=str(e)) from e
+
+
+def _build_streaming_prompt(command: SlashCommand, rfp, request: CommandRequest) -> str:
+    """Build the prompt for streaming slash commands."""
+    rfp_context = f"""RFP: {rfp.title}
+Agency: {rfp.agency or 'Not specified'}
+Description: {rfp.description[:500] if rfp.description else 'Not available'}
+NAICS: {rfp.naics_code or 'Not specified'}
+Section: {request.section_id.replace('_', ' ').title() if request.section_id else 'Not specified'}"""
+
+    prompts = {
+        SlashCommand.WRITE: f"""Write new proposal content for the {request.section_id.replace('_', ' ') if request.section_id else 'proposal'} section.
+
+RFP Context:
+{rfp_context}
+
+Current section context:
+{request.context[:1000] if request.context else 'Empty section - start fresh'}
+
+{request.custom_prompt if request.custom_prompt else 'Generate professional proposal content that addresses the RFP requirements.'}
+
+Write clear, compelling content suitable for a government proposal. Only output the proposal content, no explanatory text.""",
+
+        SlashCommand.EXPAND: f"""Expand and elaborate on the following text with more detail, examples, and supporting information.
+
+RFP Context:
+{rfp_context}
+
+Text to expand:
+{request.selected_text}
+
+Provide a more comprehensive version that maintains the original meaning but adds depth and specificity. Only output the expanded text, no explanatory text.""",
+
+        SlashCommand.SUMMARIZE: f"""Summarize the following text concisely while preserving all key points.
+
+Text to summarize:
+{request.selected_text}
+
+Provide a clear, concise summary. Only output the summary, no explanatory text.""",
+
+        SlashCommand.REQUIREMENTS: f"""Extract and list the key requirements from this text as clear, actionable items.
+
+RFP Context:
+{rfp_context}
+
+Text to analyze:
+{request.selected_text or request.context}
+
+List each requirement as a bullet point with a brief description of how it should be addressed. Only output the requirements list, no explanatory text.""",
+
+        SlashCommand.COMPLIANCE: f"""Add appropriate compliance language to this proposal text, ensuring it meets government contracting standards.
+
+RFP Context:
+{rfp_context}
+
+Text to enhance:
+{request.selected_text or request.context}
+
+Add compliance-focused language that demonstrates understanding of requirements and commitment to meeting them. Only output the enhanced text, no explanatory text.""",
+
+        SlashCommand.SIMILAR: f"""Based on this proposal section, describe relevant past performance examples that would strengthen the proposal.
+
+RFP Context:
+{rfp_context}
+
+Current content:
+{request.selected_text or request.context}
+
+Suggest 2-3 past performance examples that align with the RFP requirements, with brief descriptions of scope, outcomes, and relevance. Only output the past performance examples, no explanatory text.""",
+
+        SlashCommand.TABLE: f"""Convert this content into a well-formatted markdown table with appropriate headers and rows.
+
+Content:
+{request.selected_text}
+
+Create a clear table structure. Only output the markdown table, no explanatory text.""",
+
+        SlashCommand.CITE: f"""Format this text with proper citations and references suitable for a government proposal.
+
+Text:
+{request.selected_text}
+
+Add appropriate citation formatting and reference markers. Only output the cited text, no explanatory text.""",
+    }
+
+    return prompts.get(command, "")
+
+
+@router.post("/{rfp_id}/command/stream")
+async def execute_command_stream(rfp: RFPDep, request: CommandRequest):
+    """
+    Execute a slash command with streaming response.
+
+    For longer content generation commands.
+    """
+    # Check if this is a non-streaming command
+    if request.command in NON_STREAMING_PROMPTS:
+        # Redirect to non-streaming endpoint behavior
+        result = await execute_command(rfp, request)
+        # Return as a streaming response with single chunk
+        async def single_chunk():
+            yield f"data: {json.dumps({'type': 'content', 'text': result.result})}\n\n"
+            yield f"data: {json.dumps({'type': 'done'})}\n\n"
+        return StreamingResponse(
+            single_chunk(),
+            media_type="text/event-stream",
+            headers={"Cache-Control": "no-cache", "Connection": "keep-alive"},
+        )
+
+    prompt = _build_streaming_prompt(request.command, rfp, request)
+    if not prompt:
+        raise HTTPException(
+            status_code=400,
+            detail=f"Unknown command: {request.command}"
+        )
+
+    async def generate():
+        try:
+            api_key = os.getenv("ANTHROPIC_API_KEY")
+            if not api_key:
+                yield f"data: {json.dumps({'type': 'error', 'message': 'Anthropic API key not configured'})}\n\n"
+                return
+
+            client = anthropic.Anthropic(api_key=api_key)
+
+            with client.messages.stream(
+                model="claude-sonnet-4-20250514",
+                max_tokens=2000,
+                messages=[{"role": "user", "content": prompt}]
+            ) as stream:
+                for text in stream.text_stream:
+                    yield f"data: {json.dumps({'type': 'content', 'text': text})}\n\n"
+
+            yield f"data: {json.dumps({'type': 'done'})}\n\n"
+
+        except anthropic.APIError as e:
+            logger.exception(f"Anthropic API error for streaming command {request.command}")
+            yield f"data: {json.dumps({'type': 'error', 'message': f'AI service error: {str(e)}'})}\n\n"
+        except Exception as e:
+            logger.exception(f"Streaming command execution failed: {request.command}")
+            yield f"data: {json.dumps({'type': 'error', 'message': str(e)})}\n\n"
+
+    return StreamingResponse(
+        generate(),
+        media_type="text/event-stream",
+        headers={
+            "Cache-Control": "no-cache",
+            "Connection": "keep-alive",
+        }
+    )

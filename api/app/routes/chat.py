@@ -467,7 +467,9 @@ async def stream_chat_with_rfp(rfp: RFPDep, request: ChatRequest, db: DBDep):
                         session.updated_at = datetime.now(timezone.utc)
                         db.commit()
                     except Exception as e:
-                        logger.error(f"Failed to save chat to session {session.id}: {e}")
+                        logger.error(
+                            f"Failed to save chat to session {session.id}: {e}"
+                        )
                         db.rollback()
 
                 processing_time = int((time.time() - start_time) * 1000)
@@ -681,7 +683,7 @@ async def send_chat_message(
     import time
 
     from app.models.database import ChatMessage as DBChatMessage
-    from app.models.database import ChatSession, RFPOpportunity
+    from app.models.database import ChatSession
 
     start_time = time.time()
 
@@ -706,7 +708,9 @@ async def send_chat_message(
         raise HTTPException(status_code=404, detail="RFP not found")
 
     # Save user message
-    user_msg = DBChatMessage(session_id=session.id, role="user", content=request.message)
+    user_msg = DBChatMessage(
+        session_id=session.id, role="user", content=request.message
+    )
     db.add(user_msg)
 
     try:
@@ -740,11 +744,14 @@ async def send_chat_message(
         citations = []
         for i, result in enumerate(rag_results):
             content = result.get("content", result.get("text", ""))
-            context_parts.append(f"\nRelevant Document {i+1}:\n{content[:1000]}")
+            context_parts.append(f"\nRelevant Document { i + 1 }:\n{content[:1000]}")
             citations.append(
                 Citation(
-                    document_id=result.get("metadata", {}).get("document_id", f"doc_{i}"),
-                    content_snippet=content[:200] + ("..." if len(content) > 200 else ""),
+                    document_id=result.get("metadata", {}).get(
+                        "document_id", f"doc_{i}"
+                    ),
+                    content_snippet=content[:200]
+                    + ("..." if len(content) > 200 else ""),
                     source=result.get("metadata", {}).get("source", "RFP Document"),
                     similarity_score=result.get("similarity", result.get("score", 0.0)),
                 )
@@ -779,7 +786,9 @@ RFP Context:
 
         llm = create_llm_interface()
         llm_result = llm.generate_text(
-            "\n".join([m["content"] for m in messages_for_llm if m["role"] != "system"]),
+            "\n".join(
+                [m["content"] for m in messages_for_llm if m["role"] != "system"]
+            ),
             use_case="chat",
         )
         response_text = llm_result.get("content", llm_result.get("text", ""))
@@ -856,7 +865,7 @@ async def stream_chat_message(
     - data: {"type": "complete"}
     """
     from app.models.database import ChatMessage as DBChatMessage
-    from app.models.database import ChatSession, RFPOpportunity
+    from app.models.database import ChatSession
 
     # Verify session and RFP exist
     session = (
@@ -905,11 +914,17 @@ async def stream_chat_message(
             citations = []
             for result in rag_results:
                 content = result.get("content", result.get("text", ""))
-                citations.append({
-                    "text": content[:500],
-                    "source": result.get("metadata", {}).get("source", "RFP Document"),
-                    "similarity": result.get("similarity", result.get("score", 0.0)),
-                })
+                citations.append(
+                    {
+                        "text": content[:500],
+                        "source": result.get("metadata", {}).get(
+                            "source", "RFP Document"
+                        ),
+                        "similarity": result.get(
+                            "similarity", result.get("score", 0.0)
+                        ),
+                    }
+                )
 
             yield f"data: {json.dumps({'type': 'citations', 'citations': citations})}\n\n"
 
@@ -925,7 +940,9 @@ async def stream_chat_message(
 
             for i, result in enumerate(rag_results):
                 content = result.get("content", result.get("text", ""))
-                context_parts.append(f"\nRelevant Document {i+1}:\n{content[:1000]}")
+                context_parts.append(
+                    f"\nRelevant Document { i + 1 }:\n{content[:1000]}"
+                )
 
             context = "\n".join(context_parts)
 
@@ -967,7 +984,13 @@ RFP Context:
             else:
                 # Fallback: non-streaming LLM, chunk the output
                 llm_result = llm.generate_text(
-                    "\n".join([m["content"] for m in messages_for_llm if m["role"] != "system"]),
+                    "\n".join(
+                        [
+                            m["content"]
+                            for m in messages_for_llm
+                            if m["role"] != "system"
+                        ]
+                    ),
                     use_case="chat",
                 )
                 full_response = llm_result.get("content", llm_result.get("text", ""))
@@ -1054,7 +1077,7 @@ async def get_chat_history(
     Messages are ordered by created_at ascending (oldest first).
     """
     from app.models.database import ChatMessage as DBChatMessage
-    from app.models.database import ChatSession, RFPOpportunity
+    from app.models.database import ChatSession
 
     # Get session and verify it belongs to the RFP
     session = (

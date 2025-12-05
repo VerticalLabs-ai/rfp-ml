@@ -51,6 +51,10 @@ import { api } from '@/services/api'
 import { CopilotChat } from '@/components/CopilotChat'
 import { StreamingText } from '@/components/ui/streaming-text'
 import { useStreaming } from '@/hooks/useStreaming'
+import { useCommandStreaming } from '@/hooks/useCommandStreaming'
+import { useSlashCommands } from '@/hooks/useSlashCommands'
+import { SlashCommandPalette } from '@/components/SlashCommandPalette'
+import type { SlashCommandDef, CommandExecutionResult } from '@/types/copilot'
 
 // Proposal section definitions
 const PROPOSAL_SECTIONS = [
@@ -176,6 +180,47 @@ export default function ProposalCopilot() {
     },
   })
 
+  // Slash commands state for command result tracking
+  const [pendingCommandResult, setPendingCommandResult] = useState<CommandExecutionResult | null>(null)
+
+  // Streaming for slash command generation (uses POST with JSON body)
+  const commandStreaming = useCommandStreaming({
+    url: rfpId ? api.getCommandStreamUrl(rfpId) : '',
+    onComplete: (result) => {
+      // Insert result at appropriate position
+      if (pendingCommandResult) {
+        const { slashStartIndex, selectedText } = pendingCommandResult
+        const sectionContent = sections[activeSection].content
+
+        if (selectedText) {
+          // Replace selected text - find it in the content
+          const selectionIndex = sectionContent.indexOf(selectedText)
+          if (selectionIndex !== -1) {
+            const before = sectionContent.slice(0, selectionIndex)
+            const after = sectionContent.slice(selectionIndex + selectedText.length)
+            handleContentChange(before + result + after)
+          } else {
+            // Fallback: append result
+            handleContentChange(sectionContent + '\n\n' + result)
+          }
+        } else if (slashStartIndex !== null) {
+          // Remove the slash command text and insert result
+          const before = sectionContent.slice(0, slashStartIndex)
+          handleContentChange(before + result)
+        } else {
+          // Append result
+          handleContentChange(sectionContent + '\n\n' + result)
+        }
+        setPendingCommandResult(null)
+      }
+      toast.success('Command completed')
+    },
+    onError: (error) => {
+      toast.error('Command failed', { description: error })
+      setPendingCommandResult(null)
+    },
+  })
+
   // Save mutation
   const saveMutation = useMutation({
     mutationFn: async () => {
@@ -234,6 +279,33 @@ export default function ProposalCopilot() {
     }))
     setIsDirty(true)
   }, [activeSection])
+
+  // Slash commands hook
+  const slashCommands = useSlashCommands({
+    rfpId: rfpId || '',
+    sectionId: activeSection,
+    content: sections[activeSection]?.content || '',
+    onContentChange: handleContentChange,
+  })
+
+  // Handle command selection
+  const handleCommandSelect = useCallback(async (command: SlashCommandDef) => {
+    const result = await slashCommands.executeCommand(command)
+
+    if (result && command.isStreaming) {
+      // Store the result for when streaming completes
+      setPendingCommandResult(result)
+
+      // Execute streaming command via POST
+      commandStreaming.reset()
+      await commandStreaming.startStreaming({
+        command: command.id,
+        selected_text: result.selectedText,
+        context: result.context,
+        section_id: activeSection,
+      })
+    }
+  }, [slashCommands, activeSection, commandStreaming])
 
   // Generate section with AI
   const generateSection = useCallback(async () => {
@@ -532,22 +604,40 @@ export default function ProposalCopilot() {
               </div>
 
               {/* Editor Area */}
-              <div className="flex-1 p-4 overflow-hidden">
-                {sectionStreaming.isStreaming ? (
+              <div className="flex-1 p-4 overflow-hidden relative">
+                {sectionStreaming.isStreaming || commandStreaming.isStreaming ? (
                   <div className="h-full bg-muted/30 rounded-lg p-4 overflow-auto">
                     <StreamingText
-                      content={sectionStreaming.content}
+                      content={sectionStreaming.isStreaming ? sectionStreaming.content : commandStreaming.content}
                       isStreaming={true}
                       className="prose dark:prose-invert max-w-none"
                     />
                   </div>
                 ) : (
-                  <Textarea
-                    value={currentContent.content}
-                    onChange={(e) => handleContentChange(e.target.value)}
-                    placeholder={`Write your ${currentSection.name.toLowerCase()} here, or click "Generate with AI" to auto-generate content based on the RFP requirements...`}
-                    className="h-full resize-none font-mono text-sm"
-                  />
+                  <>
+                    <Textarea
+                      ref={slashCommands.textareaRef}
+                      value={currentContent.content}
+                      onChange={(e) => {
+                        handleContentChange(e.target.value)
+                        slashCommands.handleInput(e)
+                      }}
+                      onKeyDown={slashCommands.handleKeyDown}
+                      placeholder={`Write your ${currentSection.name.toLowerCase()} here...\n\nTip: Type "/" for AI commands, or click "Generate with AI" to auto-generate content.`}
+                      className="h-full resize-none font-mono text-sm"
+                    />
+
+                    <SlashCommandPalette
+                      isOpen={slashCommands.isOpen}
+                      position={slashCommands.position}
+                      searchQuery={slashCommands.searchQuery}
+                      onSearchChange={slashCommands.setSearchQuery}
+                      groupedCommands={slashCommands.groupedCommands}
+                      onSelect={handleCommandSelect}
+                      isExecuting={slashCommands.isExecuting || commandStreaming.isStreaming}
+                      hasSelection={!!slashCommands.selection?.text}
+                    />
+                  </>
                 )}
               </div>
 

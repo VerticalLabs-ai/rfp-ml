@@ -86,14 +86,29 @@ class RFPQandAResponse(BaseModel):
 
 
 def get_scraper(url: str):
-    """Get the appropriate scraper for a URL."""
-    from src.agents.scrapers import BeaconBidScraper
+    """
+    Get the appropriate scraper for a URL.
 
-    scrapers = [BeaconBidScraper()]
+    Priority order:
+    1. Platform-specific scrapers (BeaconBid, SAM.gov) - use specialized extraction
+    2. Generic web scraper - fallback for any HTTP(S) URL using AI extraction
+    """
+    from src.agents.scrapers import BeaconBidScraper, GenericWebScraper, SAMGovScraper
+
+    # Platform-specific scrapers in priority order
+    scrapers = [
+        BeaconBidScraper(),
+        SAMGovScraper(),
+    ]
 
     for scraper in scrapers:
         if scraper.is_valid_url(url):
             return scraper
+
+    # Fallback: GenericWebScraper accepts any HTTP(S) URL
+    generic = GenericWebScraper()
+    if generic.is_valid_url(url):
+        return generic
 
     return None
 
@@ -545,3 +560,318 @@ async def analyze_qa(rfp_id: str, db: DBDep):
         "message": f"Analyzed {analyzed_count} Q&A items",
         "analyzed_count": analyzed_count,
     }
+
+
+# =============================================================================
+# Preview & Confirm Import Endpoints
+# =============================================================================
+
+
+class PreviewRequest(BaseModel):
+    """Request to preview RFP extraction from a URL."""
+
+    url: str
+
+    @field_validator("url")
+    @classmethod
+    def validate_url(cls, v: str) -> str:
+        """Validate that URL is well-formed."""
+        parsed = urlparse(v)
+        if parsed.scheme not in ("http", "https"):
+            raise ValueError("URL must use http or https scheme")
+        if not parsed.netloc:
+            raise ValueError("Invalid URL: missing domain")
+        v = re.sub(r"[\x00-\x1f\x7f-\x9f]", "", v)
+        return v
+
+
+class DetectedFields(BaseModel):
+    """Extracted RFP fields from preview."""
+
+    title: str | None = None
+    solicitation_number: str | None = None
+    agency: str | None = None
+    office: str | None = None
+    description: str | None = None
+    posted_date: str | None = None
+    response_deadline: str | None = None
+    naics_code: str | None = None
+    category: str | None = None
+    estimated_value: float | None = None
+
+
+class PreviewDocument(BaseModel):
+    """Document info from preview."""
+
+    filename: str
+    source_url: str
+    file_type: str | None = None
+
+
+class PreviewQA(BaseModel):
+    """Q&A item from preview."""
+
+    question: str
+    answer: str | None = None
+    number: str | None = None
+
+
+class DuplicateCheck(BaseModel):
+    """Info about existing RFP if URL was already imported."""
+
+    rfp_id: str
+    title: str
+    imported_at: str | None = None
+
+
+class PreviewResponse(BaseModel):
+    """Preview of extracted RFP data before saving."""
+
+    source_url: str
+    source_platform: str
+    detected_fields: DetectedFields
+    documents: list[PreviewDocument]
+    qa_items: list[PreviewQA]
+    duplicate_check: DuplicateCheck | None = None
+
+
+@router.post("/preview", response_model=PreviewResponse)
+async def preview_rfp(request: PreviewRequest, db: DBDep):
+    """
+    Extract RFP data from URL without saving to database.
+
+    Returns extracted data for user review/editing before confirming import.
+    This allows users to:
+    1. See what will be imported before committing
+    2. Edit/correct any misextracted fields
+    3. Check for duplicates before importing
+    """
+    url = request.url
+
+    # Check for duplicates first
+    existing = db.query(RFPOpportunity).filter(RFPOpportunity.source_url == url).first()
+
+    duplicate_check = None
+    if existing:
+        duplicate_check = DuplicateCheck(
+            rfp_id=existing.rfp_id,
+            title=existing.title or "Untitled",
+            imported_at=existing.discovered_at.isoformat() if existing.discovered_at else None,
+        )
+
+    # Get appropriate scraper
+    scraper = get_scraper(url)
+    if not scraper:
+        raise HTTPException(
+            status_code=400,
+            detail="URL not supported. Must be a valid HTTP or HTTPS URL.",
+        )
+
+    try:
+        # Scrape without saving
+        logger.info("Preview scrape of URL: %s", url)
+        scraped = await scraper.scrape(url)
+
+        return PreviewResponse(
+            source_url=url,
+            source_platform=scraped.source_platform,
+            detected_fields=DetectedFields(
+                title=scraped.title,
+                solicitation_number=scraped.solicitation_number,
+                agency=scraped.agency,
+                office=scraped.office,
+                description=scraped.description,
+                posted_date=scraped.posted_date.isoformat() if scraped.posted_date else None,
+                response_deadline=scraped.response_deadline.isoformat() if scraped.response_deadline else None,
+                naics_code=scraped.naics_code,
+                category=scraped.category,
+                estimated_value=scraped.estimated_value,
+            ),
+            documents=[
+                PreviewDocument(
+                    filename=d.filename,
+                    source_url=d.source_url,
+                    file_type=d.file_type,
+                )
+                for d in scraped.documents
+            ],
+            qa_items=[
+                PreviewQA(
+                    question=q.question_text,
+                    answer=q.answer_text,
+                    number=q.question_number,
+                )
+                for q in scraped.qa_items
+            ],
+            duplicate_check=duplicate_check,
+        )
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error("Error previewing RFP from %s: %s", url, e)
+        raise HTTPException(status_code=500, detail=f"Preview failed: {e!s}") from e
+
+
+class ConfirmImportRequest(BaseModel):
+    """Request to confirm and save a previewed RFP with optional edits."""
+
+    source_url: str
+    company_profile_id: int | None = None
+    # User can override any field extracted during preview
+    overrides: dict[str, str | float | None] = {}
+
+    @field_validator("source_url")
+    @classmethod
+    def validate_url(cls, v: str) -> str:
+        """Validate that URL is well-formed."""
+        parsed = urlparse(v)
+        if parsed.scheme not in ("http", "https"):
+            raise ValueError("URL must use http or https scheme")
+        if not parsed.netloc:
+            raise ValueError("Invalid URL: missing domain")
+        v = re.sub(r"[\x00-\x1f\x7f-\x9f]", "", v)
+        return v
+
+
+@router.post("/confirm", response_model=ScrapeResponse)
+async def confirm_import(
+    request: ConfirmImportRequest,
+    background_tasks: BackgroundTasks,
+    db: DBDep,
+):
+    """
+    Confirm import of a previewed RFP with optional field overrides.
+
+    After previewing an RFP, users can edit the extracted fields and then
+    confirm the import. This endpoint:
+    1. Re-scrapes the URL to get fresh data
+    2. Applies any user overrides to the extracted fields
+    3. Saves the RFP to the database
+    4. Triggers background document download
+    """
+    url = request.source_url
+
+    # Check for duplicates
+    existing = db.query(RFPOpportunity).filter(RFPOpportunity.source_url == url).first()
+    if existing:
+        raise HTTPException(
+            status_code=400,
+            detail=f"RFP already exists with ID: {existing.rfp_id}. Use refresh endpoint to update.",
+        )
+
+    # Get appropriate scraper
+    scraper = get_scraper(url)
+    if not scraper:
+        raise HTTPException(
+            status_code=400,
+            detail="URL not supported. Must be a valid HTTP or HTTPS URL.",
+        )
+
+    try:
+        # Re-scrape to get fresh data
+        logger.info("Confirm import scrape of URL: %s", url)
+        scraped_rfp = await scraper.scrape(url)
+
+        # Apply user overrides
+        overrides = request.overrides
+        if overrides:
+            if "title" in overrides and overrides["title"]:
+                scraped_rfp.title = str(overrides["title"])
+            if "solicitation_number" in overrides:
+                scraped_rfp.solicitation_number = str(overrides["solicitation_number"]) if overrides["solicitation_number"] else None
+            if "agency" in overrides:
+                scraped_rfp.agency = str(overrides["agency"]) if overrides["agency"] else None
+            if "office" in overrides:
+                scraped_rfp.office = str(overrides["office"]) if overrides["office"] else None
+            if "description" in overrides:
+                scraped_rfp.description = str(overrides["description"]) if overrides["description"] else None
+            if "naics_code" in overrides:
+                scraped_rfp.naics_code = str(overrides["naics_code"]) if overrides["naics_code"] else None
+            if "category" in overrides:
+                scraped_rfp.category = str(overrides["category"]) if overrides["category"] else None
+            if "estimated_value" in overrides:
+                try:
+                    scraped_rfp.estimated_value = float(overrides["estimated_value"]) if overrides["estimated_value"] else None
+                except (ValueError, TypeError):
+                    pass
+
+            # Recompute checksum after changes
+            scraped_rfp.compute_checksum()
+
+        # Generate unique RFP ID
+        rfp_id = f"RFP-{datetime.now(timezone.utc).strftime('%Y%m%d%H%M%S')}-{uuid4().hex[:6].upper()}"
+
+        # Create RFP in database
+        rfp = RFPOpportunity(
+            rfp_id=rfp_id,
+            solicitation_number=scraped_rfp.solicitation_number,
+            title=scraped_rfp.title,
+            description=scraped_rfp.description,
+            agency=scraped_rfp.agency,
+            office=scraped_rfp.office,
+            naics_code=scraped_rfp.naics_code,
+            category=scraped_rfp.category,
+            posted_date=scraped_rfp.posted_date,
+            response_deadline=scraped_rfp.response_deadline,
+            award_amount=scraped_rfp.award_amount,
+            estimated_value=scraped_rfp.estimated_value,
+            current_stage=PipelineStage.DISCOVERED,
+            source_url=url,
+            source_platform=scraped_rfp.source_platform,
+            last_scraped_at=datetime.now(timezone.utc),
+            scrape_checksum=scraped_rfp.scrape_checksum,
+            company_profile_id=request.company_profile_id,
+            rfp_metadata=scraped_rfp.raw_data,
+        )
+        db.add(rfp)
+        db.commit()
+        db.refresh(rfp)
+
+        # Download documents in background
+        background_tasks.add_task(
+            _download_and_save_documents, scraper, scraped_rfp, rfp.id, rfp_id
+        )
+
+        # Save Q&A items
+        for qa in scraped_rfp.qa_items:
+            qa_record = RFPQandA(
+                rfp_id=rfp.id,
+                question_number=qa.question_number,
+                question_text=qa.question_text,
+                answer_text=qa.answer_text,
+                asked_date=qa.asked_date,
+                answered_date=qa.answered_date,
+                is_new=True,
+            )
+            db.add(qa_record)
+
+        db.commit()
+
+        # Broadcast RFP created to connected clients
+        from app.websockets.websocket_router import broadcast_rfp_update
+
+        await broadcast_rfp_update(
+            rfp_id,
+            "rfp_scraped",
+            {
+                "title": scraped_rfp.title,
+                "documents_count": len(scraped_rfp.documents),
+                "qa_count": len(scraped_rfp.qa_items),
+            },
+        )
+
+        return ScrapeResponse(
+            rfp_id=rfp_id,
+            status="success",
+            title=scraped_rfp.title,
+            documents_count=len(scraped_rfp.documents),
+            qa_count=len(scraped_rfp.qa_items),
+            message="RFP imported successfully. Documents are downloading in background.",
+        )
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error("Error confirming RFP import from %s: %s", url, e)
+        raise HTTPException(status_code=500, detail=f"Import failed: {e!s}") from e
