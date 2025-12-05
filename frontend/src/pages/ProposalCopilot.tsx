@@ -55,6 +55,10 @@ import { useCommandStreaming } from '@/hooks/useCommandStreaming'
 import { useSlashCommands } from '@/hooks/useSlashCommands'
 import { SlashCommandPalette } from '@/components/SlashCommandPalette'
 import type { SlashCommandDef, CommandExecutionResult } from '@/types/copilot'
+// import { AIToolbar } from '@/components/editor' // TODO: Enable when migrating to TipTap editor
+import { WritingStats } from '@/components/editor'
+import { TemplateLibrary } from '@/components/TemplateLibrary'
+import { ExportDialog } from '@/components/ExportDialog'
 
 // Proposal section definitions
 const PROPOSAL_SECTIONS = [
@@ -111,6 +115,22 @@ export default function ProposalCopilot() {
   const [overallScore, setOverallScore] = useState(0)
   const [isDirty, setIsDirty] = useState(false)
   const [selectedModel, setSelectedModel] = useState<ModelId>('sonnet')
+
+  // AI action handler for toolbar - TODO: Enable when migrating to TipTap editor
+  // const handleAIAction = async (
+  //   actionId: string,
+  //   selectedText: string,
+  //   fullContent: string
+  // ): Promise<string> => {
+  //   if (!rfpId) throw new Error('No RFP selected')
+  //   const response = await api.copilot.executeAIAction(
+  //     parseInt(rfpId),
+  //     actionId,
+  //     selectedText,
+  //     fullContent
+  //   )
+  //   return response.result
+  // }
 
   // Fetch RFP data
   const { data: rfp, isLoading: rfpLoading, isFetching: rfpFetching, error: rfpError } = useQuery({
@@ -439,6 +459,15 @@ export default function ProposalCopilot() {
               {copied ? 'Copied!' : 'Copy All'}
             </Button>
 
+            <ExportDialog
+              sections={Object.entries(sections).map(([id, section]) => ({
+                id,
+                title: PROPOSAL_SECTIONS.find(s => s.id === id)?.name || id,
+                content: section.content,
+              }))}
+              rfpTitle={rfp.title}
+            />
+
             <Button
               variant="outline"
               size="sm"
@@ -517,6 +546,26 @@ export default function ProposalCopilot() {
                     </button>
                   )
                 })}
+              </div>
+
+              {/* Template Library */}
+              <div className="border-t p-4">
+                <h3 className="text-sm font-medium mb-3 text-muted-foreground">Templates</h3>
+                <TemplateLibrary
+                  onInsert={(content) => {
+                    setSections((prev) => ({
+                      ...prev,
+                      [activeSection]: {
+                        ...prev[activeSection],
+                        content: prev[activeSection].content + '\n\n' + content,
+                        wordCount: (prev[activeSection].content + '\n\n' + content).split(/\s+/).filter(Boolean).length,
+                      },
+                    }))
+                    setIsDirty(true)
+                    toast.success('Template inserted')
+                  }}
+                  currentSection={activeSection}
+                />
               </div>
             </ScrollArea>
           </ResizablePanel>
@@ -603,6 +652,18 @@ export default function ProposalCopilot() {
                 </div>
               </div>
 
+              {/* AI Toolbar - Note: Currently disabled as this page uses Textarea, not TipTap editor */}
+              {/* Uncomment when migrating to TipTap editor:
+              <div className="border-b px-4 py-2">
+                <AIToolbar
+                  editor={null}
+                  rfpId={rfpId || ''}
+                  sectionId={activeSection}
+                  onExecuteAction={handleAIAction}
+                />
+              </div>
+              */}
+
               {/* Editor Area */}
               <div className="flex-1 p-4 overflow-hidden relative">
                 {sectionStreaming.isStreaming || commandStreaming.isStreaming ? (
@@ -639,6 +700,14 @@ export default function ProposalCopilot() {
                     />
                   </>
                 )}
+              </div>
+
+              {/* Writing Stats */}
+              <div className="px-4 pb-2">
+                <WritingStats
+                  content={currentContent.content}
+                  sectionType={activeSection}
+                />
               </div>
 
               {/* Compliance Issues for this section */}

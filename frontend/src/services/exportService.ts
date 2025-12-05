@@ -9,12 +9,12 @@ import {
   TableRow,
   TableCell,
   WidthType,
-  BorderStyle,
+  // BorderStyle, // TODO: Use for table borders
   AlignmentType,
   PageBreak,
   Header,
   Footer,
-  ImageRun,
+  // ImageRun, // TODO: Use for image export
 } from 'docx'
 
 interface ExportSection {

@@ -56,8 +56,8 @@ interface AIToolbarProps {
 
 export function AIToolbar({
   editor,
-  rfpId,
-  sectionId,
+  rfpId: _rfpId,
+  sectionId: _sectionId,
   onExecuteAction,
   className,
 }: AIToolbarProps) {
