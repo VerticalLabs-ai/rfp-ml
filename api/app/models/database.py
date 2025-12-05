@@ -838,6 +838,63 @@ class BidOutcome(Base):
         }
 
 
+class CompetitorProfile(Base):
+    """Tracks competitor information and win patterns."""
+    __tablename__ = "competitor_profiles"
+
+    id = Column(Integer, primary_key=True, index=True)
+    name = Column(String(255), nullable=False, unique=True)
+
+    # Win tracking
+    wins_against_us = Column(Integer, default=0)
+    losses_against_us = Column(Integer, default=0)
+    total_encounters = Column(Integer, default=0)
+
+    # Pattern tracking (JSON arrays)
+    categories = Column(JSON, default=list)  # NAICS categories they win
+    agencies_won = Column(JSON, default=list)  # Agencies they've won with
+    typical_bid_range = Column(JSON, nullable=True)  # {"min": X, "max": Y}
+
+    # Notes
+    strengths = Column(Text, nullable=True)
+    weaknesses = Column(Text, nullable=True)
+    notes = Column(Text, nullable=True)
+
+    # Timestamps
+    first_seen = Column(DateTime, default=datetime.utcnow)
+    last_seen = Column(DateTime, default=datetime.utcnow)
+    created_at = Column(DateTime, default=datetime.utcnow)
+    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+
+    @property
+    def win_rate_against_us(self) -> float:
+        """Calculate win rate against us."""
+        if self.total_encounters == 0:
+            return 0.0
+        return self.wins_against_us / self.total_encounters
+
+    def to_dict(self):
+        """Convert to dictionary for API responses."""
+        return {
+            "id": self.id,
+            "name": self.name,
+            "wins_against_us": self.wins_against_us,
+            "losses_against_us": self.losses_against_us,
+            "total_encounters": self.total_encounters,
+            "win_rate_against_us": self.win_rate_against_us,
+            "categories": self.categories or [],
+            "agencies_won": self.agencies_won or [],
+            "typical_bid_range": self.typical_bid_range,
+            "strengths": self.strengths,
+            "weaknesses": self.weaknesses,
+            "notes": self.notes,
+            "first_seen": self.first_seen.isoformat() if self.first_seen else None,
+            "last_seen": self.last_seen.isoformat() if self.last_seen else None,
+            "created_at": self.created_at.isoformat() if self.created_at else None,
+            "updated_at": self.updated_at.isoformat() if self.updated_at else None,
+        }
+
+
 class DashboardMetrics(Base):
     """Cached dashboard metrics for performance."""
 

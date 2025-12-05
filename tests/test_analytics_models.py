@@ -3,7 +3,7 @@ import pytest
 from datetime import datetime
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
-from api.app.models.database import Base, BidOutcome, RFPOpportunity
+from api.app.models.database import Base, BidOutcome, RFPOpportunity, CompetitorProfile
 
 
 @pytest.fixture
@@ -67,3 +67,33 @@ def test_bid_outcome_to_dict(test_db, sample_rfp):
     assert result["winning_bidder"] == "Competitor Inc"
     assert result["loss_reason"] == "Price too high"
     assert "created_at" in result
+
+
+def test_competitor_profile_creation(test_db):
+    """CompetitorProfile can be created and tracks win counts."""
+    competitor = CompetitorProfile(
+        name="Acme Corp",
+        wins_against_us=3,
+        total_encounters=5,
+    )
+    test_db.add(competitor)
+    test_db.commit()
+
+    assert competitor.id is not None
+    assert competitor.name == "Acme Corp"
+    assert competitor.win_rate_against_us == 0.6  # 3/5
+
+
+def test_competitor_profile_categories(test_db):
+    """CompetitorProfile tracks categories as JSON."""
+    competitor = CompetitorProfile(
+        name="Tech Solutions",
+        categories=["IT Services", "Cloud Computing"],
+        agencies_won=["DoD", "GSA"],
+    )
+    test_db.add(competitor)
+    test_db.commit()
+
+    loaded = test_db.query(CompetitorProfile).first()
+    assert "IT Services" in loaded.categories
+    assert "DoD" in loaded.agencies_won
